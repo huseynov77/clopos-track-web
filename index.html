@@ -863,7 +863,7 @@ select.form-input { cursor: pointer; }
 <!-- ========= SIDEBAR ========= -->
 <div class="sidebar" id="sidebar">
   <div class="sidebar-logo">
-    <div class="sidebar-logo-icon">C</div>
+    <img src="https://raw.githubusercontent.com/huseynov77/clopos-track-web/main/icon.png" style="width:40px;height:40px;border-radius:12px" onerror="this.outerHTML='<div class=sidebar-logo-icon>C</div>'" />
     <div>
       <div class="sidebar-logo-text">Clopos Track</div>
       <div class="sidebar-logo-sub">GPS İzləmə</div>
@@ -937,6 +937,11 @@ select.form-input { cursor: pointer; }
       <select class="filter-select" id="dashWorkerFilter" onchange="renderDashboard()">
         <option value="">Bütün İşçilər</option>
       </select>
+      <select class="filter-select" id="dashBrandFilter" onchange="renderDashboard()">
+        <option value="">Bütün Brendlər</option>
+      </select>
+      <input type="date" class="filter-select" id="dashDateFrom" onchange="renderDashboard()" style="min-width:140px" />
+      <input type="date" class="filter-select" id="dashDateTo" onchange="renderDashboard()" style="min-width:140px" />
     </div>
 
     <div class="stat-cards">
@@ -1683,10 +1688,24 @@ let dashSortAsc = true;
 function getDashFilteredHistory() {
   const dateFilter = document.getElementById('dashDateFilter').value;
   const workerFilter = document.getElementById('dashWorkerFilter').value;
+  const brandFilter = document.getElementById('dashBrandFilter')?.value || '';
+  const dateFrom = document.getElementById('dashDateFrom')?.value || '';
+  const dateTo = document.getElementById('dashDateTo')?.value || '';
   const now = new Date();
   let filtered = allHistory;
 
-  if (dateFilter === 'today') {
+  // Əgər xüsusi tarix seçilibsə, onu istifadə et
+  if (dateFrom || dateTo) {
+    if (dateFrom) {
+      const from = new Date(dateFrom).getTime();
+      filtered = filtered.filter(h => h.time >= from);
+    }
+    if (dateTo) {
+      const to = new Date(dateTo);
+      to.setHours(23, 59, 59, 999);
+      filtered = filtered.filter(h => h.time <= to.getTime());
+    }
+  } else if (dateFilter === 'today') {
     filtered = filtered.filter(h => isToday(h.time));
   } else if (dateFilter === 'week') {
     const startOfWeek = new Date(now);
@@ -1697,10 +1716,12 @@ function getDashFilteredHistory() {
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
     filtered = filtered.filter(h => h.time >= startOfMonth);
   }
-  // 'all' = no date filter
 
   if (workerFilter) {
     filtered = filtered.filter(h => h.workerId === workerFilter);
+  }
+  if (brandFilter) {
+    filtered = filtered.filter(h => h.brandName && h.brandName.toLowerCase().includes(brandFilter.toLowerCase()));
   }
   return filtered;
 }
@@ -1721,6 +1742,14 @@ function renderDashboard() {
   if (dashWF.options.length <= 1) {
     approvedWorkers.forEach(w => {
       dashWF.innerHTML += '<option value="' + w.id + '">' + escapeHtml(w.name) + '</option>';
+    });
+  }
+  // Populate brand filter
+  const dashBF = document.getElementById('dashBrandFilter');
+  if (dashBF && dashBF.options.length <= 1) {
+    const brands = [...new Set(allHistory.filter(h => h.brandName).map(h => h.brandName))].sort();
+    brands.forEach(b => {
+      dashBF.innerHTML += '<option value="' + escapeHtml(b) + '">' + escapeHtml(b) + '</option>';
     });
   }
 
