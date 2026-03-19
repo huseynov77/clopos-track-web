@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Xəritə</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0a0f;font-family:sans-serif}
+#map{width:100%;height:100vh}
+.worker-label{background:rgba(77,142,247,0.9);color:#fff;border:none;border-radius:8px;padding:3px 8px;font-size:11px;font-weight:700;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.3)}
+.brand-label{background:rgba(167,139,250,0.9);color:#fff;border:none;border-radius:8px;padding:3px 8px;font-size:11px;font-weight:700;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.3)}
+.leaflet-popup-content-wrapper{border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,0.2)}
+.leaflet-popup-content{margin:12px;font-family:sans-serif;font-size:13px}
+.waze-btn{display:inline-block;margin-top:8px;padding:8px 16px;background:#33ccff;color:#000;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+const SERVER='https://gps-server-production-9cef.up.railway.app';
+const map=L.map('map',{zoomControl:true}).setView([40.4093,49.8671],12);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+
+const workerMarkers={};
+const brandMarkers={};
+
+// İşçi markeri
+function workerIcon(name,online){
+  return L.divIcon({
+    className:'',
+    html:`<div class="worker-label" style="background:${online?'rgba(52,211,153,0.9)':'rgba(107,107,138,0.9)'}">${name}</div>`,
+    iconSize:[0,0],iconAnchor:[0,0]
+  });
+}
+
+// Brand markeri
+function brandIcon(name){
+  return L.divIcon({
+    className:'',
+    html:`<div class="brand-label">🏪 ${name}</div>`,
+    iconSize:[0,0],iconAnchor:[0,0]
+  });
+}
+
+// İşçiləri yüklə
+async function loadWorkers(){
+  try{
+    const r=await fetch(SERVER+'/api/workers');
+    const workers=await r.json();
+    workers.forEach(w=>{
+      if(!w.lat||!w.lng)return;
+      const key=w.id;
+      if(workerMarkers[key]){
+        workerMarkers[key].setLatLng([w.lat,w.lng]);
+        workerMarkers[key].setIcon(workerIcon(w.name,w.online));
+      }else{
+        const m=L.marker([w.lat,w.lng],{icon:workerIcon(w.name,w.online)}).addTo(map);
+        m.bindPopup(`<b>${w.name}</b><br>${w.online?'🟢 Onlayn':'⚫ Oflayn'}<br>🔋 ${w.battery||0}%<br>📍 ${w.address||''}`);
+        workerMarkers[key]=m;
+      }
+    });
+  }catch(e){}
+}
+
+// Brendləri yüklə
+async function loadBrands(){
+  try{
+    const r=await fetch(SERVER+'/api/history');
+    const history=await r.json();
+    const brands={};
+    history.forEach(h=>{
+      if(h.type==='object_enter'&&h.brandName&&h.lat&&h.lng){
+        if(!brands[h.brandName]||h.time>brands[h.brandName].time){
+          brands[h.brandName]={lat:h.lat,lng:h.lng,address:h.address||'',time:h.time};
+        }
+      }
+    });
+    Object.entries(brands).forEach(([name,data])=>{
+      if(brandMarkers[name])return;
+      const wazeUrl=`https://waze.com/ul?ll=${data.lat},${data.lng}&navigate=yes`;
+      const m=L.marker([data.lat,data.lng],{icon:brandIcon(name)}).addTo(map);
+      m.bindPopup(`<b>🏪 ${name}</b><br>📍 ${data.address}<br><a href="${wazeUrl}" target="_blank" class="waze-btn">🚗 Waze ilə get</a>`);
+      brandMarkers[name]=m;
+    });
+  }catch(e){}
+}
+
+// Başlat
+loadWorkers();
+loadBrands();
+// Hər 30 saniyə yenilə
+setInterval(loadWorkers,30000);
+setInterval(loadBrands,60000);
+</script>
+</body>
+</html>
