@@ -1415,6 +1415,16 @@ let refreshInterval = null;
 
 // ======================== AUTH ========================
 function checkAuth() {
+  // ?view=map parametri varsa login keçilsin (app-dan WebView)
+  const urlParams = new URLSearchParams(window.location.search);
+  const viewOnly = urlParams.get('view');
+  if (viewOnly === 'map') {
+    document.getElementById('loginPage').style.display = 'none';
+    document.querySelector('.sidebar').style.display = 'none';
+    startApp();
+    setTimeout(() => switchPage('map'), 500);
+    return;
+  }
   const loggedIn = localStorage.getItem('ct_admin_logged');
   if (loggedIn === 'true') {
     document.getElementById('loginPage').style.display = 'none';
@@ -1517,6 +1527,14 @@ function switchPage(page) {
   if (page === 'history') renderHistoryPage();
   if (page === 'brands') renderBrandsPage();
   if (page === 'settings') renderSettings();
+  window.location.hash = page;
+}
+// URL hash ilə birbaşa səhifə açmaq
+if (window.location.hash) {
+  const h = window.location.hash.replace('#','');
+  if (['dashboard','map','workers','history','brands','settings'].includes(h)) {
+    setTimeout(() => switchPage(h), 500);
+  }
 }
 
 // ======================== DATA FETCHING ========================
