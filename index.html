@@ -727,6 +727,113 @@ select.form-input { cursor: pointer; }
 /* Checklist in history */
 .checklist-item { color: var(--green); font-size: 12px; }
 .note-text { color: var(--text2); font-size: 12px; font-style: italic; }
+
+/* ========= MAP WORKER LIST PANEL ========= */
+.map-worker-list {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 1000;
+  width: 260px;
+  max-height: calc(100vh - 120px);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  pointer-events: none;
+}
+.map-worker-list > * { pointer-events: auto; }
+.map-worker-list-panel {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 260px);
+}
+.map-worker-list-header {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+.map-worker-list-search {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.map-worker-list-search input {
+  width: 100%;
+  background: var(--card2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 12px;
+  outline: none;
+}
+.map-worker-list-search input:focus { border-color: var(--primary); }
+.map-worker-list-body {
+  overflow-y: auto;
+  flex: 1;
+}
+.map-wl-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: var(--transition);
+  border-bottom: 1px solid var(--border);
+}
+.map-wl-item:last-child { border-bottom: none; }
+.map-wl-item:hover { background: var(--card2); }
+.map-wl-item.selected { background: var(--primary-bg); }
+.map-wl-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.map-wl-info { flex: 1; min-width: 0; }
+.map-wl-name { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.map-wl-meta { font-size: 10px; color: var(--text2); font-family: 'JetBrains Mono', monospace; display: flex; gap: 6px; align-items: center; margin-top: 1px; }
+
+/* ========= MAP DETAIL PANEL HISTORY ========= */
+.mdp-history-section {
+  margin-top: 14px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+.mdp-history-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+.mdp-history-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  font-size: 11px;
+}
+.mdp-history-item-icon {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.mdp-history-item-icon .material-icons-round { font-size: 13px; }
+.mdp-history-item-text { flex: 1; min-width: 0; }
+.mdp-history-item-time { font-size: 10px; color: var(--text2); font-family: 'JetBrains Mono', monospace; white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -882,21 +989,33 @@ select.form-input { cursor: pointer; }
   <!-- ===== MAP PAGE ===== -->
   <div class="page map-page" id="page-map">
     <div id="map"></div>
-    <div class="map-controls">
-      <button class="map-ctrl on" onclick="mapFitAll()">
-        <span class="material-icons-round">fit_screen</span> Hamısı
-      </button>
-      <button class="map-ctrl" id="trailBtn" onclick="mapToggleTrails()">
-        <span class="material-icons-round">timeline</span> İzlər
-      </button>
-      <button class="map-ctrl" id="hideOffBtn" onclick="mapToggleHideOff()">
-        <span class="material-icons-round">visibility</span> Oflayn gizlət
-      </button>
-      <button class="map-ctrl" id="brandBtn" onclick="mapToggleBrands()">
-        <span class="material-icons-round">store</span> Brendlər
-      </button>
+    <div class="map-worker-list">
+      <div class="map-controls" style="position:static;display:flex;flex-direction:row;flex-wrap:wrap;gap:6px">
+        <button class="map-ctrl on" onclick="mapFitAll()">
+          <span class="material-icons-round">fit_screen</span> Hamısı
+        </button>
+        <button class="map-ctrl" id="trailBtn" onclick="mapToggleTrails()">
+          <span class="material-icons-round">timeline</span> İzlər
+        </button>
+        <button class="map-ctrl" id="hideOffBtn" onclick="mapToggleHideOff()">
+          <span class="material-icons-round">visibility</span> Oflayn gizlət
+        </button>
+        <button class="map-ctrl" id="brandBtn" onclick="mapToggleBrands()">
+          <span class="material-icons-round">store</span> Brendlər
+        </button>
+      </div>
+      <div class="map-worker-list-panel">
+        <div class="map-worker-list-header">
+          <span>İşçilər</span>
+          <span id="mapWorkerCount" style="color:var(--text2);font-weight:500">0</span>
+        </div>
+        <div class="map-worker-list-search">
+          <input type="text" id="mapWorkerSearch" placeholder="İşçi axtar..." oninput="renderMapWorkerList()">
+        </div>
+        <div class="map-worker-list-body" id="mapWorkerListBody"></div>
+      </div>
     </div>
-    <div class="map-detail-panel" id="mapDetailPanel">
+    <div class="map-detail-panel" id="mapDetailPanel" style="width:320px">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
         <div class="avatar-sm" id="mdp-avatar"></div>
         <div style="flex:1;min-width:0">
@@ -922,6 +1041,7 @@ select.form-input { cursor: pointer; }
           <span class="material-icons-round">history</span>
         </button>
       </div>
+      <div class="mdp-history-section" id="mdpHistorySection"></div>
     </div>
   </div>
 
@@ -1033,33 +1153,6 @@ select.form-input { cursor: pointer; }
       </div>
     </div>
 
-    <!-- Server info -->
-    <div class="settings-card">
-      <div class="settings-card-title">Server Məlumatları</div>
-      <div class="settings-card-sub">Bağlantı parametrləri</div>
-      <div class="settings-item">
-        <div>
-          <div class="settings-item-label">Server URL</div>
-          <div class="settings-item-value" id="settings-url"></div>
-        </div>
-        <span class="material-icons-round" style="color:var(--green)">check_circle</span>
-      </div>
-      <div class="settings-item">
-        <div>
-          <div class="settings-item-label">Server Status</div>
-          <div class="settings-item-value" id="settings-health">Yoxlanılır...</div>
-        </div>
-        <span class="material-icons-round" id="settings-health-icon" style="color:var(--text2)">pending</span>
-      </div>
-      <div class="settings-item">
-        <div>
-          <div class="settings-item-label">Admin Key</div>
-          <div class="settings-item-value">••••••••••••</div>
-        </div>
-        <span class="material-icons-round" style="color:var(--text2)">lock</span>
-      </div>
-    </div>
-
     <!-- Admin Users -->
     <div class="settings-card">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
@@ -1168,6 +1261,29 @@ select.form-input { cursor: pointer; }
   </div>
 </div>
 
+<!-- Edit Admin Modal -->
+<div class="modal-overlay" id="editAdminModal">
+  <div class="modal">
+    <div class="modal-title">Admin Redaktə Et</div>
+    <div class="modal-sub" id="ea-sub">Məlumatları dəyişin</div>
+    <input type="hidden" id="ea-old-user">
+    <div class="form-group" style="margin-bottom:16px">
+      <label class="form-label">İstifadəçi Adı</label>
+      <input type="text" class="form-input" id="ea-user" autocomplete="off">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Yeni Şifrə (boş = dəyişməz)</label>
+      <input type="password" class="form-input" id="ea-pass" placeholder="••••••••" autocomplete="new-password">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('editAdminModal')">Ləğv et</button>
+      <button class="btn btn-primary" onclick="saveAdmin()">
+        <span class="material-icons-round">save</span> Yadda Saxla
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- Confirm Dialog -->
 <div class="confirm-overlay" id="confirmDialog">
   <div class="confirm-box">
@@ -1223,7 +1339,9 @@ function doLogin() {
   const pass = document.getElementById('loginPass').value;
   // Check hardcoded + stored admins
   const storedAdmins = JSON.parse(localStorage.getItem('ct_admins') || '[]');
-  const validHardcoded = (user === 'admin' && pass === 'clopos2024');
+  const defaultOverride = JSON.parse(localStorage.getItem('ct_admin_default_override') || 'null');
+  const defaultPass = (defaultOverride && defaultOverride.password) ? defaultOverride.password : 'clopos2024';
+  const validHardcoded = (user === 'admin' && pass === defaultPass);
   const validStored = storedAdmins.some(a => a.username === user && a.password === pass);
   if (validHardcoded || validStored) {
     localStorage.setItem('ct_admin_logged', 'true');
@@ -1556,6 +1674,7 @@ function initMap() {
   }).addTo(mapInstance);
   L.control.zoom({ position: 'bottomright' }).addTo(mapInstance);
   updateMapMarkers();
+  renderMapWorkerList();
 }
 
 function updateMapMarkers() {
@@ -1594,13 +1713,86 @@ function updateMapMarkers() {
       if (trailsOn) mapTrailLines[w.id].addTo(mapInstance);
     }
   });
+  renderMapWorkerList();
+}
+
+function renderMapWorkerList() {
+  const search = (document.getElementById('mapWorkerSearch').value || '').toLowerCase();
+  const liveMap = new Map(allWorkers.map(w => [w.id, w]));
+  const body = document.getElementById('mapWorkerListBody');
+
+  // Build combined list: approved workers with live data
+  let workers = approvedWorkers.map((aw, idx) => {
+    const lw = liveMap.get(aw.id);
+    return {
+      id: aw.id,
+      name: aw.name,
+      role: aw.role || 'İşçi',
+      online: lw ? !!lw.online : false,
+      battery: lw ? (lw.battery || 0) : 0,
+      lastSeen: lw ? lw.lastSeen : null,
+      lat: lw ? lw.lat : null,
+      lng: lw ? lw.lng : null,
+      idx: idx
+    };
+  });
+
+  // Filter by search
+  if (search) {
+    workers = workers.filter(w =>
+      (w.name || '').toLowerCase().includes(search) ||
+      (w.id || '').toLowerCase().includes(search)
+    );
+  }
+
+  // Sort: online first, then by name
+  workers.sort((a, b) => {
+    if (a.online !== b.online) return a.online ? -1 : 1;
+    return (a.name || '').localeCompare(b.name || '');
+  });
+
+  document.getElementById('mapWorkerCount').textContent = workers.length;
+
+  if (!workers.length) {
+    body.innerHTML = '<div style="padding:16px;text-align:center;font-size:12px;color:var(--text2)">İşçi tapılmadı</div>';
+    return;
+  }
+
+  body.innerHTML = workers.map(w => {
+    const dotColor = w.online ? 'var(--green)' : 'var(--text2)';
+    const lastSeenText = w.online ? 'Onlayn' : (w.lastSeen ? timeSince(w.lastSeen) : '—');
+    const selected = mapSelectedId === w.id ? ' selected' : '';
+    return '<div class="map-wl-item' + selected + '" onclick="selectMapWorkerFromList(\'' + w.id + '\')">' +
+      '<div class="map-wl-dot" style="background:' + dotColor + '"></div>' +
+      '<div class="map-wl-info">' +
+        '<div class="map-wl-name">' + escapeHtml(w.name) + '</div>' +
+        '<div class="map-wl-meta">' +
+          '<span>' + lastSeenText + '</span>' +
+          '<span>&#128267; ' + w.battery + '%</span>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function selectMapWorkerFromList(id) {
+  const w = allWorkers.find(x => x.id === id);
+  if (!w || !w.lat || !w.lng) {
+    // Worker has no location data, just show detail
+    selectMapWorker(id);
+    return;
+  }
+  mapInstance.flyTo([w.lat, w.lng], 16, { duration: 0.8 });
+  selectMapWorker(id);
 }
 
 function selectMapWorker(id) {
   mapSelectedId = id;
   const w = allWorkers.find(x => x.id === id);
   if (!w) return;
-  mapInstance.panTo([w.lat, w.lng]);
+  if (w.lat && w.lng) {
+    mapInstance.panTo([w.lat, w.lng]);
+  }
   const idx = allWorkers.indexOf(w);
   const color = getColor(idx);
   const panel = document.getElementById('mapDetailPanel');
@@ -1616,6 +1808,29 @@ function selectMapWorker(id) {
   document.getElementById('mdp-speed').textContent = (w.speed || 0) + ' km/s';
   document.getElementById('mdp-lastseen').textContent = w.online ? 'İndi' : timeSince(w.lastSeen);
   document.getElementById('mdp-address').textContent = w.address || '—';
+
+  // Show last 5 history events for this worker
+  const workerHistory = allHistory.filter(h => h.workerId === id).slice(0, 5);
+  const histSection = document.getElementById('mdpHistorySection');
+  if (workerHistory.length) {
+    histSection.innerHTML = '<div class="mdp-history-title">Son hadisələr</div>' +
+      workerHistory.map(h => {
+        const ec = getEventColor(h.type);
+        return '<div class="mdp-history-item">' +
+          '<div class="mdp-history-item-icon" style="background:' + ec.bg + ';color:' + ec.color + '"><span class="material-icons-round">' + getEventIcon(h.type) + '</span></div>' +
+          '<div class="mdp-history-item-text" style="font-weight:500">' + getEventLabel(h.type) +
+            (h.brandName ? ' <span style="color:var(--purple);font-size:10px">' + escapeHtml(h.brandName) + '</span>' : '') +
+          '</div>' +
+          '<div class="mdp-history-item-time">' + formatDateTime(h.time) + '</div>' +
+        '</div>';
+      }).join('');
+  } else {
+    histSection.innerHTML = '<div class="mdp-history-title">Son hadisələr</div>' +
+      '<div style="font-size:11px;color:var(--text2);padding:4px 0">Hadisə yoxdur</div>';
+  }
+
+  // Update worker list selection highlight
+  renderMapWorkerList();
 }
 
 function closeMapDetail() {
@@ -1973,27 +2188,6 @@ function clearHistoryFilters() {
 
 // ======================== SETTINGS PAGE ========================
 function renderSettings() {
-  document.getElementById('settings-url').textContent = SERVER_URL;
-  // Health check
-  fetch(SERVER_URL + '/api/health')
-    .then(r => r.json())
-    .then(data => {
-      if (data.ok) {
-        document.getElementById('settings-health').textContent = 'Aktiv (' + data.workerCount + ' işçi)';
-        document.getElementById('settings-health-icon').textContent = 'check_circle';
-        document.getElementById('settings-health-icon').style.color = 'var(--green)';
-      } else {
-        document.getElementById('settings-health').textContent = 'Problem var';
-        document.getElementById('settings-health-icon').textContent = 'error';
-        document.getElementById('settings-health-icon').style.color = 'var(--red)';
-      }
-    })
-    .catch(() => {
-      document.getElementById('settings-health').textContent = 'Bağlantı yoxdur';
-      document.getElementById('settings-health-icon').textContent = 'error';
-      document.getElementById('settings-health-icon').style.color = 'var(--red)';
-    });
-
   renderAdminUsers();
 }
 
@@ -2005,17 +2199,75 @@ function renderAdminUsers() {
   stored.forEach(a => admins.push({ username: a.username, isDefault: false }));
 
   el.innerHTML = admins.map(a => {
+    const editBtn = '<button class="btn btn-ghost btn-sm" onclick="openEditAdmin(\'' + escapeHtml(a.username).replace(/'/g, "\\'") + '\',' + a.isDefault + ')" title="Redaktə et"><span class="material-icons-round" style="font-size:16px">edit</span></button>';
+    const deleteBtn = a.isDefault ? '' : '<button class="btn btn-danger btn-sm" onclick="deleteAdmin(\'' + escapeHtml(a.username) + '\')" title="Sil"><span class="material-icons-round" style="font-size:16px">delete</span></button>';
     return '<div class="settings-item">' +
       '<div>' +
         '<div class="settings-item-label">' + escapeHtml(a.username) + (a.isDefault ? ' <span style="color:var(--primary);font-size:11px">(Default)</span>' : '') + '</div>' +
         '<div class="settings-item-value">Admin</div>' +
       '</div>' +
-      (a.isDefault
-        ? '<span class="material-icons-round" style="color:var(--text2)">lock</span>'
-        : '<button class="btn btn-danger btn-sm" onclick="deleteAdmin(\'' + escapeHtml(a.username) + '\')"><span class="material-icons-round" style="font-size:16px">delete</span></button>'
-      ) +
+      '<div style="display:flex;gap:6px;align-items:center">' + editBtn + deleteBtn + '</div>' +
     '</div>';
   }).join('');
+}
+
+function openEditAdmin(username, isDefault) {
+  document.getElementById('ea-old-user').value = username;
+  document.getElementById('ea-user').value = username;
+  document.getElementById('ea-pass').value = '';
+  document.getElementById('ea-sub').textContent = username + ' admin redaktə edilir';
+  // For default admin, disable username change
+  document.getElementById('ea-user').disabled = isDefault;
+  openModal('editAdminModal');
+}
+
+function saveAdmin() {
+  const oldUser = document.getElementById('ea-old-user').value;
+  const newUser = document.getElementById('ea-user').value.trim();
+  const newPass = document.getElementById('ea-pass').value;
+  const isDefault = (oldUser === 'admin');
+
+  if (!newUser) {
+    showToast('İstifadəçi adı lazımdır', 'error');
+    return;
+  }
+
+  if (isDefault) {
+    // For default admin, we store override in localStorage
+    const stored = JSON.parse(localStorage.getItem('ct_admins') || '[]');
+    // Check if there's already a default override
+    let defaultOverride = JSON.parse(localStorage.getItem('ct_admin_default_override') || 'null');
+    if (newPass) {
+      defaultOverride = { password: newPass };
+      localStorage.setItem('ct_admin_default_override', JSON.stringify(defaultOverride));
+      showToast('Default admin şifrəsi yeniləndi', 'success');
+    } else {
+      showToast('Dəyişiklik yoxdur', 'info');
+    }
+  } else {
+    const stored = JSON.parse(localStorage.getItem('ct_admins') || '[]');
+    const idx = stored.findIndex(a => a.username === oldUser);
+    if (idx === -1) {
+      showToast('Admin tapılmadı', 'error');
+      closeModal('editAdminModal');
+      return;
+    }
+    // Check if new username conflicts
+    if (newUser !== oldUser) {
+      if (newUser === 'admin' || stored.some((a, i) => i !== idx && a.username === newUser)) {
+        showToast('Bu istifadəçi adı artıq mövcuddur', 'error');
+        return;
+      }
+      stored[idx].username = newUser;
+    }
+    if (newPass) {
+      stored[idx].password = newPass;
+    }
+    localStorage.setItem('ct_admins', JSON.stringify(stored));
+    showToast(newUser + ' yeniləndi', 'success');
+  }
+  closeModal('editAdminModal');
+  renderAdminUsers();
 }
 
 function openAddAdminModal() {
