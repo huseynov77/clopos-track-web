@@ -886,6 +886,10 @@ select.form-input { cursor: pointer; }
       <span class="material-icons-round">history</span>
       <span class="nav-text">Tarixçə</span>
     </div>
+    <div class="nav-item" data-page="brands" onclick="switchPage('brands')">
+      <span class="material-icons-round">store</span>
+      <span class="nav-text">Brendlər</span>
+    </div>
     <div class="nav-item" data-page="settings" onclick="switchPage('settings')">
       <span class="material-icons-round">settings</span>
       <span class="nav-text">Tənzimləmələr</span>
@@ -921,6 +925,18 @@ select.form-input { cursor: pointer; }
         <div class="live-dot"></div>
         <span style="font-size:12px;font-weight:600;color:var(--green)">Canlı</span>
       </div>
+    </div>
+
+    <div style="margin-bottom:20px" class="filters-row">
+      <select class="filter-select" id="dashDateFilter" onchange="renderDashboard()" style="min-width:140px">
+        <option value="today">Bu gün</option>
+        <option value="week">Bu həftə</option>
+        <option value="month">Bu ay</option>
+        <option value="all">Bütün vaxt</option>
+      </select>
+      <select class="filter-select" id="dashWorkerFilter" onchange="renderDashboard()">
+        <option value="">Bütün İşçilər</option>
+      </select>
     </div>
 
     <div class="stat-cards">
@@ -963,12 +979,12 @@ select.form-input { cursor: pointer; }
         <table>
           <thead>
             <tr>
-              <th>İşçi</th>
-              <th>Obyekt Girişləri</th>
-              <th>İş Saatı</th>
+              <th style="cursor:pointer" onclick="sortDashTable('name')">İşçi <span class="material-icons-round" style="font-size:14px;vertical-align:middle">unfold_more</span></th>
+              <th style="cursor:pointer" onclick="sortDashTable('visits')">Obyekt Girişləri <span class="material-icons-round" style="font-size:14px;vertical-align:middle">unfold_more</span></th>
+              <th style="cursor:pointer" onclick="sortDashTable('hours')">İş Saatı <span class="material-icons-round" style="font-size:14px;vertical-align:middle">unfold_more</span></th>
               <th>Məsafə (km)</th>
-              <th>Status</th>
-              <th>Son Görülmə</th>
+              <th style="cursor:pointer" onclick="sortDashTable('status')">Status <span class="material-icons-round" style="font-size:14px;vertical-align:middle">unfold_more</span></th>
+              <th style="cursor:pointer" onclick="sortDashTable('lastSeen')">Son Görülmə <span class="material-icons-round" style="font-size:14px;vertical-align:middle">unfold_more</span></th>
             </tr>
           </thead>
           <tbody id="dash-worker-stats"></tbody>
@@ -1003,6 +1019,11 @@ select.form-input { cursor: pointer; }
         <button class="map-ctrl" id="brandBtn" onclick="mapToggleBrands()">
           <span class="material-icons-round">store</span> Brendlər
         </button>
+        <div style="position:relative">
+          <input type="text" id="mapBrandSearch" placeholder="Brend axtar..." style="background:var(--card);border:1px solid var(--border);color:var(--text);padding:8px 14px 8px 32px;border-radius:10px;font-family:inherit;font-size:12px;font-weight:500;outline:none;width:180px;box-shadow:var(--shadow-sm)" oninput="mapSearchBrand()">
+          <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--text2);pointer-events:none">search</span>
+          <div id="mapBrandSearchResults" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--card);border:1px solid var(--border);border-radius:10px;margin-top:4px;max-height:200px;overflow-y:auto;box-shadow:var(--shadow);z-index:1001"></div>
+        </div>
       </div>
       <div class="map-worker-list-panel">
         <div class="map-worker-list-header">
@@ -1094,7 +1115,7 @@ select.form-input { cursor: pointer; }
     <div class="page-header">
       <div>
         <div class="page-title">Tarixçə</div>
-        <div class="page-subtitle">Bütün hadisələr (son 30 gün)</div>
+        <div class="page-subtitle">Bütün tarixçə</div>
       </div>
     </div>
 
@@ -1140,6 +1161,70 @@ select.form-input { cursor: pointer; }
       <div id="history-empty" class="empty-state" style="display:none">
         <span class="material-icons-round">history</span>
         <p>Tarixçə tapılmadı</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== BRANDS PAGE ===== -->
+  <div class="page" id="page-brands">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Brendlər</div>
+        <div class="page-subtitle">Bütün brendlər və ziyarət tarixçəsi</div>
+      </div>
+    </div>
+
+    <div style="margin-bottom:20px" class="filters-row">
+      <div class="search-wrap-icon">
+        <span class="material-icons-round">search</span>
+        <input type="text" class="search-input" id="brandsSearch" placeholder="Brend axtar..." oninput="renderBrandsPage()">
+      </div>
+    </div>
+
+    <div id="brands-list-view">
+      <div class="data-table-wrap">
+        <div style="overflow-x:auto">
+          <table>
+            <thead>
+              <tr>
+                <th>Brend</th>
+                <th>Ziyarət sayı</th>
+                <th>Ziyarət edənlər</th>
+                <th>Son ziyarət</th>
+                <th>Ətraflı</th>
+              </tr>
+            </thead>
+            <tbody id="brands-tbody"></tbody>
+          </table>
+        </div>
+        <div id="brands-empty" class="empty-state" style="display:none">
+          <span class="material-icons-round">store</span>
+          <p>Brend tapılmadı</p>
+        </div>
+      </div>
+    </div>
+
+    <div id="brands-detail-view" style="display:none">
+      <button class="btn btn-ghost btn-sm" onclick="closeBrandDetail()" style="margin-bottom:16px">
+        <span class="material-icons-round">arrow_back</span> Geri
+      </button>
+      <div style="font-size:20px;font-weight:700;margin-bottom:16px" id="brand-detail-title"></div>
+      <div class="data-table-wrap">
+        <div style="overflow-x:auto">
+          <table>
+            <thead>
+              <tr>
+                <th>İşçi</th>
+                <th>Hadisə</th>
+                <th>Ünvan</th>
+                <th>Koordinat</th>
+                <th>Qeydlər</th>
+                <th>Vaxt</th>
+              </tr>
+            </thead>
+            <tbody id="brand-detail-tbody"></tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
@@ -1425,6 +1510,7 @@ function switchPage(page) {
   if (page === 'dashboard') renderDashboard();
   if (page === 'workers') renderWorkersTable();
   if (page === 'history') renderHistoryPage();
+  if (page === 'brands') renderBrandsPage();
   if (page === 'settings') renderSettings();
 }
 
@@ -1450,6 +1536,7 @@ async function refreshData() {
   if (currentPage === 'map') updateMapMarkers();
   if (currentPage === 'workers') renderWorkersTable();
   if (currentPage === 'history') renderHistoryList();
+  if (currentPage === 'brands') renderBrandsPage();
 }
 
 function startApp() {
@@ -1590,54 +1677,121 @@ document.querySelectorAll('.modal-overlay').forEach(overlay => {
 });
 
 // ======================== DASHBOARD ========================
+let dashSortKey = '';
+let dashSortAsc = true;
+
+function getDashFilteredHistory() {
+  const dateFilter = document.getElementById('dashDateFilter').value;
+  const workerFilter = document.getElementById('dashWorkerFilter').value;
+  const now = new Date();
+  let filtered = allHistory;
+
+  if (dateFilter === 'today') {
+    filtered = filtered.filter(h => isToday(h.time));
+  } else if (dateFilter === 'week') {
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay());
+    startOfWeek.setHours(0, 0, 0, 0);
+    filtered = filtered.filter(h => h.time >= startOfWeek.getTime());
+  } else if (dateFilter === 'month') {
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    filtered = filtered.filter(h => h.time >= startOfMonth);
+  }
+  // 'all' = no date filter
+
+  if (workerFilter) {
+    filtered = filtered.filter(h => h.workerId === workerFilter);
+  }
+  return filtered;
+}
+
+function sortDashTable(key) {
+  if (dashSortKey === key) {
+    dashSortAsc = !dashSortAsc;
+  } else {
+    dashSortKey = key;
+    dashSortAsc = true;
+  }
+  renderDashboard();
+}
+
 function renderDashboard() {
+  // Populate worker filter if empty
+  const dashWF = document.getElementById('dashWorkerFilter');
+  if (dashWF.options.length <= 1) {
+    approvedWorkers.forEach(w => {
+      dashWF.innerHTML += '<option value="' + w.id + '">' + escapeHtml(w.name) + '</option>';
+    });
+  }
+
+  const filteredHistory = getDashFilteredHistory();
+
   // Summary cards
   document.getElementById('dash-total').textContent = approvedWorkers.length;
   const onlineCount = allWorkers.filter(w => w.online).length;
   document.getElementById('dash-online').textContent = onlineCount;
 
-  const todayHistory = allHistory.filter(h => isToday(h.time));
-  const todayShifts = todayHistory.filter(h => h.type === 'shift_open').length;
-  const todayVisits = todayHistory.filter(h => h.type === 'object_enter').length;
-  document.getElementById('dash-shifts').textContent = todayShifts;
-  document.getElementById('dash-visits').textContent = todayVisits;
+  const filtShifts = filteredHistory.filter(h => h.type === 'shift_open').length;
+  const filtVisits = filteredHistory.filter(h => h.type === 'object_enter').length;
+  document.getElementById('dash-shifts').textContent = filtShifts;
+  document.getElementById('dash-visits').textContent = filtVisits;
 
   // Per-worker statistics table
   const tbody = document.getElementById('dash-worker-stats');
-  if (!approvedWorkers.length) {
+  const workerFilter = document.getElementById('dashWorkerFilter').value;
+  let workersToShow = approvedWorkers;
+  if (workerFilter) {
+    workersToShow = approvedWorkers.filter(aw => aw.id === workerFilter);
+  }
+
+  if (!workersToShow.length) {
     tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text2);padding:24px">İşçi tapılmadı</td></tr>';
   } else {
     const liveMap = new Map(allWorkers.map(w => [w.id, w]));
-    tbody.innerHTML = approvedWorkers.map((aw, idx) => {
+    let rowData = workersToShow.map((aw, idx) => {
       const lw = liveMap.get(aw.id);
-      const color = getColor(idx);
-      // Count history for this worker
-      const workerHist = allHistory.filter(h => h.workerId === aw.id);
+      const color = getColor(approvedWorkers.indexOf(aw));
+      const workerHist = filteredHistory.filter(h => h.workerId === aw.id);
       const objectVisits = workerHist.filter(h => h.type === 'object_enter').length;
-      // Calculate total hours from shift_open/shift_close pairs
       const shiftOpens = workerHist.filter(h => h.type === 'shift_open').sort((a, b) => a.time - b.time);
       const shiftCloses = workerHist.filter(h => h.type === 'shift_close').sort((a, b) => a.time - b.time);
       let totalHours = 0;
       for (let i = 0; i < shiftOpens.length; i++) {
         const openTime = shiftOpens[i].time;
-        // Find closest shift_close after this open
         const closeEntry = shiftCloses.find(sc => sc.time > openTime);
         if (closeEntry) {
           totalHours += (closeEntry.time - openTime) / (1000 * 3600);
         } else if (lw && lw.shiftOpen && i === shiftOpens.length - 1) {
-          // Currently open shift
           totalHours += (Date.now() - openTime) / (1000 * 3600);
         }
       }
       const online = lw && lw.online;
-      const statusBadge = online
+      const lastSeenTs = lw ? lw.lastSeen : 0;
+      return { aw, lw, color, objectVisits, totalHours, online, lastSeenTs };
+    });
+
+    // Sort
+    if (dashSortKey) {
+      rowData.sort((a, b) => {
+        let va, vb;
+        if (dashSortKey === 'name') { va = a.aw.name || ''; vb = b.aw.name || ''; return dashSortAsc ? va.localeCompare(vb) : vb.localeCompare(va); }
+        if (dashSortKey === 'visits') { va = a.objectVisits; vb = b.objectVisits; }
+        if (dashSortKey === 'hours') { va = a.totalHours; vb = b.totalHours; }
+        if (dashSortKey === 'status') { va = a.online ? 1 : 0; vb = b.online ? 1 : 0; }
+        if (dashSortKey === 'lastSeen') { va = a.lastSeenTs; vb = b.lastSeenTs; }
+        return dashSortAsc ? (va - vb) : (vb - va);
+      });
+    }
+
+    tbody.innerHTML = rowData.map(r => {
+      const statusBadge = r.online
         ? '<span class="badge badge-online"><span class="badge-dot" style="background:var(--green)"></span>Onlayn</span>'
         : '<span class="badge badge-offline"><span class="badge-dot" style="background:var(--text2)"></span>Oflayn</span>';
-      const lastSeen = lw ? (lw.online ? 'İndi' : timeSince(lw.lastSeen)) : '—';
+      const lastSeen = r.lw ? (r.lw.online ? 'İndi' : timeSince(r.lw.lastSeen)) : '—';
       return '<tr>' +
-        '<td><div class="worker-cell"><div class="avatar-sm" style="background:' + color + '">' + initials(aw.name) + '</div><div><div class="worker-cell-name">' + escapeHtml(aw.name) + '</div><div class="worker-cell-id">' + escapeHtml(aw.id) + '</div></div></div></td>' +
-        '<td style="font-family:\'JetBrains Mono\',monospace;font-weight:600">' + objectVisits + '</td>' +
-        '<td style="font-family:\'JetBrains Mono\',monospace;font-weight:600">' + totalHours.toFixed(1) + ' saat</td>' +
+        '<td><div class="worker-cell"><div class="avatar-sm" style="background:' + r.color + '">' + initials(r.aw.name) + '</div><div><div class="worker-cell-name">' + escapeHtml(r.aw.name) + '</div><div class="worker-cell-id">' + escapeHtml(r.aw.id) + '</div></div></div></td>' +
+        '<td style="font-family:\'JetBrains Mono\',monospace;font-weight:600">' + r.objectVisits + '</td>' +
+        '<td style="font-family:\'JetBrains Mono\',monospace;font-weight:600">' + r.totalHours.toFixed(1) + ' saat</td>' +
         '<td style="font-family:\'JetBrains Mono\',monospace;color:var(--text2)">—</td>' +
         '<td>' + statusBadge + '</td>' +
         '<td style="font-size:12px;color:var(--text2);font-family:\'JetBrains Mono\',monospace">' + lastSeen + '</td>' +
@@ -1647,7 +1801,7 @@ function renderDashboard() {
 
   // Recent activity
   const recentEl = document.getElementById('dash-recent');
-  const recent = allHistory.slice(0, 10);
+  const recent = filteredHistory.slice(0, 10);
   if (!recent.length) {
     recentEl.innerHTML = '<div class="empty-state"><span class="material-icons-round">history</span><p>Hadisə yoxdur</p></div>';
   } else {
@@ -2193,14 +2347,20 @@ function renderSettings() {
 
 function renderAdminUsers() {
   const stored = JSON.parse(localStorage.getItem('ct_admins') || '[]');
+  const currentAdminUser = localStorage.getItem('ct_admin_user') || '';
   const el = document.getElementById('admin-users-list');
   // Always show hardcoded admin + stored ones
   let admins = [{ username: 'admin', isDefault: true }];
   stored.forEach(a => admins.push({ username: a.username, isDefault: false }));
 
   el.innerHTML = admins.map(a => {
-    const editBtn = '<button class="btn btn-ghost btn-sm" onclick="openEditAdmin(\'' + escapeHtml(a.username).replace(/'/g, "\\'") + '\',' + a.isDefault + ')" title="Redaktə et"><span class="material-icons-round" style="font-size:16px">edit</span></button>';
-    const deleteBtn = a.isDefault ? '' : '<button class="btn btn-danger btn-sm" onclick="deleteAdmin(\'' + escapeHtml(a.username) + '\')" title="Sil"><span class="material-icons-round" style="font-size:16px">delete</span></button>';
+    // Hide edit button for default "admin" if a non-default admin is logged in
+    const canEditThis = !(a.isDefault && currentAdminUser !== 'admin');
+    // Non-default admins cannot edit other admins either -- only the default admin can edit other admins
+    const canEditOther = (currentAdminUser === 'admin') || (a.username === currentAdminUser);
+    const showEdit = canEditThis && canEditOther;
+    const editBtn = showEdit ? '<button class="btn btn-ghost btn-sm" onclick="openEditAdmin(\'' + escapeHtml(a.username).replace(/'/g, "\\'") + '\',' + a.isDefault + ')" title="Redaktə et"><span class="material-icons-round" style="font-size:16px">edit</span></button>' : '';
+    const deleteBtn = a.isDefault ? '' : (currentAdminUser === 'admin' ? '<button class="btn btn-danger btn-sm" onclick="deleteAdmin(\'' + escapeHtml(a.username) + '\')" title="Sil"><span class="material-icons-round" style="font-size:16px">delete</span></button>' : '');
     return '<div class="settings-item">' +
       '<div>' +
         '<div class="settings-item-label">' + escapeHtml(a.username) + (a.isDefault ? ' <span style="color:var(--primary);font-size:11px">(Default)</span>' : '') + '</div>' +
@@ -2307,6 +2467,124 @@ function deleteAdmin(username) {
     showToast(username + ' silindi', 'success');
     renderAdminUsers();
   });
+}
+
+// ======================== BRANDS PAGE ========================
+function renderBrandsPage() {
+  const search = (document.getElementById('brandsSearch').value || '').toLowerCase();
+  document.getElementById('brands-list-view').style.display = '';
+  document.getElementById('brands-detail-view').style.display = 'none';
+
+  // Gather unique brands from object_enter / object_exit
+  const brandEvents = allHistory.filter(h => h.type === 'object_enter' || h.type === 'object_exit');
+  const brandMap = {};
+  brandEvents.forEach(h => {
+    const bn = h.brandName || '';
+    if (!bn) return;
+    if (!brandMap[bn]) brandMap[bn] = { name: bn, visits: 0, workers: new Set(), lastTime: 0 };
+    if (h.type === 'object_enter') brandMap[bn].visits++;
+    brandMap[bn].workers.add(h.workerName || '?');
+    if (h.time > brandMap[bn].lastTime) brandMap[bn].lastTime = h.time;
+  });
+
+  let brands = Object.values(brandMap);
+  if (search) {
+    brands = brands.filter(b => b.name.toLowerCase().includes(search));
+  }
+  brands.sort((a, b) => b.lastTime - a.lastTime);
+
+  const tbody = document.getElementById('brands-tbody');
+  const empty = document.getElementById('brands-empty');
+  if (!brands.length) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  tbody.innerHTML = brands.map(b => {
+    const workerList = Array.from(b.workers).join(', ');
+    return '<tr>' +
+      '<td style="font-weight:600;color:var(--purple)">' + escapeHtml(b.name) + '</td>' +
+      '<td style="font-family:\'JetBrains Mono\',monospace;font-weight:600">' + b.visits + '</td>' +
+      '<td style="font-size:12px;max-width:200px">' + escapeHtml(workerList) + '</td>' +
+      '<td style="font-size:11px;font-family:\'JetBrains Mono\',monospace;color:var(--text2);white-space:nowrap">' + formatDateTime(b.lastTime) + '</td>' +
+      '<td><button class="btn btn-ghost btn-sm" onclick="openBrandDetail(\'' + escapeHtml(b.name).replace(/'/g, "\\'") + '\')"><span class="material-icons-round" style="font-size:16px">visibility</span></button></td>' +
+      '</tr>';
+  }).join('');
+}
+
+function openBrandDetail(brandName) {
+  document.getElementById('brands-list-view').style.display = 'none';
+  document.getElementById('brands-detail-view').style.display = '';
+  document.getElementById('brand-detail-title').textContent = brandName;
+
+  const events = allHistory.filter(h => h.brandName === brandName && (h.type === 'object_enter' || h.type === 'object_exit'));
+  const tbody = document.getElementById('brand-detail-tbody');
+  if (!events.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text2);padding:24px">Hadisə tapılmadı</td></tr>';
+    return;
+  }
+  tbody.innerHTML = events.map(h => {
+    const ec = getEventColor(h.type);
+    const checks = (h.checklist && h.checklist.length)
+      ? h.checklist.map(c => '<div class="checklist-item">&#10003; ' + escapeHtml(c.text || c) + '</div>').join('')
+      : '';
+    const note = h.note ? '<div class="note-text">' + escapeHtml(h.note) + '</div>' : '';
+    const notesCol = (checks || note) ? checks + note : '<span style="color:var(--text2)">—</span>';
+    return '<tr>' +
+      '<td style="font-weight:600;font-size:13px">' + escapeHtml(h.workerName || '—') + '</td>' +
+      '<td><div style="display:flex;align-items:center;gap:8px"><div style="width:28px;height:28px;border-radius:50%;background:' + ec.bg + ';color:' + ec.color + ';display:flex;align-items:center;justify-content:center;flex-shrink:0"><span class="material-icons-round" style="font-size:15px">' + getEventIcon(h.type) + '</span></div><span style="font-size:12px;font-weight:600">' + getEventLabel(h.type) + '</span></div></td>' +
+      '<td style="max-width:200px">' + (h.address ? addressLink(h.address) : '<span style="color:var(--text2)">—</span>') + '</td>' +
+      '<td>' + (h.lat && h.lng ? coordLink(h.lat, h.lng) : '<span style="color:var(--text2)">—</span>') + '</td>' +
+      '<td style="max-width:200px;font-size:12px">' + notesCol + '</td>' +
+      '<td style="font-size:11px;font-family:\'JetBrains Mono\',monospace;color:var(--text2);white-space:nowrap">' + formatDateTime(h.time) + '</td>' +
+      '</tr>';
+  }).join('');
+}
+
+function closeBrandDetail() {
+  document.getElementById('brands-list-view').style.display = '';
+  document.getElementById('brands-detail-view').style.display = 'none';
+}
+
+// ======================== MAP BRAND SEARCH ========================
+function mapSearchBrand() {
+  const q = (document.getElementById('mapBrandSearch').value || '').toLowerCase().trim();
+  const resultsEl = document.getElementById('mapBrandSearchResults');
+  if (!q) { resultsEl.style.display = 'none'; return; }
+
+  // Find unique brands with location
+  const brandEntries = allHistory.filter(h => h.type === 'object_enter' && h.lat && h.lng && h.brandName);
+  const seen = {};
+  brandEntries.forEach(h => {
+    const bn = h.brandName;
+    if (!bn.toLowerCase().includes(q)) return;
+    if (!seen[bn]) seen[bn] = h;
+  });
+
+  const matches = Object.values(seen);
+  if (!matches.length) {
+    resultsEl.style.display = 'none';
+    return;
+  }
+
+  resultsEl.style.display = 'block';
+  resultsEl.innerHTML = matches.slice(0, 10).map(h =>
+    '<div style="padding:8px 12px;cursor:pointer;font-size:12px;font-weight:500;border-bottom:1px solid var(--border);transition:background 0.15s" ' +
+    'onmouseover="this.style.background=\'var(--card2)\'" onmouseout="this.style.background=\'transparent\'" ' +
+    'onclick="mapFlyToBrand(' + h.lat + ',' + h.lng + ',\'' + escapeHtml(h.brandName).replace(/'/g, "\\'") + '\')">' +
+    '<span class="material-icons-round" style="font-size:14px;vertical-align:middle;margin-right:6px;color:var(--purple)">store</span>' +
+    escapeHtml(h.brandName) +
+    '</div>'
+  ).join('');
+}
+
+function mapFlyToBrand(lat, lng, name) {
+  document.getElementById('mapBrandSearchResults').style.display = 'none';
+  document.getElementById('mapBrandSearch').value = name;
+  if (!brandsOn) mapToggleBrands();
+  mapInstance.flyTo([lat, lng], 17, { duration: 1 });
 }
 
 // ======================== INIT ========================
