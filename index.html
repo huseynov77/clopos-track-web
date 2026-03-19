@@ -823,7 +823,7 @@ async function openWorkerDetail(id){
       const dateStr=t.toLocaleDateString('az-AZ');
       const addr=h.address?`<div style="font-size:12px;color:#0062E1;margin-top:2px">📍 ${h.address}</div>`:'';
       const brand=h.brandName?`<div style="font-size:12px;color:#7c3aed;margin-top:2px;font-weight:600">🏷 ${h.brandName}</div>`:'';
-      const coordsHtml=h.lat&&h.lng?`<div style="font-size:11px;color:#64748b;margin-top:2px;font-family:monospace">📌 ${h.lat.toFixed(5)}, ${h.lng.toFixed(5)}</div>`:'';
+      const coordsHtml=h.lat&&h.lng?`<div style="font-size:11px;color:#0062E1;margin-top:2px;font-family:monospace;cursor:pointer" onclick="goToCoords(${h.lat},${h.lng})">📌 ${h.lat.toFixed(5)}, ${h.lng.toFixed(5)}</div>`:'';
       const note=h.note?`<div style="font-size:12px;color:#64748b;margin-top:2px">💬 ${h.note}</div>`:'';
       const checks=h.checklist&&h.checklist.length?'<div style="margin-top:2px">'+h.checklist.map(c=>`<div style="color:#16a34a;font-size:12px">✓ ${c.text||c}</div>`).join('')+'</div>':'';
       return `<div style="display:flex;align-items:flex-start;gap:12px;padding:10px;border-radius:12px;background:rgba(255,255,255,0.4);border:1px solid rgba(255,255,255,0.3)" onmouseover="this.style.background='rgba(255,255,255,0.7)'" onmouseout="this.style.background='rgba(255,255,255,0.4)'">
@@ -891,7 +891,7 @@ async function loadFullHistory(){
       const dateStr=t.toLocaleDateString('az-AZ');
       const addr=h.address?`<div style="margin-top:4px;font-size:12px;color:#0062E1;cursor:pointer" onclick="goToAddress('${h.address.replace(/'/g,"\\'")}')">📍 ${h.address}</div>`:'';
       const brand=h.brandName?`<div style="font-size:12px;color:#7c3aed;margin-top:2px;font-weight:600">🏷 ${h.brandName}</div>`:'';
-      const coordsHtml=h.lat&&h.lng?`<div style="font-size:11px;color:#64748b;margin-top:2px;font-family:monospace">📌 ${h.lat.toFixed(5)}, ${h.lng.toFixed(5)}</div>`:'';
+      const coordsHtml=h.lat&&h.lng?`<div style="font-size:11px;color:#0062E1;margin-top:2px;font-family:monospace;cursor:pointer" onclick="goToCoords(${h.lat},${h.lng})">📌 ${h.lat.toFixed(5)}, ${h.lng.toFixed(5)}</div>`:'';
       return `<div style="display:flex;align-items:flex-start;gap:16px;padding:12px;border-radius:12px;transition:background 0.2s;backdrop-filter:blur(12px);background:rgba(255,255,255,0.4);border:1px solid rgba(255,255,255,0.3);margin-bottom:12px" onmouseover="this.style.background='rgba(255,255,255,0.7)'" onmouseout="this.style.background='rgba(255,255,255,0.4)'">
         <div style="width:40px;height:40px;border-radius:50%;background:${iconBg};display:flex;align-items:center;justify-content:center;color:${iconColor};flex-shrink:0"><span class="material-icons-round" style="font-size:18px">${icon}</span></div>
         <div style="flex:1"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px"><p style="font-weight:700;font-size:14px">${h.workerName} — ${label}</p><span style="font-size:10px;color:#94a3b8;font-weight:500">${timeStr} · ${dateStr}</span></div>${brand}${coordsHtml}${addr}</div>
@@ -915,7 +915,7 @@ async function loadRecentHistory(){
       const timeStr=t.toLocaleTimeString('az-AZ',{hour:'2-digit',minute:'2-digit'});
       const dateStr=t.toLocaleDateString('az-AZ');
       const brand=h.brandName?`<div style="font-size:12px;color:#7c3aed;margin-top:2px;font-weight:600">🏷 ${h.brandName}</div>`:'';
-      const coordsHtml=h.lat&&h.lng?`<div style="font-size:11px;color:#64748b;margin-top:2px;font-family:monospace">📌 ${h.lat.toFixed(5)}, ${h.lng.toFixed(5)}</div>`:'';
+      const coordsHtml=h.lat&&h.lng?`<div style="font-size:11px;color:#0062E1;margin-top:2px;font-family:monospace;cursor:pointer" onclick="goToCoords(${h.lat},${h.lng})">📌 ${h.lat.toFixed(5)}, ${h.lng.toFixed(5)}</div>`:'';
       return `<div style="display:flex;align-items:flex-start;gap:16px;padding:12px;border-radius:12px;transition:background 0.2s" onmouseover="this.style.background='rgba(255,255,255,0.5)'" onmouseout="this.style.background='transparent'">
         <div style="width:40px;height:40px;border-radius:50%;background:${iconBg};display:flex;align-items:center;justify-content:center;color:${iconColor};flex-shrink:0"><span class="material-icons-round" style="font-size:18px">${icon}</span></div>
         <div style="flex:1"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px"><p style="font-weight:700;font-size:14px">${h.workerName} — ${label}</p><span style="font-size:10px;color:#94a3b8;font-weight:500">${timeStr} · ${dateStr}</span></div>${brand}${coordsHtml}</div>
@@ -1068,7 +1068,7 @@ async function openWorkerHistory(id,name){
       const dateStr=t.toLocaleDateString('az-AZ');
       const addr=h.address?`<div style="margin-top:4px;cursor:pointer;color:var(--primary);font-size:12px" onclick="goToAddress('${h.address.replace(/'/g,"\\'")}')">📍 ${h.address}</div>`:'';
       const brand=h.brandName?`<div style="font-size:12px;color:#7c3aed;margin-top:2px;font-weight:600">🏷 ${h.brandName}</div>`:'';
-      const coordsHtml=h.lat&&h.lng?`<div style="font-size:11px;color:#64748b;margin-top:2px;font-family:monospace">📌 ${h.lat.toFixed(5)}, ${h.lng.toFixed(5)}</div>`:'';
+      const coordsHtml=h.lat&&h.lng?`<div style="font-size:11px;color:#0062E1;margin-top:2px;font-family:monospace;cursor:pointer" onclick="goToCoords(${h.lat},${h.lng})">📌 ${h.lat.toFixed(5)}, ${h.lng.toFixed(5)}</div>`:'';
       const note=h.note?`<div style="color:var(--muted);margin-top:4px;font-size:12px">💬 ${h.note}</div>`:'';
       const checks=h.checklist&&h.checklist.length?'<div style="margin-top:4px">'+h.checklist.map(c=>`<div style="color:var(--green);font-size:12px">✓ ${c.text||c}</div>`).join('')+'</div>':'';
       return `<div style="padding:12px;border-bottom:1px solid var(--border);transition:background 0.2s" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='transparent'">
@@ -1089,12 +1089,18 @@ function closeWorkerHistory(){
 
 function goToAddress(addr){
   closeWorkerHistory();
+  closeMgmt();
   fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(addr)}&format=json&limit=1`,{headers:{'User-Agent':'CloposTrack/2.1'}})
     .then(r=>r.json())
     .then(d=>{
       if(d.length){map.setView([parseFloat(d[0].lat),parseFloat(d[0].lon)],17);}
       else{showToast('Ünvan tapılmadı','error');}
     }).catch(()=>showToast('Ünvan axtarışı xətası','error'));
+}
+function goToCoords(lat,lng){
+  closeWorkerHistory();
+  closeMgmt();
+  map.setView([lat,lng],17);
 }
 
 function showToast(msg,type=''){
