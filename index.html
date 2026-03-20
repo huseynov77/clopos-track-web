@@ -1647,23 +1647,65 @@ function showAlerts() {
     if (mainContent) mainContent.appendChild(alertPage);
   }
 
+  const alertMeta = {
+    shift_open:      { icon: 'play_circle',   color: 'var(--green)',   bg: 'var(--green-bg)',   label: 'Shift açıldı' },
+    shift_close:     { icon: 'stop_circle',    color: 'var(--red)',     bg: 'var(--red-bg)',     label: 'Shift bağlandı' },
+    object_enter:    { icon: 'domain_add',     color: 'var(--primary)', bg: 'var(--primary-bg)', label: 'Obyektə giriş' },
+    object_exit:     { icon: 'meeting_room',   color: 'var(--yellow)',  bg: 'var(--yellow-bg)',  label: 'Obyektdən çıxış' },
+    object_overtime: { icon: 'hourglass_top',  color: 'var(--yellow)',  bg: 'var(--yellow-bg)',  label: 'Obyekt vaxt aşımı' },
+    shift_overtime:  { icon: 'timer_off',      color: 'var(--red)',     bg: 'var(--red-bg)',     label: 'Shift vaxt aşımı' },
+  };
+  const defaultMeta = { icon: 'notifications_active', color: 'var(--text2)', bg: 'var(--card2)', label: 'Bildiriş' };
+
   let html = '<div class="page-header"><div class="page-title">Bildirişlər</div><div class="page-subtitle">Sistem xəbərdarlıqları</div></div>';
 
   if (alertsList.length === 0) {
-    html += '<div style="text-align:center;padding:48px;color:var(--text2)"><span class="material-icons-round" style="font-size:48px;display:block;margin-bottom:12px">check_circle</span>Aktiv bildiriş yoxdur</div>';
+    html += '<div style="text-align:center;padding:64px 24px;color:var(--text2)">' +
+      '<span class="material-icons-round" style="font-size:56px;display:block;margin-bottom:16px;color:var(--green)">check_circle</span>' +
+      '<div style="font-size:18px;font-weight:700;margin-bottom:6px;color:var(--text)">Hamısı yaxşıdır!</div>' +
+      '<div style="font-size:14px">Aktiv bildiriş yoxdur</div></div>';
   } else {
-    html += '<button onclick="markAllSeen()" style="margin-bottom:16px;padding:8px 16px;border-radius:8px;border:none;background:var(--primary);color:#fff;cursor:pointer;font-weight:600">Hamısını oxunmuş et</button>';
+    // Header with count and button
+    html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">' +
+      '<div style="display:flex;align-items:center;gap:10px">' +
+        '<span style="background:var(--red);color:#fff;font-size:13px;font-weight:800;padding:4px 12px;border-radius:20px">' + alertsList.length + '</span>' +
+        '<span style="font-size:14px;color:var(--text2);font-weight:500">aktiv bildiriş</span>' +
+      '</div>' +
+      '<button onclick="markAllSeen()" style="padding:10px 20px;border-radius:10px;border:none;background:var(--primary);color:#fff;cursor:pointer;font-weight:700;font-size:13px;transition:var(--transition);display:flex;align-items:center;gap:6px">' +
+        '<span class="material-icons-round" style="font-size:18px">done_all</span>Hamısını oxunmuş et</button></div>';
+
+    html += '<div style="display:flex;flex-direction:column;gap:10px">';
     html += alertsList.map(a => {
-      const icon = a.type === 'object_overtime' ? 'timer' : 'warning';
-      const color = a.type === 'object_overtime' ? 'var(--yellow)' : 'var(--red)';
+      const m = alertMeta[a.type] || defaultMeta;
       const time = new Date(a.time).toLocaleString('az-AZ');
-      return '<div style="padding:16px;margin-bottom:8px;border-radius:12px;background:var(--card);border:1px solid var(--border);display:flex;align-items:flex-start;gap:12px">' +
-        '<span class="material-icons-round" style="color:' + color + ';font-size:24px">' + icon + '</span>' +
-        '<div style="flex:1"><div style="font-weight:700;color:var(--text)">' + (a.message || '') + '</div>' +
-        '<div style="font-size:12px;color:var(--text2);margin-top:4px">' + time + '</div></div></div>';
+      const timeAgo = getTimeAgo(a.time);
+      return '<div style="padding:16px 20px;border-radius:14px;background:var(--card);border:1px solid var(--border);display:flex;align-items:center;gap:16px;transition:var(--transition)">' +
+        '<div style="width:44px;height:44px;border-radius:12px;background:' + m.bg + ';display:flex;align-items:center;justify-content:center;flex-shrink:0">' +
+          '<span class="material-icons-round" style="color:' + m.color + ';font-size:24px">' + m.icon + '</span></div>' +
+        '<div style="flex:1;min-width:0">' +
+          '<div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + (a.message || '') + '</div>' +
+          '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
+            '<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:6px;background:' + m.bg + ';color:' + m.color + '">' + m.label + '</span>' +
+            '<span style="font-size:12px;color:var(--text2)">' + time + '</span>' +
+          '</div>' +
+        '</div>' +
+        '<div style="font-size:11px;color:var(--text2);white-space:nowrap;font-weight:500">' + timeAgo + '</div>' +
+      '</div>';
     }).join('');
+    html += '</div>';
   }
   alertPage.innerHTML = html;
+}
+
+function getTimeAgo(time) {
+  const diff = Date.now() - new Date(time).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'İndicə';
+  if (mins < 60) return mins + ' dəq əvvəl';
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return hours + ' saat əvvəl';
+  const days = Math.floor(hours / 24);
+  return days + ' gün əvvəl';
 }
 
 async function markAllSeen() {
