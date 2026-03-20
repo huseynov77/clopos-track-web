@@ -1528,6 +1528,7 @@ function switchPage(page) {
   if (page === 'history') renderHistoryPage();
   if (page === 'brands') renderBrandsPage();
   if (page === 'settings') renderSettings();
+  if (page === 'alerts') showAlerts();
   window.location.hash = page;
 }
 // URL hash ilə birbaşa səhifə açmaq
@@ -1618,7 +1619,8 @@ function renderAlertBadge() {
     if (nav) {
       const alertBtn = document.createElement('div');
       alertBtn.className = 'nav-item';
-      alertBtn.onclick = () => showAlerts();
+      alertBtn.setAttribute('data-page', 'alerts');
+      alertBtn.onclick = () => switchPage('alerts');
       alertBtn.innerHTML = '<span class="material-icons-round">notifications</span><span class="nav-text">Bildirişlər</span><span id="alertBadge" style="background:var(--red);color:#fff;font-size:10px;font-weight:800;padding:2px 6px;border-radius:10px;margin-left:auto;display:none">0</span>';
       nav.insertBefore(alertBtn, nav.children[1]); // Dashboard-dan sonra
       badge = document.getElementById('alertBadge');
@@ -1635,20 +1637,15 @@ function renderAlertBadge() {
 }
 
 function showAlerts() {
-  const content = document.querySelector('.content');
-  if (!content) return;
-  // Bütün page-ləri gizlə
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-
   let alertPage = document.getElementById('page-alerts');
   if (!alertPage) {
     alertPage = document.createElement('div');
     alertPage.id = 'page-alerts';
-    alertPage.className = 'page';
-    content.appendChild(alertPage);
+    alertPage.className = 'page active';
+    alertPage.style.cssText = 'padding:24px;overflow-y:auto;flex:1';
+    const mainContent = document.querySelector('.main-area') || document.querySelector('.sidebar').parentElement;
+    if (mainContent) mainContent.appendChild(alertPage);
   }
-  alertPage.classList.add('active');
 
   let html = '<div class="page-header"><div class="page-title">Bildirişlər</div><div class="page-subtitle">Sistem xəbərdarlıqları</div></div>';
 
