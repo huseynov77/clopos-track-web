@@ -2705,9 +2705,24 @@ function renderBrandsPage() {
       '<td style="font-family:\'JetBrains Mono\',monospace;font-weight:600">' + b.visits + '</td>' +
       '<td style="font-size:12px;max-width:200px">' + escapeHtml(workerList) + '</td>' +
       '<td style="font-size:11px;font-family:\'JetBrains Mono\',monospace;color:var(--text2);white-space:nowrap">' + formatDateTime(b.lastTime) + '</td>' +
-      '<td><button class="btn btn-ghost btn-sm" onclick="openBrandDetail(\'' + escapeHtml(b.name).replace(/'/g, "\\'") + '\')"><span class="material-icons-round" style="font-size:16px">visibility</span></button></td>' +
+      '<td><button class="btn btn-ghost btn-sm" onclick="openBrandDetail(\'' + escapeHtml(b.name).replace(/'/g, "\\'") + '\')"><span class="material-icons-round" style="font-size:16px">visibility</span></button>' +
+      '<button class="btn btn-ghost btn-sm" style="color:var(--red);margin-left:4px" onclick="deleteBrand(\'' + escapeHtml(b.name).replace(/'/g, "\\'") + '\')"><span class="material-icons-round" style="font-size:16px">delete</span></button></td>' +
       '</tr>';
   }).join('');
+}
+
+async function deleteBrand(name) {
+  if (!confirm('\"' + name + '\" brendini və bütün tarixçəsini silmək istəyirsiniz?')) return;
+  try {
+    const r = await fetch(SERVER_URL + '/api/brand/' + encodeURIComponent(name), {
+      method: 'DELETE',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ adminKey: ADMIN_KEY })
+    });
+    const data = await r.json();
+    if (data.ok) { await refreshData(); renderBrandsPage(); }
+    else alert('Xəta: ' + (data.error || ''));
+  } catch(e) { alert('Xəta: ' + e.message); }
 }
 
 function openBrandDetail(brandName) {
