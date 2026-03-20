@@ -1435,22 +1435,27 @@ function checkAuth() {
   }
 }
 
-function doLogin() {
+async function doLogin() {
   const user = document.getElementById('loginUser').value.trim();
   const pass = document.getElementById('loginPass').value;
-  // Check hardcoded + stored admins
-  const storedAdmins = JSON.parse(localStorage.getItem('ct_admins') || '[]');
-  const defaultOverride = JSON.parse(localStorage.getItem('ct_admin_default_override') || 'null');
-  const defaultPass = (defaultOverride && defaultOverride.password) ? defaultOverride.password : 'clopos2024';
-  const validHardcoded = (user === 'admin' && pass === defaultPass);
-  const validStored = storedAdmins.some(a => a.username === user && a.password === pass);
-  if (validHardcoded || validStored) {
-    localStorage.setItem('ct_admin_logged', 'true');
-    localStorage.setItem('ct_admin_user', user);
-    document.getElementById('loginPage').style.display = 'none';
-    document.getElementById('loginError').style.display = 'none';
-    startApp();
-  } else {
+  try {
+    const res = await fetch(SERVER_URL + '/api/admin/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: user, password: pass }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      localStorage.setItem('ct_admin_logged', 'true');
+      localStorage.setItem('ct_admin_user', data.username);
+      document.getElementById('loginPage').style.display = 'none';
+      document.getElementById('loginError').style.display = 'none';
+      startApp();
+    } else {
+      document.getElementById('loginError').style.display = 'block';
+    }
+  } catch (err) {
+    console.error('Login error:', err);
     document.getElementById('loginError').style.display = 'block';
   }
 }
@@ -2541,86 +2546,73 @@ function renderSettings() {
   renderAdminUsers();
 }
 
-function renderAdminUsers() {
-  const stored = JSON.parse(localStorage.getItem('ct_admins') || '[]');
+async function renderAdminUsers() {
   const currentAdminUser = localStorage.getItem('ct_admin_user') || '';
   const el = document.getElementById('admin-users-list');
-  // Always show hardcoded admin + stored ones
-  let admins = [{ username: 'admin', isDefault: true }];
-  stored.forEach(a => admins.push({ username: a.username, isDefault: false }));
+  try {
+    const res = await fetch(SERVER_URL + '/api/admin/users');
+    const admins = await res.json();
 
-  el.innerHTML = admins.map(a => {
-    // Hide edit button for default "admin" if a non-default admin is logged in
-    const canEditThis = !(a.isDefault && currentAdminUser !== 'admin');
-    // Non-default admins cannot edit other admins either -- only the default admin can edit other admins
-    const canEditOther = (currentAdminUser === 'admin') || (a.username === currentAdminUser);
-    const showEdit = canEditThis && canEditOther;
-    const editBtn = showEdit ? '<button class="btn btn-ghost btn-sm" onclick="openEditAdmin(\'' + escapeHtml(a.username).replace(/'/g, "\\'") + '\',' + a.isDefault + ')" title="Redaktə et"><span class="material-icons-round" style="font-size:16px">edit</span></button>' : '';
-    const deleteBtn = a.isDefault ? '' : (currentAdminUser === 'admin' ? '<button class="btn btn-danger btn-sm" onclick="deleteAdmin(\'' + escapeHtml(a.username) + '\')" title="Sil"><span class="material-icons-round" style="font-size:16px">delete</span></button>' : '');
-    return '<div class="settings-item">' +
-      '<div>' +
-        '<div class="settings-item-label">' + escapeHtml(a.username) + (a.isDefault ? ' <span style="color:var(--primary);font-size:11px">(Default)</span>' : '') + '</div>' +
-        '<div class="settings-item-value">Admin</div>' +
-      '</div>' +
-      '<div style="display:flex;gap:6px;align-items:center">' + editBtn + deleteBtn + '</div>' +
-    '</div>';
-  }).join('');
+    el.innerHTML = admins.map(a => {
+      const isDefault = (a.id === 1);
+      // Hide edit button for default "admin" if a non-default admin is logged in
+      const canEditThis = !(isDefault && currentAdminUser !== 'admin');
+      // Non-default admins cannot edit other admins either -- only the default admin can edit other admins
+      const canEditOther = (currentAdminUser === 'admin') || (a.username === currentAdminUser);
+      const showEdit = canEditThis && canEditOther;
+      const editBtn = showEdit ? '<button class="btn btn-ghost btn-sm" onclick="openEditAdmin(' + a.id + ',\'' + escapeHtml(a.username).replace(/'/g, "\\'") + '\',' + isDefault + ')" title="Redaktə et"><span class="material-icons-round" style="font-size:16px">edit</span></button>' : '';
+      const deleteBtn = isDefault ? '' : (currentAdminUser === 'admin' ? '<button class="btn btn-danger btn-sm" onclick="deleteAdmin(' + a.id + ',\'' + escapeHtml(a.username) + '\')" title="Sil"><span class="material-icons-round" style="font-size:16px">delete</span></button>' : '');
+      return '<div class="settings-item">' +
+        '<div>' +
+          '<div class="settings-item-label">' + escapeHtml(a.username) + (isDefault ? ' <span style="color:var(--primary);font-size:11px">(Default)</span>' : '') + '</div>' +
+          '<div class="settings-item-value">Admin</div>' +
+        '</div>' +
+        '<div style="display:flex;gap:6px;align-items:center">' + editBtn + deleteBtn + '</div>' +
+      '</div>';
+    }).join('');
+  } catch (err) {
+    console.error('renderAdminUsers error:', err);
+    el.innerHTML = '<div style="color:var(--red)">Admin istifadəçiləri yüklənmədi</div>';
+  }
 }
 
-function openEditAdmin(username, isDefault) {
+function openEditAdmin(id, username, isDefault) {
   document.getElementById('ea-old-user').value = username;
   document.getElementById('ea-user').value = username;
   document.getElementById('ea-pass').value = '';
   document.getElementById('ea-sub').textContent = username + ' admin redaktə edilir';
   // For default admin, disable username change
   document.getElementById('ea-user').disabled = isDefault;
+  // Store the admin id for save
+  document.getElementById('ea-old-user').dataset.adminId = id;
   openModal('editAdminModal');
 }
 
-function saveAdmin() {
-  const oldUser = document.getElementById('ea-old-user').value;
+async function saveAdmin() {
+  const adminId = document.getElementById('ea-old-user').dataset.adminId;
   const newUser = document.getElementById('ea-user').value.trim();
   const newPass = document.getElementById('ea-pass').value;
-  const isDefault = (oldUser === 'admin');
 
   if (!newUser) {
     showToast('İstifadəçi adı lazımdır', 'error');
     return;
   }
 
-  if (isDefault) {
-    // For default admin, we store override in localStorage
-    const stored = JSON.parse(localStorage.getItem('ct_admins') || '[]');
-    // Check if there's already a default override
-    let defaultOverride = JSON.parse(localStorage.getItem('ct_admin_default_override') || 'null');
-    if (newPass) {
-      defaultOverride = { password: newPass };
-      localStorage.setItem('ct_admin_default_override', JSON.stringify(defaultOverride));
-      showToast('Default admin şifrəsi yeniləndi', 'success');
+  try {
+    const res = await fetch(SERVER_URL + '/api/admin/users/' + adminId, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: newUser, password: newPass || undefined, adminKey: ADMIN_KEY }),
+    });
+    const data = await res.json();
+    if (res.ok && data.ok) {
+      showToast(newUser + ' yeniləndi', 'success');
     } else {
-      showToast('Dəyişiklik yoxdur', 'info');
+      showToast(data.error || 'Xəta baş verdi', 'error');
     }
-  } else {
-    const stored = JSON.parse(localStorage.getItem('ct_admins') || '[]');
-    const idx = stored.findIndex(a => a.username === oldUser);
-    if (idx === -1) {
-      showToast('Admin tapılmadı', 'error');
-      closeModal('editAdminModal');
-      return;
-    }
-    // Check if new username conflicts
-    if (newUser !== oldUser) {
-      if (newUser === 'admin' || stored.some((a, i) => i !== idx && a.username === newUser)) {
-        showToast('Bu istifadəçi adı artıq mövcuddur', 'error');
-        return;
-      }
-      stored[idx].username = newUser;
-    }
-    if (newPass) {
-      stored[idx].password = newPass;
-    }
-    localStorage.setItem('ct_admins', JSON.stringify(stored));
-    showToast(newUser + ' yeniləndi', 'success');
+  } catch (err) {
+    console.error('saveAdmin error:', err);
+    showToast('Server xətası', 'error');
   }
   closeModal('editAdminModal');
   renderAdminUsers();
@@ -2632,35 +2624,51 @@ function openAddAdminModal() {
   openModal('addAdminModal');
 }
 
-function addAdmin() {
+async function addAdmin() {
   const user = document.getElementById('aa-user').value.trim();
   const pass = document.getElementById('aa-pass').value;
   if (!user || !pass) {
     showToast('İstifadəçi adı və şifrə lazımdır', 'error');
     return;
   }
-  if (user === 'admin') {
-    showToast('Bu ad artıq istifadə olunur', 'error');
-    return;
+  try {
+    const res = await fetch(SERVER_URL + '/api/admin/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: user, password: pass, adminKey: ADMIN_KEY }),
+    });
+    const data = await res.json();
+    if (res.ok && data.ok) {
+      closeModal('addAdminModal');
+      showToast(user + ' admin olaraq əlavə edildi', 'success');
+      renderAdminUsers();
+    } else {
+      showToast(data.error || 'Xəta baş verdi', 'error');
+    }
+  } catch (err) {
+    console.error('addAdmin error:', err);
+    showToast('Server xətası', 'error');
   }
-  const stored = JSON.parse(localStorage.getItem('ct_admins') || '[]');
-  if (stored.find(a => a.username === user)) {
-    showToast('Bu istifadəçi artıq mövcuddur', 'error');
-    return;
-  }
-  stored.push({ username: user, password: pass });
-  localStorage.setItem('ct_admins', JSON.stringify(stored));
-  closeModal('addAdminModal');
-  showToast(user + ' admin olaraq əlavə edildi', 'success');
-  renderAdminUsers();
 }
 
-function deleteAdmin(username) {
-  showConfirm('Admin Silinsin?', username + ' adlı admin istifadəçisi silinəcək.', function() {
-    const stored = JSON.parse(localStorage.getItem('ct_admins') || '[]');
-    const updated = stored.filter(a => a.username !== username);
-    localStorage.setItem('ct_admins', JSON.stringify(updated));
-    showToast(username + ' silindi', 'success');
+function deleteAdmin(id, username) {
+  showConfirm('Admin Silinsin?', username + ' adlı admin istifadəçisi silinəcək.', async function() {
+    try {
+      const res = await fetch(SERVER_URL + '/api/admin/users/' + id, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adminKey: ADMIN_KEY }),
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        showToast(username + ' silindi', 'success');
+      } else {
+        showToast(data.error || 'Xəta baş verdi', 'error');
+      }
+    } catch (err) {
+      console.error('deleteAdmin error:', err);
+      showToast('Server xətası', 'error');
+    }
     renderAdminUsers();
   });
 }
