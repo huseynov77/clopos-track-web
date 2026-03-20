@@ -1057,6 +1057,7 @@ select.form-input { cursor: pointer; }
         <div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">Batareya</span><span id="mdp-battery" style="font-weight:600;font-family:'JetBrains Mono',monospace"></span></div>
         <div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">Sürət</span><span id="mdp-speed" style="font-weight:600;font-family:'JetBrains Mono',monospace"></span></div>
         <div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">Son görülmə</span><span id="mdp-lastseen" style="font-weight:600;font-family:'JetBrains Mono',monospace"></span></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">Versiya</span><span id="mdp-version" style="font-weight:600;font-family:'JetBrains Mono',monospace;color:var(--primary)"></span></div>
         <div style="margin-top:4px"><span style="color:var(--text2)">Ünvan: </span><span id="mdp-address" style="font-size:12px"></span></div>
       </div>
       <div style="display:flex;gap:8px;margin-top:14px">
@@ -2116,6 +2117,7 @@ function selectMapWorker(id) {
   document.getElementById('mdp-battery').textContent = (w.battery || 0) + '%';
   document.getElementById('mdp-speed').textContent = (w.speed || 0) + ' km/s';
   document.getElementById('mdp-lastseen').textContent = w.online ? 'İndi' : timeSince(w.lastSeen);
+  document.getElementById('mdp-version').textContent = w.appVersion || '—';
   document.getElementById('mdp-address').textContent = w.address || '—';
 
   // Show last 5 history events for this worker
