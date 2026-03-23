@@ -1394,6 +1394,10 @@ select.form-input { cursor: pointer; }
 // ======================== CONFIG ========================
 const SERVER_URL = 'https://gps-server-production-9cef.up.railway.app';
 const ADMIN_KEY = 'clopos2024admin';
+const API_HEADERS = { 'Content-Type': 'application/json', 'x-api-key': 'clopos-track-2024' };
+function apiFetch(path, opts = {}) {
+  return apiFetch(path, { ...opts, headers: { ...API_HEADERS, ...(opts.headers || {}) } });
+}
 const COLORS = ['#4d8ef7','#34d399','#f87171','#fbbf24','#a78bfa','#f472b6','#38bdf8','#fb923c'];
 
 // ======================== STATE ========================
@@ -1439,7 +1443,7 @@ async function doLogin() {
   const user = document.getElementById('loginUser').value.trim();
   const pass = document.getElementById('loginPass').value;
   try {
-    const res = await fetch(SERVER_URL + '/api/admin/login', {
+    const res = await apiFetch('/api/admin/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: user, password: pass }),
@@ -1548,9 +1552,9 @@ if (window.location.hash) {
 async function fetchAllData() {
   try {
     const [workersRes, historyRes, approvedRes] = await Promise.all([
-      fetch(SERVER_URL + '/api/workers').then(r => r.json()).catch(() => []),
-      fetch(SERVER_URL + '/api/history').then(r => r.json()).catch(() => []),
-      fetch(SERVER_URL + '/api/admin/approved?adminKey=' + ADMIN_KEY).then(r => r.json()).catch(() => [])
+      apiFetch('/api/workers').then(r => r.json()).catch(() => []),
+      apiFetch('/api/history').then(r => r.json()).catch(() => []),
+      apiFetch('/api/admin/approved?adminKey=' + ADMIN_KEY).then(r => r.json()).catch(() => [])
     ]);
     allWorkers = Array.isArray(workersRes) ? workersRes : [];
     allHistory = Array.isArray(historyRes) ? historyRes : [];
@@ -1610,7 +1614,7 @@ function startApp() {
 let alertsList = [];
 async function loadAlerts() {
   try {
-    const r = await fetch(SERVER_URL + '/api/alerts');
+    const r = await apiFetch('/api/alerts');
     alertsList = await r.json();
     renderAlertBadge();
   } catch(e) {}
@@ -1715,7 +1719,7 @@ function getTimeAgo(time) {
 
 async function markAllSeen() {
   try {
-    await fetch(SERVER_URL + '/api/alerts/seen', { method: 'POST' });
+    await apiFetch('/api/alerts/seen', { method: 'POST' });
     alertsList = [];
     renderAlertBadge();
     showAlerts();
@@ -2349,7 +2353,7 @@ async function addWorker() {
     return;
   }
   try {
-    const res = await fetch(SERVER_URL + '/api/admin/add-worker', {
+    const res = await apiFetch('/api/admin/add-worker', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ adminKey: ADMIN_KEY, workerName: name, role, login, password })
@@ -2390,7 +2394,7 @@ async function saveWorker() {
     return;
   }
   try {
-    const res = await fetch(SERVER_URL + '/api/admin/worker/' + id, {
+    const res = await apiFetch('/api/admin/worker/' + id, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ adminKey: ADMIN_KEY, name, role, login, password: password || undefined })
@@ -2411,7 +2415,7 @@ async function saveWorker() {
 function deleteWorkerConfirm(id, name) {
   showConfirm('İşçi Silinsin?', name + ' adlı işçi silinəcək. Bu əməliyyat geri qaytarıla bilməz.', async function() {
     try {
-      await fetch(SERVER_URL + '/api/admin/worker/' + id, {
+      await apiFetch('/api/admin/worker/' + id, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ adminKey: ADMIN_KEY })
@@ -2550,7 +2554,7 @@ async function renderAdminUsers() {
   const currentAdminUser = localStorage.getItem('ct_admin_user') || '';
   const el = document.getElementById('admin-users-list');
   try {
-    const res = await fetch(SERVER_URL + '/api/admin/users');
+    const res = await apiFetch('/api/admin/users');
     const admins = await res.json();
 
     el.innerHTML = admins.map(a => {
@@ -2599,7 +2603,7 @@ async function saveAdmin() {
   }
 
   try {
-    const res = await fetch(SERVER_URL + '/api/admin/users/' + adminId, {
+    const res = await apiFetch('/api/admin/users/' + adminId, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: newUser, password: newPass || undefined, adminKey: ADMIN_KEY }),
@@ -2632,7 +2636,7 @@ async function addAdmin() {
     return;
   }
   try {
-    const res = await fetch(SERVER_URL + '/api/admin/users', {
+    const res = await apiFetch('/api/admin/users', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: user, password: pass, adminKey: ADMIN_KEY }),
@@ -2654,7 +2658,7 @@ async function addAdmin() {
 function deleteAdmin(id, username) {
   showConfirm('Admin Silinsin?', username + ' adlı admin istifadəçisi silinəcək.', async function() {
     try {
-      const res = await fetch(SERVER_URL + '/api/admin/users/' + id, {
+      const res = await apiFetch('/api/admin/users/' + id, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ adminKey: ADMIN_KEY }),
@@ -2722,7 +2726,7 @@ function renderBrandsPage() {
 async function deleteBrand(name) {
   if (!confirm('\"' + name + '\" brendini və bütün tarixçəsini silmək istəyirsiniz?')) return;
   try {
-    const r = await fetch(SERVER_URL + '/api/brand/' + encodeURIComponent(name), {
+    const r = await apiFetch('/api/brand/' + encodeURIComponent(name), {
       method: 'DELETE',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({ adminKey: ADMIN_KEY })

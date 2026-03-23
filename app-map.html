@@ -29,6 +29,7 @@ body{background:#0a0a0f;font-family:sans-serif}
 <div id="map"></div>
 <script>
 const SERVER='https://gps-server-production-9cef.up.railway.app';
+const API_HEADERS={'x-api-key':'clopos-track-2024'};
 const map=L.map('map',{zoomControl:true}).setView([40.4093,49.8671],12);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
 
@@ -56,7 +57,7 @@ function brandIcon(name){
 // İşçiləri yüklə
 async function loadWorkers(){
   try{
-    const r=await fetch(SERVER+'/api/workers');
+    const r=await fetch(SERVER+'/api/workers',{headers:API_HEADERS});
     const workers=await r.json();
     workers.forEach(w=>{
       if(!w.lat||!w.lng)return;
@@ -76,7 +77,7 @@ async function loadWorkers(){
 // Brendləri yüklə
 async function loadBrands(){
   try{
-    const r=await fetch(SERVER+'/api/history');
+    const r=await fetch(SERVER+'/api/history',{headers:API_HEADERS});
     const history=await r.json();
     const brands={};
     history.forEach(h=>{
