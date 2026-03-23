@@ -1396,7 +1396,7 @@ const SERVER_URL = 'https://gps-server-production-9cef.up.railway.app';
 const ADMIN_KEY = 'clopos2024admin';
 const API_HEADERS = { 'Content-Type': 'application/json', 'x-api-key': 'clopos-track-2024' };
 function apiFetch(path, opts = {}) {
-  return apiFetch(path, { ...opts, headers: { ...API_HEADERS, ...(opts.headers || {}) } });
+  return fetch(SERVER_URL + path, { ...opts, headers: { ...API_HEADERS, ...(opts.headers || {}) } });
 }
 const COLORS = ['#4d8ef7','#34d399','#f87171','#fbbf24','#a78bfa','#f472b6','#38bdf8','#fb923c'];
 
