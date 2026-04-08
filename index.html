@@ -2451,6 +2451,8 @@ async function saveWorker() {
     });
     const data = await res.json();
     if (data.ok) {
+      // Şəkil yüklə (əgər seçilibsə)
+      await uploadWorkerPhoto(id);
       showToast(name + ' yeniləndi', 'success');
       closeModal('editWorkerModal');
       await refreshData();
