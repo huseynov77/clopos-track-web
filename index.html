@@ -890,6 +890,10 @@ select.form-input { cursor: pointer; }
       <span class="material-icons-round">store</span>
       <span class="nav-text">Brendlər</span>
     </div>
+    <div class="nav-item" data-page="ratings" onclick="switchPage('ratings')">
+      <span class="material-icons-round">star</span>
+      <span class="nav-text">Qiymətləndirmə</span>
+    </div>
     <div class="nav-item" data-page="settings" onclick="switchPage('settings')">
       <span class="material-icons-round">settings</span>
       <span class="nav-text">Tənzimləmələr</span>
@@ -945,28 +949,28 @@ select.form-input { cursor: pointer; }
     </div>
 
     <div class="stat-cards">
-      <div class="stat-card">
+      <div class="stat-card" style="cursor:pointer" onclick="showStatDetail('workers')">
         <div class="stat-card-icon" style="background:var(--primary-bg);color:var(--primary)">
           <span class="material-icons-round">people</span>
         </div>
         <div class="stat-card-value" id="dash-total">0</div>
         <div class="stat-card-label">Cəmi İşçi</div>
       </div>
-      <div class="stat-card">
+      <div class="stat-card" style="cursor:pointer" onclick="showStatDetail('online')">
         <div class="stat-card-icon" style="background:var(--green-bg);color:var(--green)">
           <span class="material-icons-round">wifi</span>
         </div>
         <div class="stat-card-value" id="dash-online" style="color:var(--green)">0</div>
         <div class="stat-card-label">Onlayn</div>
       </div>
-      <div class="stat-card">
+      <div class="stat-card" style="cursor:pointer" onclick="showStatDetail('shifts')">
         <div class="stat-card-icon" style="background:var(--yellow-bg);color:var(--yellow)">
           <span class="material-icons-round">work_history</span>
         </div>
         <div class="stat-card-value" id="dash-shifts" style="color:var(--yellow)">0</div>
         <div class="stat-card-label">Bugünkü Shiftlər</div>
       </div>
-      <div class="stat-card">
+      <div class="stat-card" style="cursor:pointer" onclick="showStatDetail('visits')">
         <div class="stat-card-icon" style="background:var(--purple-bg);color:var(--purple)">
           <span class="material-icons-round">domain</span>
         </div>
@@ -1258,6 +1262,40 @@ select.form-input { cursor: pointer; }
       <div id="admin-users-list"></div>
     </div>
   </div>
+
+  <!-- ===== RATINGS PAGE ===== -->
+  <div class="page" id="page-ratings">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Qiymətləndirmə</div>
+        <div class="page-subtitle">İşçilərin iş keyfiyyətini qiymətləndirin</div>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap">
+      <select class="filter-select" id="ratingWorkerFilter" onchange="renderRatings()">
+        <option value="">Bütün İşçilər</option>
+      </select>
+      <input type="date" class="filter-select" id="ratingDateFrom" onchange="renderRatings()" style="min-width:140px" />
+      <input type="date" class="filter-select" id="ratingDateTo" onchange="renderRatings()" style="min-width:140px" />
+    </div>
+
+    <!-- Worker Stats Cards -->
+    <div id="rating-stats" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;margin-bottom:24px"></div>
+
+    <!-- Qiymətləndirilməmiş işlər -->
+    <div class="settings-card" style="margin-bottom:20px">
+      <div class="settings-card-title" style="margin-bottom:16px">📋 Qiymətləndirilməmiş İşlər</div>
+      <div id="unrated-list"></div>
+    </div>
+
+    <!-- Bütün qiymətləndirmələr -->
+    <div class="settings-card">
+      <div class="settings-card-title" style="margin-bottom:16px">⭐ Bütün Qiymətləndirmələr</div>
+      <div id="rated-list"></div>
+    </div>
+  </div>
 </div>
 
 <!-- ========= MODALS ========= -->
@@ -1538,12 +1576,13 @@ function switchPage(page) {
   if (page === 'brands') renderBrandsPage();
   if (page === 'settings') renderSettings();
   if (page === 'alerts') showAlerts();
+  if (page === 'ratings') loadRatings();
   window.location.hash = page;
 }
 // URL hash ilə birbaşa səhifə açmaq
 if (window.location.hash) {
   const h = window.location.hash.replace('#','');
-  if (['dashboard','map','workers','history','brands','settings'].includes(h)) {
+  if (['dashboard','map','workers','history','brands','settings','ratings'].includes(h)) {
     setTimeout(() => switchPage(h), 500);
   }
 }
@@ -2808,6 +2847,186 @@ function mapFlyToBrand(lat, lng, name) {
   document.getElementById('mapBrandSearch').value = name;
   if (!brandsOn) mapToggleBrands();
   mapInstance.flyTo([lat, lng], 17, { duration: 1 });
+}
+
+// ======================== STAT DETAIL ========================
+function showStatDetail(type) {
+  const today = new Date().toISOString().slice(0,10);
+  if (type === 'workers') { switchPage('workers'); return; }
+  if (type === 'online') {
+    switchPage('workers');
+    // Filter online workers
+    setTimeout(() => {
+      const rows = document.querySelectorAll('#workers-table-body tr');
+      rows.forEach(r => {
+        const badge = r.querySelector('.badge-online');
+        r.style.display = badge ? '' : 'none';
+      });
+    }, 200);
+    return;
+  }
+  if (type === 'shifts') {
+    switchPage('history');
+    setTimeout(() => {
+      const sel = document.getElementById('histTypeFilter');
+      if (sel) { sel.value = 'shift_open'; renderHistory(); }
+    }, 200);
+    return;
+  }
+  if (type === 'visits') {
+    switchPage('history');
+    setTimeout(() => {
+      const sel = document.getElementById('histTypeFilter');
+      if (sel) { sel.value = 'object_enter'; renderHistory(); }
+    }, 200);
+    return;
+  }
+}
+
+// ======================== RATINGS ========================
+let allRatings = [];
+
+async function loadRatings() {
+  try {
+    const res = await apiFetch('/api/ratings');
+    allRatings = await res.json();
+  } catch { allRatings = []; }
+  renderRatings();
+}
+
+function renderRatings() {
+  const workerFilter = document.getElementById('ratingWorkerFilter')?.value || '';
+  const dateFrom = document.getElementById('ratingDateFrom')?.value;
+  const dateTo = document.getElementById('ratingDateTo')?.value;
+
+  // Fill worker filter
+  const wSelect = document.getElementById('ratingWorkerFilter');
+  if (wSelect && wSelect.options.length <= 1) {
+    const names = [...new Set(allHistory.map(h => h.workerName || h.worker_name).filter(Boolean))];
+    names.forEach(n => { const o = document.createElement('option'); o.value = n; o.textContent = n; wSelect.appendChild(o); });
+  }
+
+  // Unrated: object_exit events without rating
+  const exitEvents = allHistory.filter(h => {
+    if (h.type !== 'object_exit') return false;
+    if (workerFilter && (h.workerName || h.worker_name) !== workerFilter) return false;
+    if (dateFrom && h.date < dateFrom.split('-').reverse().join('.')) return false;
+    if (dateTo && h.date > dateTo.split('-').reverse().join('.')) return false;
+    return true;
+  });
+
+  const ratedIds = new Set(allRatings.map(r => String(r.history_id)));
+  const unrated = exitEvents.filter(e => !ratedIds.has(String(e.id)));
+  const rated = allRatings.filter(r => {
+    if (workerFilter && r.worker_name !== workerFilter) return false;
+    return true;
+  });
+
+  // Worker stats
+  const statsDiv = document.getElementById('rating-stats');
+  const workerStats = {};
+  rated.forEach(r => {
+    if (!workerStats[r.worker_name]) workerStats[r.worker_name] = { total: 0, sum: 0 };
+    workerStats[r.worker_name].total++;
+    workerStats[r.worker_name].sum += r.stars;
+  });
+  statsDiv.innerHTML = Object.entries(workerStats).map(([name, s]) => `
+    <div class="stat-card" style="cursor:default">
+      <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:8px">${name}</div>
+      <div style="font-size:24px;font-weight:900;color:#fbbf24">${(s.sum/s.total).toFixed(1)} ⭐</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:4px">${s.total} qiymətləndirmə</div>
+    </div>
+  `).join('');
+
+  // Unrated list
+  const unratedDiv = document.getElementById('unrated-list');
+  if (unrated.length === 0) {
+    unratedDiv.innerHTML = '<div style="text-align:center;color:var(--text2);padding:20px">Hamısı qiymətləndirilir ✅</div>';
+  } else {
+    unratedDiv.innerHTML = unrated.map(e => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;border-bottom:1px solid var(--border)">
+        <div>
+          <div style="font-weight:600;color:var(--text)">${e.workerName || e.worker_name}</div>
+          <div style="font-size:12px;color:var(--text2)">🏪 ${e.brandName || e.brand_name || '—'} · ${e.date || ''} ${e.time_str || ''}</div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="openRatingModal(${e.id}, '${(e.workerName||e.worker_name||'').replace(/'/g,"\\'")}', '${e.worker_id}', '${(e.brandName||e.brand_name||'').replace(/'/g,"\\'")}')">
+          ⭐ Qiymətləndir
+        </button>
+      </div>
+    `).join('');
+  }
+
+  // Rated list
+  const ratedDiv = document.getElementById('rated-list');
+  if (rated.length === 0) {
+    ratedDiv.innerHTML = '<div style="text-align:center;color:var(--text2);padding:20px">Hələ qiymətləndirmə yoxdur</div>';
+  } else {
+    ratedDiv.innerHTML = rated.map(r => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;border-bottom:1px solid var(--border)">
+        <div>
+          <div style="font-weight:600;color:var(--text)">${r.worker_name} — 🏪 ${r.brand_name || '—'}</div>
+          <div style="font-size:13px;color:var(--text2);margin-top:2px">${'⭐'.repeat(r.stars)}${'☆'.repeat(5-r.stars)} ${r.review ? '— '+r.review : ''}</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:4px">${new Date(Number(r.time)).toLocaleDateString('az-AZ')} · ${r.rated_by || 'Admin'}</div>
+        </div>
+      </div>
+    `).join('');
+  }
+}
+
+let ratingModalData = {};
+function openRatingModal(historyId, workerName, workerId, brandName) {
+  ratingModalData = { historyId, workerName, workerId, brandName };
+  const html = `
+    <div class="modal-overlay" id="ratingModal" style="display:flex" onclick="if(event.target===this)this.style.display='none'">
+      <div class="modal">
+        <div class="modal-title">⭐ Qiymətləndirmə</div>
+        <div class="modal-sub">${workerName} — ${brandName}</div>
+        <div style="display:flex;gap:8px;justify-content:center;margin:20px 0" id="star-select">
+          ${[1,2,3,4,5].map(i => `<span style="font-size:32px;cursor:pointer" onclick="selectStar(${i})">☆</span>`).join('')}
+        </div>
+        <div class="form-group">
+          <label class="form-label">Rəy</label>
+          <textarea class="form-input" id="rating-review" rows="3" placeholder="İşçinin iş keyfiyyəti haqqında..."></textarea>
+        </div>
+        <div style="display:flex;gap:12px;margin-top:16px">
+          <button class="btn" style="flex:1" onclick="document.getElementById('ratingModal').style.display='none'">Ləğv et</button>
+          <button class="btn btn-primary" style="flex:2" onclick="submitRating()">Göndər</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+let selectedStars = 0;
+function selectStar(n) {
+  selectedStars = n;
+  const stars = document.querySelectorAll('#star-select span');
+  stars.forEach((s, i) => { s.textContent = i < n ? '⭐' : '☆'; });
+}
+
+async function submitRating() {
+  if (!selectedStars) { alert('Ulduz seçin'); return; }
+  const review = document.getElementById('rating-review')?.value || '';
+  try {
+    await apiFetch('/api/rating', {
+      method: 'POST',
+      body: JSON.stringify({
+        adminKey: ADMIN_KEY,
+        historyId: ratingModalData.historyId,
+        workerId: ratingModalData.workerId,
+        workerName: ratingModalData.workerName,
+        brandName: ratingModalData.brandName,
+        stars: selectedStars,
+        review,
+        ratedBy: currentUser || 'Admin',
+      }),
+    });
+    document.getElementById('ratingModal')?.remove();
+    selectedStars = 0;
+    await loadRatings();
+  } catch (e) {
+    alert('Xəta: ' + e.message);
+  }
 }
 
 // ======================== INIT ========================
