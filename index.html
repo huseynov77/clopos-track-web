@@ -1356,6 +1356,16 @@ select.form-input { cursor: pointer; }
         <input type="password" class="form-input" id="ew-password" placeholder="••••••••">
       </div>
     </div>
+    <div class="form-group" style="grid-column:span 2;margin-top:8px">
+      <label class="form-label">Şəkil</label>
+      <div style="display:flex;align-items:center;gap:12px">
+        <div id="ew-photo-preview" style="width:48px;height:48px;border-radius:10px;background:var(--card2);display:flex;align-items:center;justify-content:center;overflow:hidden">
+          <span class="material-icons-round" style="color:var(--text2)">person</span>
+        </div>
+        <input type="file" id="ew-photo-input" accept="image/*" style="display:none" onchange="previewWorkerPhoto(this)">
+        <button class="btn btn-ghost btn-sm" type="button" onclick="document.getElementById('ew-photo-input').click()">📷 Şəkil Seç</button>
+      </div>
+    </div>
     <div class="modal-actions">
       <button class="btn btn-danger" onclick="deleteWorkerFromEdit()" style="margin-right:auto">
         <span class="material-icons-round">delete</span> Sil
@@ -2357,8 +2367,9 @@ function renderWorkersTable() {
     const statusBadge = online
       ? '<span class="badge badge-online"><span class="badge-dot" style="background:var(--green)"></span>Onlayn</span>'
       : '<span class="badge badge-offline"><span class="badge-dot" style="background:var(--text2)"></span>Oflayn</span>';
+    const photoHtml = (lw && lw.photo) ? '<img src="data:image/jpeg;base64,' + lw.photo + '" style="width:32px;height:32px;border-radius:8px;object-fit:cover">' : '<div class="avatar-sm" style="background:' + color + '">' + initials(w.name) + '</div>';
     return '<tr style="cursor:pointer" onclick="openEditWorker(\'' + w.id + '\')">' +
-      '<td><div class="worker-cell"><div class="avatar-sm" style="background:' + color + '">' + initials(w.name) + '</div><div><div class="worker-cell-name">' + escapeHtml(w.name) + '</div></div></div></td>' +
+      '<td><div class="worker-cell">' + photoHtml + '<div><div class="worker-cell-name">' + escapeHtml(w.name) + '</div></div></div></td>' +
       '<td><span class="badge badge-primary">' + escapeHtml(w.role || 'İşçi') + '</span></td>' +
       '<td style="font-family:\'JetBrains Mono\',monospace;font-size:12px;color:var(--primary)">' + escapeHtml(w.id) + '</td>' +
       '<td style="font-family:\'JetBrains Mono\',monospace;font-size:12px;color:var(--text2)">' + escapeHtml(w.login) + '</td>' +
@@ -3018,7 +3029,7 @@ async function submitRating() {
         brandName: ratingModalData.brandName,
         stars: selectedStars,
         review,
-        ratedBy: currentUser || 'Admin',
+        ratedBy: localStorage.getItem('ct_admin_user') || 'Admin',
       }),
     });
     document.getElementById('ratingModal')?.remove();
@@ -3027,6 +3038,27 @@ async function submitRating() {
   } catch (e) {
     alert('Xəta: ' + e.message);
   }
+}
+
+// ======================== WORKER PHOTO ========================
+function previewWorkerPhoto(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    document.getElementById('ew-photo-preview').innerHTML = '<img src="' + e.target.result + '" style="width:48px;height:48px;object-fit:cover;border-radius:10px">';
+    document.getElementById('ew-photo-preview').dataset.base64 = e.target.result.split(',')[1];
+  };
+  reader.readAsDataURL(file);
+}
+
+async function uploadWorkerPhoto(workerId) {
+  const b64 = document.getElementById('ew-photo-preview')?.dataset?.base64;
+  if (!b64) return;
+  await apiFetch('/api/worker/photo', {
+    method: 'POST',
+    body: JSON.stringify({ adminKey: ADMIN_KEY, workerId, photo: b64 }),
+  });
 }
 
 // ======================== INIT ========================
