@@ -2090,7 +2090,9 @@ function updateMapMarkers() {
       mapTrails[w.id].push([w.lat, w.lng]);
     }
     // Create/update marker
-    const markerHtml = '<div class="cmarker' + (w.online ? '' : ' offline') + '" style="background:' + color + '">' + initials(w.name) + '</div>';
+    const markerHtml = w.photo
+      ? '<div class="cmarker' + (w.online ? '' : ' offline') + '" style="background:transparent;padding:0;overflow:hidden"><img src="data:image/jpeg;base64,' + w.photo + '" style="width:36px;height:36px;object-fit:cover;border-radius:50%"></div>'
+      : '<div class="cmarker' + (w.online ? '' : ' offline') + '" style="background:' + color + '">' + initials(w.name) + '</div>';
     const icon = L.divIcon({ className: '', html: markerHtml, iconSize: [40, 40], iconAnchor: [20, 20] });
     if (mapMarkers[w.id]) {
       mapMarkers[w.id].setLatLng([w.lat, w.lng]);
