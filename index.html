@@ -1284,16 +1284,10 @@ select.form-input { cursor: pointer; }
     <!-- Worker Stats Cards -->
     <div id="rating-stats" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;margin-bottom:24px"></div>
 
-    <!-- Qiymətləndirilməmiş işlər -->
-    <div class="settings-card" style="margin-bottom:20px">
-      <div class="settings-card-title" style="margin-bottom:16px">📋 Qiymətləndirilməmiş İşlər</div>
-      <div id="unrated-list"></div>
-    </div>
-
-    <!-- Bütün qiymətləndirmələr -->
+    <!-- Bütün işlər — bir siyahıda -->
     <div class="settings-card">
-      <div class="settings-card-title" style="margin-bottom:16px">⭐ Bütün Qiymətləndirmələr</div>
-      <div id="rated-list"></div>
+      <div class="settings-card-title" style="margin-bottom:16px">📋 Obyekt Çıxışları</div>
+      <div id="all-work-list"></div>
     </div>
   </div>
 </div>
@@ -2951,38 +2945,25 @@ function renderRatings() {
     </div>
   `).join('');
 
-  // Unrated list
-  const unratedDiv = document.getElementById('unrated-list');
-  if (unrated.length === 0) {
-    unratedDiv.innerHTML = '<div style="text-align:center;color:var(--text2);padding:20px">Hamısı qiymətləndirilir ✅</div>';
+  // Bir siyahı — rating varsa yanında göstər, yoxsa düymə
+  const listDiv = document.getElementById('all-work-list');
+  if (exitEvents.length === 0) {
+    listDiv.innerHTML = '<div style="text-align:center;color:var(--text2);padding:20px">Obyekt çıxışı yoxdur</div>';
   } else {
-    unratedDiv.innerHTML = unrated.map(e => `
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;border-bottom:1px solid var(--border)">
-        <div>
-          <div style="font-weight:600;color:var(--text)">${e.workerName || e.worker_name}</div>
-          <div style="font-size:12px;color:var(--text2)">🏪 ${e.brandName || e.brand_name || '—'} · ${e.date || ''} ${e.time_str || ''}</div>
-        </div>
-        <button class="btn btn-primary btn-sm" onclick="openRatingModal(${e.id}, '${(e.workerName||e.worker_name||'').replace(/'/g,"\\'")}', '${e.worker_id}', '${(e.brandName||e.brand_name||'').replace(/'/g,"\\'")}')">
-          ⭐ Qiymətləndir
-        </button>
-      </div>
-    `).join('');
-  }
-
-  // Rated list
-  const ratedDiv = document.getElementById('rated-list');
-  if (rated.length === 0) {
-    ratedDiv.innerHTML = '<div style="text-align:center;color:var(--text2);padding:20px">Hələ qiymətləndirmə yoxdur</div>';
-  } else {
-    ratedDiv.innerHTML = rated.map(r => `
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;border-bottom:1px solid var(--border)">
-        <div>
-          <div style="font-weight:600;color:var(--text)">${r.worker_name} — 🏪 ${r.brand_name || '—'}</div>
-          <div style="font-size:13px;color:var(--text2);margin-top:2px">${'⭐'.repeat(r.stars)}${'☆'.repeat(5-r.stars)} ${r.review ? '— '+r.review : ''}</div>
-          <div style="font-size:11px;color:var(--text2);margin-top:4px">${new Date(Number(r.time)).toLocaleDateString('az-AZ')} · ${r.rated_by || 'Admin'}</div>
-        </div>
-      </div>
-    `).join('');
+    listDiv.innerHTML = exitEvents.map(e => {
+      const rating = rated.find(r => String(r.history_id) === String(e.id));
+      const name = e.workerName || e.worker_name;
+      const brand = e.brandName || e.brand_name || '—';
+      return `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;border-bottom:1px solid var(--border)">
+          <div style="flex:1">
+            <div style="font-weight:600;color:var(--text)">${name}</div>
+            <div style="font-size:12px;color:var(--text2)">🏪 ${brand} · ${e.date || ''} ${e.time_str || ''}</div>
+            ${rating ? `<div style="font-size:13px;margin-top:4px">${'⭐'.repeat(rating.stars)}${'☆'.repeat(5-rating.stars)}${rating.review ? ' <span style="color:var(--text2)">— '+rating.review+'</span>' : ''}</div>` : ''}
+          </div>
+          ${rating ? '' : `<button class="btn btn-primary btn-sm" onclick="openRatingModal(${e.id}, '${name.replace(/'/g,"\\'")}', '${e.worker_id}', '${brand.replace(/'/g,"\\'")}')">⭐ Qiymətləndir</button>`}
+        </div>`;
+    }).join('');
   }
 }
 
