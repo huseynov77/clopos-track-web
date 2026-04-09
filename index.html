@@ -2963,7 +2963,7 @@ function renderRatings() {
             <div style="font-size:12px;color:var(--text2)">🏪 ${brand} · ${e.date || ''} ${e.time_str || ''}</div>
             ${rating ? `<div style="font-size:13px;margin-top:4px">${'⭐'.repeat(rating.stars)}${'☆'.repeat(5-rating.stars)}${rating.review ? ' <span style="color:var(--text2)">— '+rating.review+'</span>' : ''}</div>` : ''}
           </div>
-          ${rating ? '' : `<button class="btn btn-primary btn-sm" onclick="openRatingModal(${e.id}, '${name.replace(/'/g,"\\'")}', '${e.worker_id}', '${brand.replace(/'/g,"\\'")}')">⭐ Qiymətləndir</button>`}
+          ${rating ? '' : `<button class="btn btn-primary btn-sm" onclick="openRatingModal(${e.id}, '${name.replace(/'/g,"\\'")}', '${e.workerId || e.worker_id}', '${brand.replace(/'/g,"\\'")}')">⭐ Qiymətləndir</button>`}
         </div>`;
     }).join('');
   }
