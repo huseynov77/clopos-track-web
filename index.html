@@ -8,6 +8,16 @@
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://browser.sentry-cdn.com/8.0.0/bundle.tracing.min.js" crossorigin="anonymous"></script>
+<script>
+  if (window.Sentry) {
+    Sentry.init({
+      dsn: 'https://99ad6f3d82ee5ce17d36944b7c28c236@sentry.clopos.com/38',
+      tracesSampleRate: 0.1,
+      initialScope: { tags: { app: 'web' } },
+    });
+  }
+</script>
 <style>
 :root {
   --bg: #0a0a0f;
