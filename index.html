@@ -1635,7 +1635,11 @@ async function refreshData() {
   if (currentPage === 'map') updateMapMarkers();
   if (currentPage === 'workers') renderWorkersTable();
   if (currentPage === 'history') renderHistoryList();
-  if (currentPage === 'brands') renderBrandsPage();
+  if (currentPage === 'brands') {
+    // Detail view açıqdırsa toxunma
+    const detailVisible = document.getElementById('brands-detail-view')?.style.display === '';
+    if (!detailVisible) renderBrandsPage();
+  }
   if (currentPage === 'alerts') showAlerts();
 }
 
