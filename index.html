@@ -1625,7 +1625,7 @@ async function refreshData() {
   if (allHistory.length > prevCount && prevCount > 0) {
     const newEvents = allHistory.slice(0, allHistory.length - prevCount);
     newEvents.forEach(h => {
-      const label = h.type === 'shift_open' ? 'Shift açdı' : h.type === 'shift_close' ? 'Shift bağladı' : h.type === 'object_enter' ? 'Obyektə daxil oldu' : h.type === 'object_exit' ? 'Obyektdən çıxdı' : h.text || '';
+      const label = h.type === 'shift_open' ? 'Shift açdı' : h.type === 'shift_close' ? 'Shift bağladı' : h.type === 'object_enter' ? 'Obyektə daxil oldu' : h.type === 'object_exit' ? 'Obyektdən çıxdı' : h.type === 'contact' ? 'Əlaqə yazdı' : h.type === 'akt' ? 'Akt göndərdi' : h.type === 'tehvil' ? 'Qurulma Təhvil göndərdi' : h.type === 'object_photo' ? 'Obyekt şəkli göndərdi' : h.text || '';
       const brand = h.brandName ? ' — ' + h.brandName : '';
       showLiveToast(h.workerName + ': ' + label + brand);
     });
@@ -2741,8 +2741,8 @@ function renderBrandsPage() {
   document.getElementById('brands-list-view').style.display = '';
   document.getElementById('brands-detail-view').style.display = 'none';
 
-  // Gather unique brands from object_enter / object_exit
-  const brandEvents = allHistory.filter(h => h.type === 'object_enter' || h.type === 'object_exit');
+  // Gather unique brands — bütün brendli event-lərdən
+  const brandEvents = allHistory.filter(h => ['object_enter','object_exit','contact','akt','tehvil','object_photo'].includes(h.type));
   const brandMap = {};
   brandEvents.forEach(h => {
     const bn = h.brandName || '';
@@ -2800,7 +2800,7 @@ function openBrandDetail(brandName) {
   document.getElementById('brands-detail-view').style.display = '';
   document.getElementById('brand-detail-title').textContent = brandName;
 
-  const events = allHistory.filter(h => h.brandName === brandName && (h.type === 'object_enter' || h.type === 'object_exit'));
+  const events = allHistory.filter(h => h.brandName === brandName && ['object_enter','object_exit','contact','akt','tehvil','object_photo'].includes(h.type));
   const tbody = document.getElementById('brand-detail-tbody');
   if (!events.length) {
     tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text2);padding:24px">Hadisə tapılmadı</td></tr>';
