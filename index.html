@@ -1445,10 +1445,24 @@ select.form-input { cursor: pointer; }
 <script>
 // ======================== CONFIG ========================
 const SERVER_URL = 'https://gps-server-production-9cef.up.railway.app';
-const ADMIN_KEY = 'clopos2024admin';
 const API_HEADERS = { 'Content-Type': 'application/json', 'x-api-key': 'clopos-track-2024' };
+function getAuthToken() {
+  return localStorage.getItem('ct_admin_token') || '';
+}
 function apiFetch(path, opts = {}) {
-  return fetch(SERVER_URL + path, { ...opts, headers: { ...API_HEADERS, ...(opts.headers || {}) } });
+  const headers = { ...API_HEADERS, ...(opts.headers || {}) };
+  const tok = getAuthToken();
+  if (tok) headers['Authorization'] = 'Bearer ' + tok;
+  return fetch(SERVER_URL + path, { ...opts, headers }).then(async r => {
+    if (r.status === 401 || r.status === 403) {
+      // Token expire — login-ə qayıt
+      localStorage.removeItem('ct_admin_token');
+      localStorage.removeItem('ct_admin_logged');
+      location.reload();
+      throw new Error('Auth expired');
+    }
+    return r;
+  });
 }
 const COLORS = ['#4d8ef7','#34d399','#f87171','#fbbf24','#a78bfa','#f472b6','#38bdf8','#fb923c'];
 
@@ -1482,11 +1496,14 @@ function checkAuth() {
     setTimeout(() => switchPage('map'), 500);
     return;
   }
+  const tok = localStorage.getItem('ct_admin_token');
   const loggedIn = localStorage.getItem('ct_admin_logged');
-  if (loggedIn === 'true') {
+  if (loggedIn === 'true' && tok) {
     document.getElementById('loginPage').style.display = 'none';
     startApp();
   } else {
+    // Token yoxdursa, login məcburi
+    localStorage.removeItem('ct_admin_logged');
     document.getElementById('loginPage').style.display = 'flex';
   }
 }
@@ -1495,15 +1512,16 @@ async function doLogin() {
   const user = document.getElementById('loginUser').value.trim();
   const pass = document.getElementById('loginPass').value;
   try {
-    const res = await apiFetch('/api/admin/login', {
+    const res = await fetch(SERVER_URL + '/api/admin/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-api-key': 'clopos-track-2024' },
       body: JSON.stringify({ username: user, password: pass }),
     });
     const data = await res.json();
-    if (data.ok) {
+    if (data.ok && data.token) {
       localStorage.setItem('ct_admin_logged', 'true');
       localStorage.setItem('ct_admin_user', data.username);
+      localStorage.setItem('ct_admin_token', data.token);
       document.getElementById('loginPage').style.display = 'none';
       document.getElementById('loginError').style.display = 'none';
       startApp();
@@ -1517,8 +1535,10 @@ async function doLogin() {
 }
 
 function doLogout() {
+  if (refreshInterval) { clearInterval(refreshInterval); refreshInterval = null; }
   localStorage.removeItem('ct_admin_logged');
   localStorage.removeItem('ct_admin_user');
+  localStorage.removeItem('ct_admin_token');
   location.reload();
 }
 
@@ -1607,7 +1627,7 @@ async function fetchAllData() {
     const [workersRes, historyRes, approvedRes] = await Promise.all([
       apiFetch('/api/workers').then(r => r.json()).catch(() => []),
       apiFetch('/api/history').then(r => r.json()).catch(() => []),
-      apiFetch('/api/admin/approved?adminKey=' + ADMIN_KEY).then(r => r.json()).catch(() => [])
+      apiFetch('/api/admin/approved').then(r => r.json()).catch(() => [])
     ]);
     allWorkers = Array.isArray(workersRes) ? workersRes : [];
     allHistory = Array.isArray(historyRes) ? historyRes : [];
@@ -1868,7 +1888,7 @@ function addressLink(address) {
 
 function escapeHtml(str) {
   if (!str) return '';
-  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
 // ======================== TOAST ========================
@@ -2416,7 +2436,7 @@ async function addWorker() {
     const res = await apiFetch('/api/admin/add-worker', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ adminKey: ADMIN_KEY, workerName: name, role, login, password })
+      body: JSON.stringify({ workerName: name, role, login, password })
     });
     const data = await res.json();
     if (data.ok) {
@@ -2457,7 +2477,7 @@ async function saveWorker() {
     const res = await apiFetch('/api/admin/worker/' + id, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ adminKey: ADMIN_KEY, name, role, login, password: password || undefined })
+      body: JSON.stringify({ name, role, login, password: password || undefined })
     });
     const data = await res.json();
     if (data.ok) {
@@ -2480,7 +2500,7 @@ function deleteWorkerConfirm(id, name) {
       await apiFetch('/api/admin/worker/' + id, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ adminKey: ADMIN_KEY })
+        body: JSON.stringify({})
       });
       showToast(name + ' silindi', 'success');
       // Clean up map marker
@@ -2668,7 +2688,7 @@ async function saveAdmin() {
     const res = await apiFetch('/api/admin/users/' + adminId, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: newUser, password: newPass || undefined, adminKey: ADMIN_KEY }),
+      body: JSON.stringify({ username: newUser, password: newPass || undefined }),
     });
     const data = await res.json();
     if (res.ok && data.ok) {
@@ -2701,7 +2721,7 @@ async function addAdmin() {
     const res = await apiFetch('/api/admin/users', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: user, password: pass, adminKey: ADMIN_KEY }),
+      body: JSON.stringify({ username: user, password: pass }),
     });
     const data = await res.json();
     if (res.ok && data.ok) {
@@ -2723,7 +2743,7 @@ function deleteAdmin(id, username) {
       const res = await apiFetch('/api/admin/users/' + id, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ adminKey: ADMIN_KEY }),
+        body: JSON.stringify({}),
       });
       const data = await res.json();
       if (res.ok && data.ok) {
@@ -2791,7 +2811,7 @@ async function deleteBrand(name) {
     const r = await apiFetch('/api/brand/' + encodeURIComponent(name), {
       method: 'DELETE',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ adminKey: ADMIN_KEY })
+      body: JSON.stringify({})
     });
     const data = await r.json();
     if (data.ok) { await refreshData(); renderBrandsPage(); }
@@ -3021,7 +3041,6 @@ async function submitRating() {
     await apiFetch('/api/rating', {
       method: 'POST',
       body: JSON.stringify({
-        adminKey: ADMIN_KEY,
         historyId: ratingModalData.historyId,
         workerId: ratingModalData.workerId,
         workerName: ratingModalData.workerName,
@@ -3056,7 +3075,7 @@ async function uploadWorkerPhoto(workerId) {
   if (!b64) return;
   await apiFetch('/api/worker/photo', {
     method: 'POST',
-    body: JSON.stringify({ adminKey: ADMIN_KEY, workerId, photo: b64 }),
+    body: JSON.stringify({ workerId, photo: b64 }),
   });
 }
 
