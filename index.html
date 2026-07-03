@@ -1128,6 +1128,31 @@ select.form-input { cursor: pointer; }
         <p>İşçi tapılmadı</p>
       </div>
     </div>
+
+    <!-- İşdən çıxmış işçilər (soft-delete olunanlar) -->
+    <div class="data-table-wrap" style="margin-top:20px" id="inactive-workers-wrap">
+      <div class="data-table-header">
+        <div class="data-table-title" id="inactive-count-label">İşdən çıxmış işçilər (0)</div>
+      </div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead>
+            <tr>
+              <th>İşçi</th>
+              <th>Vəzifə</th>
+              <th>Login</th>
+              <th>Dayandırılma tarixi</th>
+              <th>Əməliyyat</th>
+            </tr>
+          </thead>
+          <tbody id="inactive-workers-tbody"></tbody>
+        </table>
+      </div>
+      <div id="inactive-workers-empty" class="empty-state" style="display:none;padding:20px">
+        <span class="material-icons-round" style="font-size:32px">check_circle_outline</span>
+        <p style="font-size:14px">Bütün işçilər aktivdir</p>
+      </div>
+    </div>
   </div>
 
   <!-- ===== HISTORY PAGE ===== -->
@@ -2381,7 +2406,76 @@ function mapGoToWorkerHistory() {
 }
 
 // ======================== WORKERS PAGE ========================
+let inactiveWorkers = [];
+async function loadInactiveWorkers() {
+  try {
+    const r = await apiFetch('/api/admin/inactive-workers');
+    inactiveWorkers = await r.json();
+    if (!Array.isArray(inactiveWorkers)) inactiveWorkers = [];
+    renderInactiveWorkersTable();
+  } catch (e) { inactiveWorkers = []; renderInactiveWorkersTable(); }
+}
+
+function renderInactiveWorkersTable() {
+  const tbody = document.getElementById('inactive-workers-tbody');
+  const empty = document.getElementById('inactive-workers-empty');
+  const label = document.getElementById('inactive-count-label');
+  if (!tbody || !empty || !label) return;
+  label.textContent = 'İşdən çıxmış işçilər (' + inactiveWorkers.length + ')';
+  if (!inactiveWorkers.length) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+  tbody.innerHTML = inactiveWorkers.map(w => {
+    const dateStr = w.deactivatedAt ? new Date(w.deactivatedAt).toLocaleDateString('az') + ' ' + new Date(w.deactivatedAt).toLocaleTimeString('az', {hour:'2-digit', minute:'2-digit'}) : '—';
+    return '<tr>' +
+      '<td>' + escapeHtml(w.name) + '</td>' +
+      '<td>' + escapeHtml(w.role || '—') + '</td>' +
+      '<td>' + escapeHtml(w.login) + '</td>' +
+      '<td>' + escapeHtml(dateStr) + '</td>' +
+      '<td>' +
+        '<button class="btn btn-primary btn-sm" onclick="reactivateWorker(\'' + w.id + '\', \'' + escapeHtml(w.name).replace(/'/g, '&#39;') + '\')">🔄 İşə qaytar</button> ' +
+        '<button class="btn btn-danger btn-sm" onclick="permanentDeleteWorker(\'' + w.id + '\', \'' + escapeHtml(w.name).replace(/'/g, '&#39;') + '\')">🗑 Tamamilə sil</button>' +
+      '</td>' +
+    '</tr>';
+  }).join('');
+}
+
+async function reactivateWorker(id, name) {
+  showConfirm('İşə qaytar?', name + ' yenidən aktivləşdiriləcək.', async function() {
+    try {
+      const res = await apiFetch('/api/admin/worker/' + id + '/reactivate', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({}) });
+      const data = await res.json();
+      if (data.ok) {
+        showToast(name + ' yenidən aktivləşdirildi', 'success');
+        await refreshData();
+        await loadInactiveWorkers();
+      } else {
+        showToast(data.error || 'Xəta', 'error');
+      }
+    } catch (e) { showToast('Server xətası', 'error'); }
+  });
+}
+
+async function permanentDeleteWorker(id, name) {
+  showConfirm('Tamamilə silinsin?', name + '-nin BÜTÜN tarixçəsi silinəcək. Bu əməliyyat geri qaytarılmaz!', async function() {
+    try {
+      const res = await apiFetch('/api/admin/worker/' + id + '/permanent', { method: 'DELETE', headers: {'Content-Type':'application/json'}, body: JSON.stringify({}) });
+      const data = await res.json();
+      if (data.ok) {
+        showToast(name + ' tamamilə silindi', 'success');
+        await loadInactiveWorkers();
+      } else {
+        showToast(data.error || 'Xəta', 'error');
+      }
+    } catch (e) { showToast('Server xətası', 'error'); }
+  });
+}
+
 function renderWorkersTable() {
+  loadInactiveWorkers();
   const search = (document.getElementById('workersSearch').value || '').toLowerCase();
   const liveMap = new Map(allWorkers.map(w => [w.id, w]));
   let filtered = approvedWorkers;
@@ -2513,14 +2607,14 @@ async function saveWorker() {
 }
 
 function deleteWorkerConfirm(id, name) {
-  showConfirm('İşçi Silinsin?', name + ' adlı işçi silinəcək. Bu əməliyyat geri qaytarıla bilməz.', async function() {
+  showConfirm('İşdən çıxarılsın?', name + ' işdən çıxarılacaq. Tarixçəsi qalacaq, xəritədən çıxacaq və girişi bloklanacaq. Sonradan "İşə qaytar" düyməsi ilə geri qaytara bilərsiz.', async function() {
     try {
       await apiFetch('/api/admin/worker/' + id, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({})
       });
-      showToast(name + ' silindi', 'success');
+      showToast(name + ' işdən çıxarıldı (tarixçəsi qaldı)', 'success');
       // Clean up map marker
       if (mapMarkers[id] && mapInstance) {
         mapInstance.removeLayer(mapMarkers[id]);
@@ -2531,6 +2625,7 @@ function deleteWorkerConfirm(id, name) {
         delete mapTrailLines[id];
       }
       await refreshData();
+      await loadInactiveWorkers();
     } catch (e) {
       showToast('Xəta baş verdi', 'error');
     }
