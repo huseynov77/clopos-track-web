@@ -1326,6 +1326,13 @@ select.form-input { cursor: pointer; }
         <label class="form-label">Şifrə</label>
         <input type="password" class="form-input" id="aw-password" placeholder="••••••••" autocomplete="new-password">
       </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label class="form-label">İcazə səviyyəsi</label>
+        <select class="form-input" id="aw-access-level">
+          <option value="full">Tam (bütün funksiyalar — Bakı işçiləri)</option>
+          <option value="regional">Regional (yalnız əlaqə + giriş/çıxış — Gəncə üçün)</option>
+        </select>
+      </div>
     </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal('addWorkerModal')">Ləğv et</button>
@@ -1358,6 +1365,13 @@ select.form-input { cursor: pointer; }
       <div class="form-group">
         <label class="form-label">Yeni Şifrə (boş = dəyişməz)</label>
         <input type="password" class="form-input" id="ew-password" placeholder="••••••••">
+      </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label class="form-label">İcazə səviyyəsi</label>
+        <select class="form-input" id="ew-access-level">
+          <option value="full">Tam (bütün funksiyalar — Bakı işçiləri)</option>
+          <option value="regional">Regional (yalnız əlaqə + giriş/çıxış — Gəncə üçün)</option>
+        </select>
       </div>
     </div>
     <div class="form-group" style="grid-column:span 2;margin-top:8px">
@@ -2420,6 +2434,7 @@ function openAddWorkerModal() {
   document.getElementById('aw-role').value = '';
   document.getElementById('aw-login').value = '';
   document.getElementById('aw-password').value = '';
+  document.getElementById('aw-access-level').value = 'full';
   openModal('addWorkerModal');
 }
 
@@ -2428,6 +2443,7 @@ async function addWorker() {
   const role = document.getElementById('aw-role').value.trim() || 'İşçi';
   const login = document.getElementById('aw-login').value.trim();
   const password = document.getElementById('aw-password').value;
+  const accessLevel = document.getElementById('aw-access-level').value;
   if (!name || !login || !password) {
     showToast('Ad, login və şifrə lazımdır', 'error');
     return;
@@ -2436,7 +2452,7 @@ async function addWorker() {
     const res = await apiFetch('/api/admin/add-worker', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ workerName: name, role, login, password })
+      body: JSON.stringify({ workerName: name, role, login, password, accessLevel })
     });
     const data = await res.json();
     if (data.ok) {
@@ -2459,6 +2475,7 @@ function openEditWorker(id) {
   document.getElementById('ew-role').value = w.role || '';
   document.getElementById('ew-login').value = w.login;
   document.getElementById('ew-password').value = '';
+  document.getElementById('ew-access-level').value = w.accessLevel || 'full';
   document.getElementById('ew-sub').textContent = w.name + ' (' + w.id + ')';
   openModal('editWorkerModal');
 }
@@ -2469,6 +2486,7 @@ async function saveWorker() {
   const role = document.getElementById('ew-role').value.trim() || 'İşçi';
   const login = document.getElementById('ew-login').value.trim();
   const password = document.getElementById('ew-password').value;
+  const accessLevel = document.getElementById('ew-access-level').value;
   if (!name || !login) {
     showToast('Ad və login lazımdır', 'error');
     return;
@@ -2477,7 +2495,7 @@ async function saveWorker() {
     const res = await apiFetch('/api/admin/worker/' + id, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, role, login, password: password || undefined })
+      body: JSON.stringify({ name, role, login, password: password || undefined, accessLevel })
     });
     const data = await res.json();
     if (data.ok) {
