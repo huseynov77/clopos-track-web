@@ -999,6 +999,7 @@ select.form-input { cursor: pointer; }
           <thead>
             <tr>
               <th style="cursor:pointer" onclick="sortDashTable('name')">İşçi <span class="material-icons-round" style="font-size:14px;vertical-align:middle">unfold_more</span></th>
+              <th style="cursor:pointer" onclick="sortDashTable('shift')">Növbə <span class="material-icons-round" style="font-size:14px;vertical-align:middle">unfold_more</span></th>
               <th style="cursor:pointer" onclick="sortDashTable('visits')">Obyekt Girişləri <span class="material-icons-round" style="font-size:14px;vertical-align:middle">unfold_more</span></th>
               <th style="cursor:pointer" onclick="sortDashTable('hours')">İş Saatı <span class="material-icons-round" style="font-size:14px;vertical-align:middle">unfold_more</span></th>
               <th>Məsafə (km)</th>
@@ -2065,8 +2066,13 @@ function renderDashboard() {
   }
 
   if (!workersToShow.length) {
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text2);padding:24px">İşçi tapılmadı</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text2);padding:24px">İşçi tapılmadı</td></tr>';
   } else {
+    const SHIFT_MAX_MS = 9 * 60 * 60 * 1000; // 9 saat
+    const nowTs = Date.now();
+    const startOfToday = new Date(); startOfToday.setHours(0,0,0,0);
+    const todayStart = startOfToday.getTime();
+
     const liveMap = new Map(allWorkers.map(w => [w.id, w]));
     let rowData = workersToShow.map((aw, idx) => {
       const lw = liveMap.get(aw.id);
@@ -2087,10 +2093,33 @@ function renderDashboard() {
       }
       const online = lw && lw.online;
       const lastSeenTs = lw ? lw.lastSeen : 0;
-      return { aw, lw, color, objectVisits, totalHours, online, lastSeenTs };
+
+      // Növbə statusu: acıq / vaxt asimi / bağlı / başlamayıb
+      // Bugün ərzində shift_open/close olub-olmadığını yoxla
+      const allHistToday = allHistory.filter(h => h.workerId === aw.id && h.time >= todayStart);
+      const todayOpens = allHistToday.filter(h => h.type === 'shift_open');
+      const todayCloses = allHistToday.filter(h => h.type === 'shift_close');
+      let shiftStatus = 'notStarted'; // ⚪
+      let shiftStatusText = 'Başlamayıb';
+      let shiftRank = 4; // sıralamada yeri (kiçik = üstdə)
+      let shiftDetail = '';
+      if (lw && lw.shiftOpen && lw.shiftStart) {
+        const elapsed = nowTs - Number(lw.shiftStart);
+        const h = Math.floor(elapsed / 3600000);
+        const m = Math.floor((elapsed % 3600000) / 60000);
+        shiftDetail = h + 's ' + m + 'd';
+        if (elapsed > SHIFT_MAX_MS) {
+          shiftStatus = 'overtime'; shiftStatusText = 'Vaxt aşımı'; shiftRank = 1;
+        } else {
+          shiftStatus = 'open'; shiftStatusText = 'Açıq'; shiftRank = 2;
+        }
+      } else if (todayCloses.length > 0 && todayOpens.length > 0) {
+        shiftStatus = 'closed'; shiftStatusText = 'Bağlı'; shiftRank = 3;
+      }
+      return { aw, lw, color, objectVisits, totalHours, online, lastSeenTs, shiftStatus, shiftStatusText, shiftDetail, shiftRank };
     });
 
-    // Sort
+    // Sort — default (dashSortKey yoxdursa) növbə statusuna görə: overtime > open > closed > notStarted
     if (dashSortKey) {
       rowData.sort((a, b) => {
         let va, vb;
@@ -2099,8 +2128,11 @@ function renderDashboard() {
         if (dashSortKey === 'hours') { va = a.totalHours; vb = b.totalHours; }
         if (dashSortKey === 'status') { va = a.online ? 1 : 0; vb = b.online ? 1 : 0; }
         if (dashSortKey === 'lastSeen') { va = a.lastSeenTs; vb = b.lastSeenTs; }
+        if (dashSortKey === 'shift') { va = a.shiftRank; vb = b.shiftRank; }
         return dashSortAsc ? (va - vb) : (vb - va);
       });
+    } else {
+      rowData.sort((a, b) => a.shiftRank - b.shiftRank);
     }
 
     tbody.innerHTML = rowData.map(r => {
@@ -2108,8 +2140,21 @@ function renderDashboard() {
         ? '<span class="badge badge-online"><span class="badge-dot" style="background:var(--green)"></span>Onlayn</span>'
         : '<span class="badge badge-offline"><span class="badge-dot" style="background:var(--text2)"></span>Oflayn</span>';
       const lastSeen = r.lw ? (r.lw.online ? 'İndi' : timeSince(r.lw.lastSeen)) : '—';
+
+      let shiftBadge;
+      if (r.shiftStatus === 'overtime') {
+        shiftBadge = '<span class="badge" style="background:rgba(229,91,91,.15);color:#E55B5B;font-weight:700">⚠️ ' + r.shiftStatusText + ' ' + r.shiftDetail + '</span>';
+      } else if (r.shiftStatus === 'open') {
+        shiftBadge = '<span class="badge badge-online"><span class="badge-dot" style="background:var(--green)"></span>' + r.shiftStatusText + ' ' + r.shiftDetail + '</span>';
+      } else if (r.shiftStatus === 'closed') {
+        shiftBadge = '<span class="badge badge-offline"><span class="badge-dot" style="background:var(--text2)"></span>' + r.shiftStatusText + '</span>';
+      } else {
+        shiftBadge = '<span class="badge" style="background:rgba(150,150,150,.1);color:var(--text2)">⚪ ' + r.shiftStatusText + '</span>';
+      }
+
       return '<tr>' +
         '<td><div class="worker-cell"><div class="avatar-sm" style="background:' + r.color + '">' + initials(r.aw.name) + '</div><div><div class="worker-cell-name">' + escapeHtml(r.aw.name) + '</div><div class="worker-cell-id">' + escapeHtml(r.aw.id) + '</div></div></div></td>' +
+        '<td>' + shiftBadge + '</td>' +
         '<td style="font-family:\'JetBrains Mono\',monospace;font-weight:600">' + r.objectVisits + '</td>' +
         '<td style="font-family:\'JetBrains Mono\',monospace;font-weight:600">' + r.totalHours.toFixed(1) + ' saat</td>' +
         '<td style="font-family:\'JetBrains Mono\',monospace;color:var(--text2)">—</td>' +
