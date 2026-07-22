@@ -2169,22 +2169,24 @@ function renderDashboard() {
         : '<span class="badge badge-offline"><span class="badge-dot" style="background:var(--text2)"></span>Oflayn</span>';
       const lastSeen = r.lw ? (r.lw.online ? 'İndi' : timeSince(r.lw.lastSeen)) : '—';
 
+      // Növbə sütunu — sadə status: Açıq / Bağlı / Başlamayıb (Vaxt aşımı olsa da "Açıq" yazır)
       let shiftBadge;
-      if (r.shiftStatus === 'overtime') {
-        shiftBadge = '<span class="badge" style="background:rgba(229,91,91,.15);color:#E55B5B;font-weight:700">⚠️ ' + r.shiftStatusText + '</span>';
-      } else if (r.shiftStatus === 'open') {
-        shiftBadge = '<span class="badge badge-online"><span class="badge-dot" style="background:var(--green)"></span>' + r.shiftStatusText + '</span>';
+      if (r.shiftStatus === 'open' || r.shiftStatus === 'overtime') {
+        shiftBadge = '<span class="badge badge-online"><span class="badge-dot" style="background:var(--green)"></span>Açıq</span>';
       } else if (r.shiftStatus === 'closed') {
-        shiftBadge = '<span class="badge badge-offline"><span class="badge-dot" style="background:var(--text2)"></span>' + r.shiftStatusText + '</span>';
+        shiftBadge = '<span class="badge badge-offline"><span class="badge-dot" style="background:var(--text2)"></span>Bağlı</span>';
       } else {
-        shiftBadge = '<span class="badge" style="background:rgba(150,150,150,.1);color:var(--text2)">⚪ ' + r.shiftStatusText + '</span>';
+        shiftBadge = '<span class="badge" style="background:rgba(150,150,150,.1);color:var(--text2)">⚪ Başlamayıb</span>';
       }
-      // Vaxt sütunları — overtime qırmızıdır, digərləri normal
+      // Vaxt sütunları — overtime qırmızıdır və "Vaxt aşımı" bitmə xanasının altında görünür
       const isOvertime = r.shiftStatus === 'overtime';
       const cellStyle = 'font-family:\'JetBrains Mono\',monospace;font-size:12px;white-space:pre-line;' +
         (isOvertime ? 'color:#E55B5B;font-weight:700' : 'color:var(--text2)');
+      const overtimeTag = isOvertime
+        ? '<div style="font-size:11px;color:#E55B5B;font-weight:700;margin-top:4px">⚠️ Vaxt aşımı</div>'
+        : '';
       const startCell = '<td style="' + cellStyle + '">' + escapeHtml(r.shiftStartText) + '</td>';
-      const endCell = '<td style="' + cellStyle + '">' + escapeHtml(r.shiftEndText) + '</td>';
+      const endCell = '<td style="' + cellStyle + '">' + escapeHtml(r.shiftEndText) + overtimeTag + '</td>';
 
       return '<tr>' +
         '<td><div class="worker-cell"><div class="avatar-sm" style="background:' + r.color + '">' + initials(r.aw.name) + '</div><div><div class="worker-cell-name">' + escapeHtml(r.aw.name) + '</div><div class="worker-cell-id">' + escapeHtml(r.aw.id) + '</div></div></div></td>' +
