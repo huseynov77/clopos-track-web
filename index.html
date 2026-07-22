@@ -1000,6 +1000,8 @@ select.form-input { cursor: pointer; }
             <tr>
               <th style="cursor:pointer" onclick="sortDashTable('name')">İşçi <span class="material-icons-round" style="font-size:14px;vertical-align:middle">unfold_more</span></th>
               <th style="cursor:pointer" onclick="sortDashTable('shift')">Növbə <span class="material-icons-round" style="font-size:14px;vertical-align:middle">unfold_more</span></th>
+              <th>Növbə başlama</th>
+              <th>Növbə bitmə</th>
               <th style="cursor:pointer" onclick="sortDashTable('visits')">Obyekt Girişləri <span class="material-icons-round" style="font-size:14px;vertical-align:middle">unfold_more</span></th>
               <th style="cursor:pointer" onclick="sortDashTable('hours')">İş Saatı <span class="material-icons-round" style="font-size:14px;vertical-align:middle">unfold_more</span></th>
               <th>Məsafə (km)</th>
@@ -2066,7 +2068,7 @@ function renderDashboard() {
   }
 
   if (!workersToShow.length) {
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text2);padding:24px">İşçi tapılmadı</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text2);padding:24px">İşçi tapılmadı</td></tr>';
   } else {
     const SHIFT_MAX_MS = 9 * 60 * 60 * 1000; // 9 saat
     const nowTs = Date.now();
@@ -2107,37 +2109,42 @@ function renderDashboard() {
       let shiftStatusText = 'Başlamayıb';
       let shiftRank = 4;
       let shiftDetail = '';
-      let shiftTimes = '—';
-      let shiftDuration = '';
+      let shiftStartText = '—';
+      let shiftEndText = '—';
       const fmtDur = (ms) => {
         const h = Math.floor(ms / 3600000);
         const m = Math.floor((ms % 3600000) / 60000);
         return h + 's ' + m + 'd';
       };
+      const fmtDateTime = (ts) => {
+        const d = new Date(Number(ts));
+        return String(d.getDate()).padStart(2,'0') + '.' + String(d.getMonth()+1).padStart(2,'0') + '.' + d.getFullYear() +
+          '\n' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+      };
       if (lw && lw.shiftOpen && lw.shiftStart) {
         const elapsed = nowTs - Number(lw.shiftStart);
         shiftDetail = fmtDur(elapsed);
-        shiftDuration = shiftDetail + ' açıqdır';
+        shiftStartText = fmtDateTime(lw.shiftStart);
+        shiftEndText = shiftDetail + ' açıqdır';
         if (elapsed > SHIFT_MAX_MS) {
           shiftStatus = 'overtime'; shiftStatusText = 'Vaxt aşımı'; shiftRank = 1;
-          shiftTimes = fmtHM(lw.shiftStart) + ' — hələ bağlanmayıb';
         } else {
           shiftStatus = 'open'; shiftStatusText = 'Açıq'; shiftRank = 2;
-          shiftTimes = fmtHM(lw.shiftStart) + ' — açıqdır';
         }
       } else if (todayCloses.length > 0 && todayOpens.length > 0) {
         shiftStatus = 'closed'; shiftStatusText = 'Bağlı'; shiftRank = 3;
         const openT = todayOpens[0].time;
         const closeT = todayCloses[todayCloses.length - 1].time;
-        shiftTimes = fmtHM(openT) + ' — ' + fmtHM(closeT);
-        shiftDuration = fmtDur(Number(closeT) - Number(openT)) + ' işlədi';
+        shiftStartText = fmtDateTime(openT);
+        shiftEndText = fmtDateTime(closeT);
       } else if (todayOpens.length > 0) {
         shiftStatus = 'open'; shiftStatusText = 'Açıq'; shiftRank = 2;
-        const elapsed = nowTs - Number(todayOpens[0].time);
-        shiftTimes = fmtHM(todayOpens[0].time) + ' — açıqdır';
-        shiftDuration = fmtDur(elapsed) + ' açıqdır';
+        const openT = todayOpens[0].time;
+        const elapsed = nowTs - Number(openT);
+        shiftStartText = fmtDateTime(openT);
+        shiftEndText = fmtDur(elapsed) + ' açıqdır';
       }
-      return { aw, lw, color, objectVisits, totalHours, online, lastSeenTs, shiftStatus, shiftStatusText, shiftDetail, shiftRank, shiftTimes, shiftDuration };
+      return { aw, lw, color, objectVisits, totalHours, online, lastSeenTs, shiftStatus, shiftStatusText, shiftDetail, shiftRank, shiftStartText, shiftEndText };
     });
 
     // Sort — default (dashSortKey yoxdursa) növbə statusuna görə: overtime > open > closed > notStarted
@@ -2164,24 +2171,26 @@ function renderDashboard() {
 
       let shiftBadge;
       if (r.shiftStatus === 'overtime') {
-        shiftBadge = '<span class="badge" style="background:rgba(229,91,91,.15);color:#E55B5B;font-weight:700">⚠️ ' + r.shiftStatusText + ' ' + r.shiftDetail + '</span>';
+        shiftBadge = '<span class="badge" style="background:rgba(229,91,91,.15);color:#E55B5B;font-weight:700">⚠️ ' + r.shiftStatusText + '</span>';
       } else if (r.shiftStatus === 'open') {
-        shiftBadge = '<span class="badge badge-online"><span class="badge-dot" style="background:var(--green)"></span>' + r.shiftStatusText + ' ' + r.shiftDetail + '</span>';
+        shiftBadge = '<span class="badge badge-online"><span class="badge-dot" style="background:var(--green)"></span>' + r.shiftStatusText + '</span>';
       } else if (r.shiftStatus === 'closed') {
         shiftBadge = '<span class="badge badge-offline"><span class="badge-dot" style="background:var(--text2)"></span>' + r.shiftStatusText + '</span>';
       } else {
         shiftBadge = '<span class="badge" style="background:rgba(150,150,150,.1);color:var(--text2)">⚪ ' + r.shiftStatusText + '</span>';
       }
-      // Vaxt sətri + müddət — badge-in altında; overtime qırmızıdır
-      const timeColor = r.shiftStatus === 'overtime' ? '#E55B5B' : 'var(--text2)';
-      const durationHtml = r.shiftDuration
-        ? '<div style="font-size:11px;color:' + timeColor + ';font-family:\'JetBrains Mono\',monospace;margin-top:2px' + (r.shiftStatus === 'overtime' ? ';font-weight:700' : '') + '">' + escapeHtml(r.shiftDuration) + '</div>'
-        : '';
-      const shiftTimesHtml = '<div style="font-size:11px;color:' + timeColor + ';font-family:\'JetBrains Mono\',monospace;margin-top:4px' + (r.shiftStatus === 'overtime' ? ';font-weight:700' : '') + '">' + escapeHtml(r.shiftTimes) + '</div>' + durationHtml;
+      // Vaxt sütunları — overtime qırmızıdır, digərləri normal
+      const isOvertime = r.shiftStatus === 'overtime';
+      const cellStyle = 'font-family:\'JetBrains Mono\',monospace;font-size:12px;white-space:pre-line;' +
+        (isOvertime ? 'color:#E55B5B;font-weight:700' : 'color:var(--text2)');
+      const startCell = '<td style="' + cellStyle + '">' + escapeHtml(r.shiftStartText) + '</td>';
+      const endCell = '<td style="' + cellStyle + '">' + escapeHtml(r.shiftEndText) + '</td>';
 
       return '<tr>' +
         '<td><div class="worker-cell"><div class="avatar-sm" style="background:' + r.color + '">' + initials(r.aw.name) + '</div><div><div class="worker-cell-name">' + escapeHtml(r.aw.name) + '</div><div class="worker-cell-id">' + escapeHtml(r.aw.id) + '</div></div></div></td>' +
-        '<td>' + shiftBadge + shiftTimesHtml + '</td>' +
+        '<td>' + shiftBadge + '</td>' +
+        startCell +
+        endCell +
         '<td style="font-family:\'JetBrains Mono\',monospace;font-weight:600">' + r.objectVisits + '</td>' +
         '<td style="font-family:\'JetBrains Mono\',monospace;font-weight:600">' + r.totalHours.toFixed(1) + ' saat</td>' +
         '<td style="font-family:\'JetBrains Mono\',monospace;color:var(--text2)">—</td>' +
