@@ -1704,7 +1704,7 @@ async function refreshData() {
   if (allHistory.length > prevCount && prevCount > 0) {
     const newEvents = allHistory.slice(0, allHistory.length - prevCount);
     newEvents.forEach(h => {
-      const label = h.type === 'shift_open' ? 'Shift açdı' : h.type === 'shift_close' ? 'Shift bağladı' : h.type === 'object_enter' ? 'Obyektə daxil oldu' : h.type === 'object_exit' ? 'Obyektdən çıxdı' : h.type === 'contact' ? 'Əlaqə yazdı' : h.type === 'akt' ? 'Akt göndərdi' : h.type === 'tehvil' ? 'Qurulma Təhvil göndərdi' : h.type === 'object_photo' ? 'Obyekt şəkli göndərdi' : h.text || '';
+      const label = h.type === 'shift_open' ? 'Shift açdı' : h.type === 'shift_close' ? 'Shift bağladı' : h.type === 'object_enter' ? 'Obyektə daxil oldu' : h.type === 'object_exit' ? 'Obyektdən çıxdı' : h.type === 'contact' ? 'Əlaqə yazdı' : h.type === 'akt' ? 'Akt göndərdi' : h.type === 'tehvil' ? 'Qurulma Təhvil göndərdi' : h.type === 'object_photo' ? 'Obyekt şəkli göndərdi' : h.type === 'object_cancel' ? 'Obyekti ləğv etdi' : h.type === 'urgent_ack' ? 'Təcili bildirişi oxudu' : h.text || '';
       const brand = h.brandName ? ' — ' + h.brandName : '';
       showLiveToast(h.workerName + ': ' + label + brand);
     });
@@ -1910,7 +1910,15 @@ function getEventLabel(type) {
     shift_open: 'Shift açıldı',
     shift_close: 'İş təhvili verildi',
     object_enter: 'Obyektə daxil oldu',
-    object_exit: 'Obyektdən çıxdı'
+    object_exit: 'Obyektdən çıxdı',
+    contact: 'Əlaqə yazdı',
+    akt: 'Akt göndərdi',
+    tehvil: 'Qurulma təhvil göndərdi',
+    object_photo: 'Obyekt şəkli göndərdi',
+    object_cancel: 'Obyekti ləğv etdi',
+    urgent_ack: 'Təcili bildirişi oxudu',
+    object_overtime: 'Obyektdə vaxt aşımı',
+    shift_overtime: 'Shift vaxt aşımı'
   };
   return labels[type] || type || '—';
 }
@@ -1920,7 +1928,15 @@ function getEventIcon(type) {
     shift_open: 'login',
     shift_close: 'logout',
     object_enter: 'domain',
-    object_exit: 'meeting_room'
+    object_exit: 'meeting_room',
+    contact: 'chat',
+    akt: 'description',
+    tehvil: 'inventory_2',
+    object_photo: 'photo_camera',
+    object_cancel: 'cancel',
+    urgent_ack: 'mark_email_read',
+    object_overtime: 'hourglass_top',
+    shift_overtime: 'timer_off'
   };
   return icons[type] || 'place';
 }
@@ -1930,7 +1946,15 @@ function getEventColor(type) {
     shift_open: { bg: 'var(--green-bg)', color: 'var(--green)' },
     shift_close: { bg: 'var(--red-bg)', color: 'var(--red)' },
     object_enter: { bg: 'var(--primary-bg)', color: 'var(--primary)' },
-    object_exit: { bg: 'var(--yellow-bg)', color: 'var(--yellow)' }
+    object_exit: { bg: 'var(--yellow-bg)', color: 'var(--yellow)' },
+    contact: { bg: 'var(--primary-bg)', color: 'var(--primary)' },
+    akt: { bg: 'var(--primary-bg)', color: 'var(--primary)' },
+    tehvil: { bg: 'var(--yellow-bg)', color: 'var(--yellow)' },
+    object_photo: { bg: 'var(--green-bg)', color: 'var(--green)' },
+    object_cancel: { bg: 'var(--red-bg)', color: 'var(--red)' },
+    urgent_ack: { bg: 'var(--green-bg)', color: 'var(--green)' },
+    object_overtime: { bg: 'var(--yellow-bg)', color: 'var(--yellow)' },
+    shift_overtime: { bg: 'var(--red-bg)', color: 'var(--red)' }
   };
   return colors[type] || { bg: 'var(--card2)', color: 'var(--text2)' };
 }
