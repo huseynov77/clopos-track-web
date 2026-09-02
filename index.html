@@ -2942,6 +2942,13 @@ const isLiveW = p => !!(p.lastSeen && Date.now() - p.lastSeen < 5*60*1000);
 const FROZEN_MIN = 45;
 function frozenMin(p){
   if (!p || !p.shiftOpen || !isLiveW(p) || !p.lastMove) return 0;
+  /* OBYEKTDƏ OLANDA GÖSTƏRMİRİK. `gps_points` 15 m-dən yaxın nöqtəni
+     yazmır, ona görə "hərəkət yoxdur" siqnalı obyektdə oturub işləyən
+     adamda da yanır — nasazlıq deyil, normal haldır.
+     02.09.2026: nişan məhz belə bir halda yandı, Fuad isə işçini xəritədə
+     DÜZGÜN yerdə görürdü. Yanlış xəbərdarlıq göstərməkdənsə göstərməmək
+     yaxşıdır. */
+  if (p.inObject) return 0;
   const m = Math.floor((Date.now() - Number(p.lastMove)) / 60000);
   return m >= FROZEN_MIN ? m : 0;
 }
@@ -3238,8 +3245,9 @@ function drawMap(){
           (nearInfo(p) && nearInfo(p).far ? '<span class="tag bad" title="obyektin nöqtəsindən uzaqdır">' +
             nearInfo(p).m + ' m</span>' : '') +
           (frozenMin(p) ? '<span class="tag warn" title="Siqnal gəlir, amma mövqe ' +
-            frozenTxt(frozenMin(p)) + 'dır dəyişmir — xəritədəki nöqtə köhnə ola bilər">' +
-            'mövqe donub</span>' : '') +
+            frozenTxt(frozenMin(p)) + 'dır dəyişmir. Obyektdən kənarda uzun müddət ' +
+            'tərpənməmək ya dayanmaqdır, ya da GPS təzə ölçmə vermir.">' +
+            'tərpənmir</span>' : '') +
           '</div>' +
         '<div class="pmeta" title="' + esc(p.address || '') + '">' +
           (p.address ? esc(p.address) : 'ünvan yoxdur') + '</div>' +
@@ -3650,9 +3658,9 @@ function renderStaff(){
     const froz = frozenMin(p);
     const seenCell = isLive
       ? '<span class="seen live">indi</span>' +
-        (froz ? '<div class="sub2 frz" title="Telefon serverlə danışır, amma GPS təzə nöqtə vermir. ' +
-          'Telefonda: dəqiq məkan icazəsi və batareya optimizasiyası yoxlanmalıdır.">' +
-          'mövqe ' + frozenTxt(froz) + 'dır donub</div>' : '')
+        (froz ? '<div class="sub2 frz" title="Obyektdən kənardadır və mövqeyi dəyişmir. ' +
+          'Dayanmış ola bilər; uzun sürərsə telefonda dəqiq məkan icazəsini yoxla.">' +
+          frozenTxt(froz) + 'dır tərpənmir</div>' : '')
       : p.lastSeen
         ? `<span class="seen ${stale > 12*3600000 ? 'bad' : stale > 60*60000 ? 'warn' : ''}"
              title="${dt(p.lastSeen)}">${ago(p.lastSeen)}</span>`
