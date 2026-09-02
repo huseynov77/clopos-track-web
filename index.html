@@ -4593,7 +4593,13 @@ function renderPlaces(){
         <button type="button" class="pnotify" data-pa="loc" data-i="${i}" title="Məkanı təyin et">
           <svg viewBox="0 0 24 24"><path d="M12 21s7-6.4 7-11a7 7 0 1 0-14 0c0 4.6 7 11 7 11z"/>
             <circle cx="12" cy="10" r="2.4"/></svg></button>
-        ${al.length>1?`<button type="button" class="pnotify" data-pa="split" data-i="${i}" title="Ayır">
+        ${/* «Ayır» yalnız 2+ yazılışda göstərilirdi. Amma bağlantı BİR yazılışda
+             da ola bilər: obyekt "Loro lounge" adlanır, bazadakı xam ad isə
+             "Loro lounge (lorolounge)"-dur — birləşdirmə var, düymə isə yox idi
+             və geri qaytarmaq mümkün olmurdu. İndi xam ad göstərilən addan
+             fərqlənəndə də çıxır. */
+          (al.length > 1 || (al.length === 1 && al[0] !== b.name))
+          ?`<button type="button" class="pnotify" data-pa="split" data-i="${i}" title="Ayır">
           <svg viewBox="0 0 24 24"><path d="M6 3v6a3 3 0 0 0 3 3h6a3 3 0 0 1 3 3v6"/>
             <path d="M18 3v6"/><path d="m15 6 3-3 3 3"/></svg></button>`:''}
       </div></td></tr>`;
