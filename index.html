@@ -1197,6 +1197,15 @@ tr:hover .ratedcell .rchg,.ratedcell .rchg:focus-visible{opacity:1}
 .ncbar b{font-family:var(--mono);color:var(--text);font-weight:600}
 .ncprog{flex:1;height:5px;border-radius:99px;background:var(--surf-2);overflow:hidden;min-width:80px}
 .ncprog i{display:block;height:100%;background:var(--ok);transition:width .3s}
+/* «Çox məkanlı adlar» cədvəli */
+.mrt{width:100%;border-collapse:collapse;font-size:13px}
+.mrt th{text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;
+  color:var(--muted);font-weight:600;padding:0 10px 8px;border-bottom:1px solid var(--line)}
+.mrt td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+.mrt tr:last-child td{border-bottom:0}
+.mrt .num{font-family:var(--mono);text-align:right;white-space:nowrap}
+.mrt .far{color:var(--warn);font-weight:600}
+.mrt-a{color:var(--muted);font-size:12px;line-height:1.5;max-width:380px}
 /* Boş span-lar flex boşluğu yaratmasın — yoxlama bitəndə "ncScan" boşalır */
 #ncScan:empty,#ncSkip:empty{display:none}
 #ncScan{font-variant-numeric:tabular-nums;opacity:.75}
@@ -2095,6 +2104,9 @@ tbody tr:hover .rowacts,tr:focus-within .rowacts{opacity:1}
           <button type="button" class="btn btn-ghost btn-sm" id="bClean"
                   title="Eyni obyektin fərqli yazılışlarını tapıb Clopos-dakı düzgün adla birləşdirir">
             Adları təmizlə</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="bMulti"
+                  title="Bir adın bir neçə koordinatı varsa cədvəldə (və API-də) bir neçə sətir kimi görünür">
+            Çox məkanlı adlar</button>
           <span class="hitn" id="bCount"></span>
         </div>
 
@@ -5105,6 +5117,13 @@ document.getElementById('bLocMerge').addEventListener('click', () => {
   const group = selRows().filter(x => x.name === name)
     .sort((a, b) => (b.visits || 0) - (a.visits || 0));
   if (group.length < 2) return;
+  locMergeModal(name, group);
+});
+
+/* Eyni adın bir neçə məkanını tək nöqtəyə yığan pəncərə.
+   İki yerdən çağırılır: seçim zolağındakı «Məkanı birləşdir» və
+   «Çox məkanlı adlar» hesabatı. */
+function locMergeModal(name, group){
   modal(
     '<div class="mhead"><h3>Məkanı birləşdir</h3><p>' + esc(brandLabel(name)) + '</p>' +
       '<button type="button" class="mclose" onclick="closeModal()" aria-label="Bagla">&times;</button></div>' +
@@ -5137,7 +5156,7 @@ document.getElementById('bLocMerge').addEventListener('click', () => {
     await placeApi('/api/v2/admin/brands/location',
       { canonical: name, lat: g.lat, lng: g.lng }, 'Məkan birləşdirildi');
   };
-});
+}
 
 /* ══════════════ AD TƏMİZLƏMƏ ══════════════
    Obyekt adları işçilərin Teams-də yazdığından gəlir: eyni yer «Mykids»,
@@ -5508,24 +5527,60 @@ function bindNc(groups){
   upd();
 }
 
+/* BİRLƏŞDİRMƏ ADI DA, MƏKANI DA BİRLƏŞDİRİR.
+
+   Əvvəl yalnız ad birləşirdi (`brands/merge` → `brand_aliases`). Server isə
+   cədvəldəki sətirləri ada görə yox, MƏKANA görə qurur: hər ad üçün
+   nöqtələri 100 metrlik qruplara bölüb hər qrupa bir sətir verir. Nəticədə
+   4 obyekti birləşdirəndə ad bir olurdu, sətir yenə dörd qalırdı — «Subway
+   — Univerium» ×3 hadisəsi. Bayıra API verəndə də dörd yazı gedərdi.
+
+   Qrupları tək sətrə yığan yeganə şey sabit koordinatdır (`brand_settings`).
+   Ona görə birləşdirmə indi ikisini birdən yazır. */
 document.getElementById('bMerge').addEventListener('click', () => {
-  const names = [...new Set(selRows().map(b => b.name))];
+  const rows = selRows();
+  const names = [...new Set(rows.map(b => b.name))];
+  // Məkan seçimi: ən çox ziyarəti olan nöqtə standart seçilidir
+  const locs = rows.filter(b => b.lat != null && b.lng != null)
+    .sort((a, b) => (b.visits || 0) - (a.visits || 0));
+
   modal(`<div class="mhead"><h3>Obyektləri birləşdir</h3>
-      <p>${names.length} obyekt bir obyekt olacaq. Hansı ad qalsın?</p></div>
-    <div class="mbody">${names.map((n,i)=>{
-      const bb = places.find(x => x.name === n) || {};
-      return `<label class="mopt">
+      <p>${names.length} obyekt bir obyekt olacaq.</p>
+      <button type="button" class="mclose" onclick="closeModal()" aria-label="Bagla">&times;</button></div>
+    <div class="mbody">
+      <label class="fl">Hansı ad qalsın?</label>
+      ${names.map((n,i)=>{
+        const bb = places.find(x => x.name === n) || {};
+        return `<label class="mopt">
         <input type="radio" name="cn" value="${i}" ${i===0?'checked':''}>
         <span class="mopt-b">
-          <b>${esc(n)}</b>
+          <b>${esc(brandLabel(n))}</b>
           ${bb.address?`<i>${esc(bb.address)}</i>`:''}
           <u>${bb.visits||0} ziyarət${(bb.aliases||[]).length>1?' &middot; '+bb.aliases.length+' yazılış':''}</u>
         </span></label>`;
-    }).join('')}
+      }).join('')}
+      ${locs.length > 1 ? `
+      <label class="fl" style="margin-top:16px">Hansı məkan qalsın?</label>
+      <div class="fh" style="margin:-2px 0 8px">Birləşən obyekt xəritədə və API-də
+        <b>tək nöqtə</b> kimi getsin deyə vahid koordinat lazımdır. Bu seçilməsə ad
+        birləşir, məkanlar ayrı qalır və cədvəldə yenə bir neçə sətir görünür.</div>
+      ${locs.map((b,i)=>`
+        <label class="mopt">
+          <input type="radio" name="ml" value="${i}" ${i===0?'checked':''}>
+          <span class="mopt-b">
+            <b>${esc(b.address || 'ünvan yoxdur')}</b>
+            <u>${esc(brandLabel(b.name))} &middot; ${b.visits||0} ziyarət &middot; ${b.lat.toFixed(5)}, ${b.lng.toFixed(5)}</u>
+          </span></label>`).join('')}
+        <label class="mopt">
+          <input type="radio" name="ml" value="-1">
+          <span class="mopt-b"><b>Avtomatik saxla</b>
+            <u>Yalnız ad birləşir; hər məkan ayrı sətir qalır</u></span></label>` : ''}
       <div style="font-size:12.5px;color:var(--muted);margin-top:10px">
-        Tarixçə silinmir — ziyarətlər toplanır. İstənilən vaxt geri qaytarmaq olar.</div></div>
+        Tarixçə silinmir — ziyarətlər toplanır, hər qeyd öz adı və koordinatı ilə qalır.
+        İstənilən vaxt geri qaytarmaq olar.</div></div>
     <div class="mfoot"><button type="button" class="btn btn-ghost" onclick="closeModal()">Ləğv</button>
       <button type="button" class="btn btn-primary" id="doMerge">Birləşdir</button></div>`);
+
   document.getElementById('doMerge').onclick = async () => {
     const sel = document.querySelector('input[name="cn"]:checked');
     const canonical = names[sel ? +sel.value : 0];
@@ -5534,67 +5589,97 @@ document.getElementById('bMerge').addEventListener('click', () => {
       const b = places.find(x => x.name === n);
       ((b && b.aliases && b.aliases.length) ? b.aliases : [n]).forEach(a => aliases.push(a));
     });
+    const lsel = document.querySelector('input[name="ml"]:checked');
+    const li = lsel ? +lsel.value : (locs.length > 1 ? 0 : -1);
+    const loc = li >= 0 ? locs[li] : null;
     closeModal();
-    await placeApi('/api/v2/admin/brands/merge', { aliases, canonical }, 'Birləşdirildi');
+    try {
+      const r = await api('/api/v2/admin/brands/merge',
+        { method: 'POST', body: JSON.stringify({ aliases, canonical }) });
+      if (!r.ok) throw new Error(r.error || 'alınmadı');
+      /* Məkan İKİNCİ addımdır: `brands/location` yeni koordinat üçün ünvanı da
+         hesablayır, ona görə birləşən obyektin ünvanı da düzgün olur. */
+      if (loc) {
+        const r2 = await api('/api/v2/admin/brands/location', { method: 'POST',
+          body: JSON.stringify({ canonical, lat: loc.lat, lng: loc.lng }) });
+        if (!r2.ok) throw new Error(r2.error || 'məkan yazılmadı');
+      }
+      placeSel.clear();
+      toast(loc ? 'Ad və məkan birləşdirildi' : 'Adlar birləşdirildi', 'ok');
+      await loadPlaces(true);
+      if (mBrandLayer) {
+        mBrandLayer.clearLayers();
+        if (document.getElementById('mShowBrands').checked) loadMapBrands();
+      }
+    } catch (e) { toast('Alınmadı: ' + e.message, 'bad'); }
   };
 });
-/* Obyektin öz pəncərəsi: xülasə + həmin obyektdəki bütün hərəkətlər.
-   Birləşdirilmiş obyektdə server bütün yazılışları da əhatə edir. */
-async function openBrandDetail(name){
-  const b = places.find(x => x.name === name) ||
-            mBrands.find(x => x.name === name) || { name };
-  const al = b.aliases || [];
-  modal(
-    '<div class="mhead"><h3>' + esc(brandLabel(b.name)) + '</h3>' +
-      '<p>' + esc(b.address || 'ünvan yoxdur') + '</p></div>' +
-    '<div class="bd-stats">' +
-      '<div><span>Ziyarət</span><b>' + (b.visits ?? '—') + '</b></div>' +
-      '<div><span>Son ziyarət</span><b>' + (b.lastSeen ? ago(b.lastSeen) : '—') + '</b></div>' +
-      '<div><span>Yazılış</span><b>' + (al.length || 1) + '</b></div>' +
-    '</div>' +
-    (al.length > 1
-      ? '<div class="bd-al"><span>Birləşdirilmiş adlar</span><div>' +
-          al.map(a => '<i>' + esc(a) + '</i>').join('') + '</div></div>' : '') +
-    '<div class="bd-log" id="bdLog"><div class="empty">Yüklənir…</div></div>' +
-    '<div class="mfoot">' +
-      (b.lat != null
-        ? '<a class="btn btn-ghost btn-sm" target="_blank" rel="noopener" ' +
-          'href="https://maps.google.com/maps?q=' + b.lat + ',' + b.lng + '">Xəritədə aç</a>' : '') +
-      '<button type="button" class="btn btn-ghost btn-sm" id="bdAll">Tam tarixçə</button>' +
-      '<button type="button" class="btn btn-primary btn-sm" onclick="closeModal()">Bağla</button>' +
-    '</div>');
 
-  document.getElementById('bdAll').onclick = () => {
-    closeModal();
-    go('log'); fillLogFilters();
-    document.getElementById('lWorker').value = '';
-    document.getElementById('lType').value = '';
-    document.getElementById('lQ').value = '';
-    logBrand = b.name;
-    const bs2 = document.getElementById('lBrand');
-    if (bs2) bs2.value = b.name;
-    loadLog(true);
-  };
-
-  try {
-    const d = await api('/api/v2/admin/history?limit=60&brand=' + encodeURIComponent(b.name));
-    // Server sahəni `items` adlandırır — `rows` boş qayıdırdı
-    const rows = d.items || [];
-    const el = document.getElementById('bdLog');
-    if (!el) return;
-    el.innerHTML = rows.length
-      ? rows.map(h =>
-          '<div class="bd-r">' +
-            '<span class="tag ' + evTone(h.type) + '">' + esc(evName(h.type)) + '</span>' +
-            '<b>' + esc(h.workerName || '—') + '</b>' +
-            '<span class="bd-t">' + dt(h.time) + '</span>' +
-          '</div>').join('')
-      : emptyBox('&#128337;', 'Hərəkət yoxdur', 'Bu obyektdə hələ heç bir qeyd yoxdur.');
-  } catch (e) {
-    const el = document.getElementById('bdLog');
-    if (el) el.innerHTML = '<div class="empty">Yüklənmədi: ' + esc(e.message) + '</div>';
+/* ══════ ÇOX MƏKANLI ADLAR ══════
+   Bir ad, bir neçə sətir — yəni girişlər bir-birindən 100 m-dən uzaq qeyd
+   olunub. Bunlar ya həqiqətən ayrı filiallardır, ya da eyni yerin səpələnmiş
+   GPS qeydləridir. Fərqi ancaq insan bilir, ona görə heç nə avtomatik
+   edilmir: siyahı göstərilir, qərarı sən verirsən. */
+function multiRows(){
+  const g = new Map();
+  for (const b of places) {
+    if (b.lat == null || b.lng == null) continue;
+    if (!g.has(b.name)) g.set(b.name, []);
+    g.get(b.name).push(b);
   }
+  const out = [];
+  for (const [name, a] of g) {
+    if (a.length < 2) continue;
+    let far = 0;
+    for (let i = 0; i < a.length; i++)
+      for (let j = i + 1; j < a.length; j++)
+        far = Math.max(far, metersTo(a[i], a[j]));
+    out.push({ name, rows: a.slice().sort((x, y) => (y.visits||0) - (x.visits||0)),
+               far: Math.round(far), visits: a.reduce((s, x) => s + (x.visits || 0), 0) });
+  }
+  // Ən çox sətri olan, sonra ən çox ziyarəti olan yuxarıda
+  return out.sort((x, y) => y.rows.length - x.rows.length || y.visits - x.visits);
 }
+
+document.getElementById('bMulti').addEventListener('click', () => {
+  const list = multiRows();
+  if (!list.length) {
+    return modal('<div class="mhead"><h3>Çox məkanlı ad yoxdur</h3>' +
+      '<p>Hər adın bir koordinatı var.</p>' +
+      '<button type="button" class="mclose" onclick="closeModal()">&times;</button></div>' +
+      '<div class="mfoot"><button type="button" class="btn btn-primary" onclick="closeModal()">Bağla</button></div>');
+  }
+  const totRows = list.reduce((s, x) => s + x.rows.length, 0);
+  modalWide('<div class="mhead"><h3>Çox məkanlı adlar</h3>' +
+      '<p><b>' + list.length + ' ad</b> cədvəldə <b>' + totRows + ' sətir</b> tutur. ' +
+      'API-yə də bu qədər yazı gedər. «Bir yerə yığ» adı tək koordinata bağlayır — ' +
+      'tarixçə dəyişmir.</p>' +
+      '<button type="button" class="mclose" onclick="closeModal()" aria-label="Bagla">&times;</button></div>' +
+    '<div class="mbody"><div class="ncwrap">' +
+      '<table class="mrt"><thead><tr><th>Ad</th><th>Sətir</th><th>Ən uzaq</th>' +
+      '<th>Ziyarət</th><th>Məkanlar</th><th></th></tr></thead><tbody>' +
+      list.map((x, i) =>
+        '<tr><td><b>' + esc(brandLabel(x.name)) + '</b></td>' +
+        '<td class="num">' + x.rows.length + '</td>' +
+        /* Məsafə qərarın açarıdır: 200 m-lik fərq çox vaxt eyni yerin GPS
+           səpələnməsidir, 3 km isə həqiqətən ayrı filialdır. */
+        '<td class="num ' + (x.far > 1000 ? 'far' : '') + '">' +
+          (x.far >= 1000 ? (x.far / 1000).toFixed(1) + ' km' : x.far + ' m') + '</td>' +
+        '<td class="num">' + x.visits + '</td>' +
+        '<td class="mrt-a">' + x.rows.map(r =>
+            esc(r.address || (r.lat.toFixed(4) + ', ' + r.lng.toFixed(4)))).join(' &middot; ') + '</td>' +
+        '<td><button type="button" class="btn btn-ghost btn-sm" data-mrg="' + i + '">Bir yerə yığ</button></td>' +
+        '</tr>').join('') +
+      '</tbody></table></div></div>' +
+    '<div class="mfoot"><span class="fh" style="margin:0;flex:1">Heç nə avtomatik ' +
+      'edilmir — hər ad üçün ayrıca qərar verirsən.</span>' +
+      '<button type="button" class="btn btn-primary" onclick="closeModal()">Bağla</button></div>');
+
+  document.querySelectorAll('[data-mrg]').forEach(b => b.onclick = () => {
+    const x = list[+b.dataset.mrg];
+    locMergeModal(x.name, x.rows);
+  });
+});
 
 /* Brauzerin prompt() pəncərəsi panelin qalanına bənzəmirdi — hamısı modala keçdi.
    Bura Clopos brend axtarışı da əlavə olunub: «Adları təmizlə» ekranı yalnız
