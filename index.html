@@ -1208,6 +1208,17 @@ tr:hover .ratedcell .rchg,.ratedcell .rchg:focus-visible{opacity:1}
   background:var(--ok-soft);color:var(--ok);align-self:center}
 .ncdone{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ok);font-weight:600}
 .ncwait{font-size:11.5px;color:var(--faint);font-style:italic}
+/* Ad dəyişmə pəncərəsindəki Clopos axtarışı */
+.rnres{display:flex;flex-direction:column;gap:2px;max-height:190px;overflow:auto}
+.rnrow{display:flex;width:100%;text-align:left;padding:7px 9px;border-radius:8px;
+  border:1px solid transparent;transition:background .12s}
+.rnrow:hover{background:var(--surf-2)}
+.rnrow.on{background:var(--brand-soft);border-color:color-mix(in srgb,var(--brand) 28%,transparent)}
+.rnrow b{display:block;font-size:13px;font-weight:600;letter-spacing:-.01em}
+.rnrow i{display:block;font-style:normal;font-family:var(--mono);font-size:10.5px;
+  color:var(--faint);letter-spacing:-.03em;margin-top:1px}
+.rnwait{font-size:11.5px;color:var(--faint);font-style:italic;padding:6px 2px}
+
 /* Xəritə klasterinin siyahısı */
 .cluslist > b{display:block;font-size:12px;font-weight:600;margin-bottom:7px;color:var(--muted)}
 .clusrow{display:flex;align-items:center;gap:9px;width:100%;text-align:left;
@@ -5118,21 +5129,73 @@ async function openBrandDetail(name){
   }
 }
 
-/* Brauzerin prompt() pəncərəsi panelin qalanına bənzəmirdi — hamısı modala keçdi */
+/* Brauzerin prompt() pəncərəsi panelin qalanına bənzəmirdi — hamısı modala keçdi.
+   Bura Clopos brend axtarışı da əlavə olunub: «Adları təmizlə» ekranı yalnız
+   avtomatik tapdığı qrupları göstərir, bu isə İSTƏNİLƏN obyekt üçün əl ilə
+   düzgün adı tapmağa imkan verir. */
 function renamePlace(b){
-  modal(`<div class="mhead"><h3>Adı dəyiş</h3><p>${esc(b.name)}</p></div>
-    <div class="mbody"><label class="fl">Yeni ad</label>
-      <input class="fi" id="rnV" value="${esc(b.name)}" autocomplete="off"></div>
+  const al = (b.aliases && b.aliases.length) ? b.aliases : [b.name];
+  const sg = slugOf(b.name, al);
+  modal(`<div class="mhead"><h3>Adı dəyiş</h3><p>${esc(b.name)}</p>
+      <button type="button" class="mclose" onclick="closeModal()" aria-label="Bagla">&times;</button></div>
+    <div class="mbody">
+      <label class="fl">Clopos-da axtar</label>
+      <div class="search" style="width:100%;margin-bottom:4px">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="rnQ" placeholder="Brend adı və ya slug…" spellcheck="false"
+               autocomplete="off" value="${esc(sg || brandLabel(b.name))}">
+      </div>
+      <div id="rnRes" class="rnres"></div>
+      <label class="fl" style="margin-top:14px">Yeni ad</label>
+      <input class="fi" id="rnV" value="${esc(brandLabel(b.name))}" autocomplete="off">
+      <div class="fh">Clopos siyahısından seçsən ad avtomatik dolur. Əl ilə də yaza bilərsən.
+        Tarixçə dəyişmir — geri qaytarmaq üçün sətirdəki «Ayır».</div>
+    </div>
     <div class="mfoot"><button type="button" class="btn btn-ghost" onclick="closeModal()">Ləğv</button>
       <button type="button" class="btn btn-primary" id="rnGo">Yadda saxla</button></div>`);
+
   const inp = document.getElementById('rnV');
-  inp.focus(); inp.select();
+  const q = document.getElementById('rnQ');
+  const res = document.getElementById('rnRes');
+
+  /* Yazdıqca axtarır. Serverdə 6 saatlıq keş var, ona görə təkrar
+     sorğular şəbəkəyə çıxmır. */
+  let t = null, lastQ = '';
+  const search = async () => {
+    const v = q.value.trim();
+    if (v.length < 3 || v === lastQ) return;
+    lastQ = v;
+    res.innerHTML = '<div class="rnwait">axtarılır…</div>';
+    try {
+      const d = await api('/api/v2/admin/brand-search?q=' + encodeURIComponent(v));
+      const r = d.results || [];
+      res.innerHTML = r.length
+        ? r.slice(0, 6).map(x => '<button type="button" class="rnrow" data-rn="' + esc(x.title) + '">' +
+            '<span><b>' + esc(x.title) + '</b><i>' + esc(x.name || '') +
+            (x.id ? ' · id ' + x.id : '') + '</i></span></button>').join('')
+        : '<div class="rnwait">Clopos-da tapılmadı</div>';
+      res.querySelectorAll('[data-rn]').forEach(el => el.onclick = () => {
+        /* Filial hissəsi qorunur: Clopos yalnız brendi bilir. */
+        const br = branchPart(brandLabel(b.name), el.dataset.rn);
+        inp.value = br ? el.dataset.rn + ' \u2014 ' + br : el.dataset.rn;
+        res.querySelectorAll('.rnrow').forEach(x => x.classList.remove('on'));
+        el.classList.add('on');
+      });
+    } catch (e) { res.innerHTML = '<div class="rnwait">axtarış alınmadı</div>'; }
+  };
+  q.oninput = () => { clearTimeout(t); t = setTimeout(search, 350); };
+  search();
+
   const go = async () => {
     const n = inp.value.trim();
     if (!n) return toast('Ad boş ola bilməz', 'bad');
     if (n === b.name) return closeModal();
     closeModal();
-    await placeApi('/api/v2/admin/brands/rename', { canonical: b.name, newName: n }, 'Ad dəyişdirildi');
+    /* XAM adlar hədəf alınır. `brands/rename` canonical-a görə işləyir,
+       bizim göstərdiyimiz ad isə brandLabel() ilə təmizlənmiş formadır —
+       bazada "Mykids (mykids)" yazılıbsa "Mykids" heç nəyə uyğun gəlmir və
+       server səssizcə "ok" qaytarır. `brands/merge` xam adla işləyir. */
+    await placeApi('/api/v2/admin/brands/merge', { aliases: al, canonical: n }, 'Ad dəyişdirildi');
   };
   document.getElementById('rnGo').onclick = go;
   inp.onkeydown = e => { if (e.key === 'Enter') go(); };
