@@ -3138,7 +3138,7 @@ document.addEventListener('click', (ev) => {
   const n = ev.target.closest('[data-pop-notify]');
   if (n) { map && map.closePopup(); urgentTo({ id: n.dataset.popNotify, name: n.dataset.nm }); return; }
   /* Klaster siyahısındakı sətir → həmin obyektin kartı */
-  const cb = e.target.closest('[data-cb]');
+  const cb = ev.target.closest('[data-cb]');
   if (cb) {
     const x = mBrands.find(b2 => b2.name === cb.dataset.cb);
     if (x) { map.closePopup();
