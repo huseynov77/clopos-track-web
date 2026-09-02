@@ -907,6 +907,8 @@ body.satview .leaflet-control-attribution a{color:#bcd}
 .mod.on{display:grid;animation:fade .18s both}
 .mbox{background:var(--surf);border:1px solid var(--line);border-radius:14px;box-shadow:var(--sh-lg);
   width:100%;max-width:440px;max-height:88vh;overflow-y:auto;animation:rise .28s cubic-bezier(.16,1,.3,1) both}
+/* Cədvəlli pəncərələr — sahə nəticəsi kimi — 440px-də sıxılırdı */
+.mbox.wide{max-width:min(1080px,94vw)}
 .mhead{padding:20px 22px 0;position:relative}
 .mhead h3{font-size:17px;font-weight:600;letter-spacing:-.025em}
 .mhead p{font-size:13px;color:var(--faint);margin-top:4px}
@@ -1224,11 +1226,21 @@ tr:hover .ratedcell .rchg,.ratedcell .rchg:focus-visible{opacity:1}
 #map.lasso .leaflet-marker-icon,#map.lasso .leaflet-interactive{pointer-events:none}
 #lassoSvg{position:absolute;inset:0;z-index:900;pointer-events:none}
 #lassoSvg path{fill:color-mix(in srgb,var(--brand) 14%,transparent);
-  stroke:var(--brand);stroke-width:2;stroke-dasharray:6 4;stroke-linejoin:round}
-.lassohint{position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:901;
+  stroke:var(--brand);stroke-width:2.5;stroke-dasharray:6 4;stroke-linejoin:round;
+  stroke-linecap:round}
+/* Buraxandan sonra — kəsik xətt bütöv olur, sahə aydın görünür */
+#lassoSvg path.done{stroke-dasharray:none;stroke-width:3;
+  fill:color-mix(in srgb,var(--brand) 20%,transparent)}
+.lassohint{position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:1001;
   background:var(--surf);border:1px solid var(--line);border-radius:9px;
   padding:7px 13px;font-size:12.5px;color:var(--muted);box-shadow:var(--sh-lg);
   pointer-events:none;white-space:nowrap}
+.lassohint.act{display:flex;align-items:center;gap:10px;padding:8px 10px 8px 14px}
+.lassohint.act b{color:var(--text);font-weight:600}
+.lassohint button{padding:5px 11px;border-radius:7px;font-size:12px;font-weight:500;
+  border:1px solid var(--line);background:var(--surf);color:var(--text)}
+.lassohint button:hover{background:var(--surf-2)}
+.lassohint button.pri{background:var(--brand);border-color:var(--brand);color:#fff}
 /* Nəticə cədvəli */
 .arwrap{max-height:min(52vh,440px);overflow:auto;border:1px solid var(--line);
   border-radius:10px}
@@ -2451,8 +2463,14 @@ function toast(msg, kind){
   setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity .25s';
     setTimeout(() => el.remove(), 260); }, 3200);
 }
+/* Cədvəlli pəncərə üçün geniş variant */
+function modalWide(html){
+  modal(html);
+  document.getElementById('modBox').classList.add('wide');
+}
 function modal(html){
   const m = document.getElementById('mod');
+  document.getElementById('modBox').classList.remove('wide');
   document.getElementById('modBox').innerHTML = html;
   m.classList.add('on');
   m.onclick = (e) => { if (e.target === m) closeModal(); };
@@ -3493,10 +3511,29 @@ function bindLasso(){
   const up = (e) => {
     if (!lassoOn || !lassoPts) return;
     e.preventDefault();
-    const poly = lassoPts;
-    lassoStop();
-    if (poly.length < 6) return toast('Sahə çox kiçikdir', 'bad');
-    areaResult(poly);
+    const poly = lassoPts.slice();
+    if (poly.length < 6) { lassoStop(); return toast('Sahə çox kiçikdir', 'bad'); }
+    /* Cızıq EKRANDA QALIR və özü qapanır (SVG `Z`). Dərhal pəncərə açmırıq —
+       əvvəlcə nəyi seçdiyini görürsən, sonra təsdiqləyirsən. */
+    lassoPts = null;
+    lassoSvg.firstChild.setAttribute('class', 'done');
+    map.dragging.disable();
+    const n = places.filter(b => b.lat != null &&
+      inPoly(map.latLngToContainerPoint([b.lat, b.lng]).x,
+             map.latLngToContainerPoint([b.lat, b.lng]).y, poly)).length;
+    lassoHint.className = 'lassohint act';
+    lassoHint.innerHTML = '<b>' + n + ' obyekt</b> seçildi' +
+      '<button type="button" id="lsRedo">Yenidən çək</button>' +
+      '<button type="button" id="lsOk" class="pri">Göstər</button>';
+    lassoHint.style.pointerEvents = 'auto';
+    document.getElementById('lsRedo').onclick = () => {
+      lassoStop(); bindLasso(); lassoStart();
+    };
+    document.getElementById('lsOk').onclick = () => {
+      lassoStop();
+      if (!n) return toast('Bu sahədə obyekt yoxdur', 'bad');
+      areaResult(poly);
+    };
   };
   el.addEventListener('mousedown', down);
   el.addEventListener('mousemove', move);
@@ -3541,7 +3578,7 @@ function areaResult(poly){
   if (!arRows.length) return toast('Bu sahədə obyekt yoxdur', 'bad');
   const tot = arRows.reduce((s, x) => s + (x.visits || 0), 0);
 
-  modal('<div class="mhead"><h3>Seçilmiş sahə</h3>' +
+  modalWide('<div class="mhead"><h3>Seçilmiş sahə</h3>' +
       '<p>' + arRows.length + ' obyekt · ' + tot + ' ziyarət</p>' +
       '<button type="button" class="mclose" onclick="closeModal()" aria-label="Bagla">&times;</button></div>' +
     '<div class="mbody">' +
@@ -3571,13 +3608,20 @@ function areaResult(poly){
 
   document.getElementById('arCsv').onclick = () => {
     const cols = AR_COLS.filter(c => arOn.includes(c.k));
-    /* `;` ayırıcı + UTF-8 BOM — tarixçə ixracı ilə eyni qayda.
-       Excel azərbaycan hərflərini yalnız BOM ilə düzgün oxuyur. */
+    /* İKİ ŞEY MƏCBURİDİR, yoxsa Excel hər şeyi bir sütuna yığır:
+
+       1) `sep=;` — birinci sətir. Excel-in yerli ayırıcısı vergüldürsə `;`
+          ilə bölmür; bu direktiv onu məcbur edir. Yerli ayarlardan asılı deyil.
+       2) VERGÜL də sitat içinə alınmalıdır. Ünvanlarda vergül var
+          («Mərkəzi Park küçəsi, Bakü, Azerbaycan») — sitatsız qalsa Excel
+          onları sütun sərhədi sayır və sətir dağılır.
+
+       BOM isə azərbaycan hərfləri üçündür. */
     const q = v => { const t = v == null ? '' : String(v);
-      return /[";\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
-    const lines = [cols.map(c => q(c.t)).join(';')];
+      return /[",;\n\r]|^\s|\s$/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
+    const lines = ['sep=;', cols.map(c => q(c.t)).join(';')];
     arRows.forEach(b => lines.push(cols.map(c => q(c.get(b))).join(';')));
-    const blob = new Blob(['\ufeff' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+    const blob = new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = 'sahe-' + dayKey(new Date()) + '.csv';
