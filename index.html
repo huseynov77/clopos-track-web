@@ -1287,12 +1287,12 @@ tr:hover .ratedcell .rchg,.ratedcell .rchg:focus-visible{opacity:1}
 .braw{font-family:var(--mono);font-size:10.5px;color:var(--faint);
   letter-spacing:-.02em;margin-top:3px;line-height:1.4;word-break:break-word}
 /* Clopos slug — başlığın altında, Clopos panelindəki kimi */
+/* Clopos brend adı (slug) — başlığın altında, Clopos panelindəki kimi */
 .bslug{font-family:var(--mono);font-size:10.5px;color:var(--muted);
   letter-spacing:-.03em;margin-top:2px;line-height:1.3}
-.bslug::before{content:"";opacity:.55}
-/* Clopos-a BAĞLANMIŞ slug — adın içindən təxmin edilmişdən fərqlənsin */
-.bslug.lk{color:var(--ok)}
-.bslug.lk::after{content:" \2713";font-weight:700}
+/* Clopos brend id-si — bağlanmayanda xana boş qalır */
+.bid{font-family:var(--mono);font-size:11.5px;color:var(--muted);
+  letter-spacing:-.03em;white-space:nowrap}
 .bsub{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px}
 .bsub .tag{font-size:9.5px;padding:1px 5px}
 /* Statistika kartları — kliklənən, hər biri öz filtrini tətbiq edir */
@@ -2072,6 +2072,7 @@ tbody tr:hover .rowacts,tr:focus-within .rowacts{opacity:1}
           <div id="placesWrap"><table id="placesTable">
             <thead><tr>
               <th style="width:34px"></th>
+              <th style="width:74px" title="Clopos brend id-si — Clopos-a bağlananda dolur">ID</th>
               <th class="sortable" data-pk="name">Obyekt</th>
               <th class="sortable desc" data-pk="visits" style="width:88px;text-align:right">Ziyarət</th>
               <th class="sortable" data-pk="last" style="width:110px">Son ziyarət</th>
@@ -4599,6 +4600,7 @@ function renderPlaces(){
     const rk = rowKey(b);
     return `<tr class="${placeSel.has(rk)?'selrow':''}">
       <td><input type="checkbox" data-sel="${i}" ${placeSel.has(rk)?'checked':''}></td>
+      <td class="bid">${b.cloposId ? esc(b.cloposId) : ''}</td>
       <td><div class="bname" data-open="${i}" title="Ətraflı bax">${esc(brandLabel(b.name))}</div>
         ${(() => {
           /* Slug mənbəyi, sıra ilə:
@@ -4606,7 +4608,7 @@ function renderPlaces(){
              2) bizim öz adımızın mötərizəsindən çıxarılan slug
              Heç biri yoxdursa xam ad (fərqlidirsə). */
           if (b.cloposSlug) {
-            return `<div class="bslug lk" title="Clopos brendi${b.cloposId ? ' · id ' + b.cloposId : ''}">${esc(b.cloposSlug)}</div>`;
+            return `<div class="bslug" title="Clopos brend adı">${esc(b.cloposSlug)}</div>`;
           }
           const sg = slugOf(b.name, al);
           if (sg) return `<div class="bslug" title="Adın içindən oxunan slug — hələ Clopos-a bağlanmayıb">${esc(sg)}</div>`;
@@ -4655,7 +4657,7 @@ function renderPlaces(){
           <svg viewBox="0 0 24 24"><path d="M6 3v6a3 3 0 0 0 3 3h6a3 3 0 0 1 3 3v6"/>
             <path d="M18 3v6"/><path d="m15 6 3-3 3 3"/></svg></button>`:''}
       </div></td></tr>`;
-  }).join('') : `<tr><td colspan="7">${
+  }).join('') : `<tr><td colspan="8">${
       q ? emptyBox('&#128269;', 'Tapılmadı', '&quot;' + esc(q) + '&quot; üzrə obyekt yoxdur.')
       : scope === 'dup' ? emptyBox('&#9989;', 'Təkrar tapılmadı', 'Oxşar adlı obyekt yoxdur — siyahı təmizdir.')
       : scope === 'merged' ? emptyBox('&#128279;', 'Birləşdirilmiş obyekt yoxdur', 'Hələ heç bir obyekt birləşdirilməyib.')
