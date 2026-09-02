@@ -1290,6 +1290,9 @@ tr:hover .ratedcell .rchg,.ratedcell .rchg:focus-visible{opacity:1}
 .bslug{font-family:var(--mono);font-size:10.5px;color:var(--muted);
   letter-spacing:-.03em;margin-top:2px;line-height:1.3}
 .bslug::before{content:"";opacity:.55}
+/* Clopos-a BAĞLANMIŞ slug — adın içindən təxmin edilmişdən fərqlənsin */
+.bslug.lk{color:var(--ok)}
+.bslug.lk::after{content:" \2713";font-weight:700}
 .bsub{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px}
 .bsub .tag{font-size:9.5px;padding:1px 5px}
 /* Statistika kartları — kliklənən, hər biri öz filtrini tətbiq edir */
@@ -4598,10 +4601,15 @@ function renderPlaces(){
       <td><input type="checkbox" data-sel="${i}" ${placeSel.has(rk)?'checked':''}></td>
       <td><div class="bname" data-open="${i}" title="Ətraflı bax">${esc(brandLabel(b.name))}</div>
         ${(() => {
-          /* Başlıq altında slug — Clopos-dakı `name` ilə eyni sahədir.
-             Brend axtarışında ən dəqiq açar odur. */
+          /* Slug mənbəyi, sıra ilə:
+             1) SAXLANMIŞ Clopos bağlantısı — ən etibarlı, ad dəyişsə də qalır
+             2) bizim öz adımızın mötərizəsindən çıxarılan slug
+             Heç biri yoxdursa xam ad (fərqlidirsə). */
+          if (b.cloposSlug) {
+            return `<div class="bslug lk" title="Clopos brendi${b.cloposId ? ' · id ' + b.cloposId : ''}">${esc(b.cloposSlug)}</div>`;
+          }
           const sg = slugOf(b.name, al);
-          if (sg) return `<div class="bslug" title="Clopos brend adı (slug) — axtarışda bu işlədilir">${esc(sg)}</div>`;
+          if (sg) return `<div class="bslug" title="Adın içindən oxunan slug — hələ Clopos-a bağlanmayıb">${esc(sg)}</div>`;
           return rawWorthShowing(b.name)
             ? `<div class="braw" title="Bazadakı əsl ad — birləşdirmə bu ada görə aparılır">${esc(b.name)}</div>` : '';
         })()}
@@ -4827,11 +4835,12 @@ function ncGroups(){
     .sort((a, b) => (b.reduce((s,x)=>s+(x.visits||0),0)) - (a.reduce((s,x)=>s+(x.visits||0),0)));
 }
 
-let ncState = {};   // qrup indeksi → 'done' | 'skip'
+let ncState = {};   // qrup indeksi → 'done' | 'skip' | 'okalready'
+let ncHit = {};     // qrup indeksi → Clopos nəticəsi (id, slug)
 
 document.getElementById('bClean').addEventListener('click', () => {
   const groups = ncGroups();
-  ncState = {};
+  ncState = {}; ncHit = {};
   if (!groups.length) {
     return modal('<div class="mhead"><h3>Təmizlənəcək ad yoxdur</h3>' +
       '<p>Eyni adın fərqli yazılışı tapılmadı.</p>' +
@@ -4924,6 +4933,7 @@ async function ncSuggest(groups){
       const d = await api('/api/v2/admin/brand-search?q=' + encodeURIComponent(q));
       hit = (d.results || [])[0] || null;
     } catch (_) {}
+    ncHit[i] = hit;
     const box = document.getElementById('ncopt' + i);
     if (!box) return;   // pəncərə bağlanıb
     const wait = box.querySelector('.ncwait');
@@ -4937,6 +4947,14 @@ async function ncSuggest(groups){
     const names = new Set(gr.map(x => brandLabel(x.name)));
     const cur = [...names][0];
     if (names.size === 1 && (!hit || hit.title === cur)) {
+      /* Ad düzgündür, amma Clopos bağlantısı hələ yazılmayıbsa yazılır —
+         slug siyahıda görünsün. Sətir yenə də siyahıdan çıxır. */
+      if (hit && !gr[0].cloposSlug) {
+        try {
+          await api('/api/v2/admin/brands/clopos', { method: 'POST',
+            body: JSON.stringify({ canonical: cur, brandId: hit.id, brandSlug: hit.name }) });
+        } catch (_) {}
+      }
       ncState[i] = 'okalready';
       const g0 = document.getElementById('ncg' + i);
       if (g0) g0.remove();
@@ -5022,6 +5040,15 @@ function bindNc(groups){
           { method: 'POST', body: JSON.stringify({ aliases: raws, canonical: newName }) });
         if (!r.ok) throw new Error(r.error || 'alınmadı');
         ok++;
+      }
+      /* Ad düzəlişi ilə birlikdə Clopos bağlantısı da yazılır — ad dəyişməsə
+         belə. Bağlantı olmadan slug siyahıda görünmürdü. */
+      if (ncHit[i]) {
+        try {
+          await api('/api/v2/admin/brands/clopos', { method: 'POST',
+            body: JSON.stringify({ canonical: newName,
+              brandId: ncHit[i].id, brandSlug: ncHit[i].name }) });
+        } catch (_) {}
       }
       ncState[i] = 'done';
       const g = document.getElementById('ncg' + i);
@@ -5160,7 +5187,7 @@ function renamePlace(b){
 
   /* Yazdıqca axtarır. Serverdə 6 saatlıq keş var, ona görə təkrar
      sorğular şəbəkəyə çıxmır. */
-  let t = null, lastQ = '';
+  let t = null, lastQ = '', picked = null, lastRes = [];
   const search = async () => {
     const v = q.value.trim();
     if (v.length < 3 || v === lastQ) return;
@@ -5169,15 +5196,17 @@ function renamePlace(b){
     try {
       const d = await api('/api/v2/admin/brand-search?q=' + encodeURIComponent(v));
       const r = d.results || [];
+      lastRes = r;
       res.innerHTML = r.length
         ? r.slice(0, 6).map(x => '<button type="button" class="rnrow" data-rn="' + esc(x.title) + '">' +
             '<span><b>' + esc(x.title) + '</b><i>' + esc(x.name || '') +
             (x.id ? ' · id ' + x.id : '') + '</i></span></button>').join('')
         : '<div class="rnwait">Clopos-da tapılmadı</div>';
-      res.querySelectorAll('[data-rn]').forEach(el => el.onclick = () => {
+      res.querySelectorAll('[data-rn]').forEach((el, ix) => el.onclick = () => {
         /* Filial hissəsi qorunur: Clopos yalnız brendi bilir. */
         const br = branchPart(brandLabel(b.name), el.dataset.rn);
         inp.value = br ? el.dataset.rn + ' \u2014 ' + br : el.dataset.rn;
+        picked = lastRes[ix] || null;   // id + slug yadda saxlanılır
         res.querySelectorAll('.rnrow').forEach(x => x.classList.remove('on'));
         el.classList.add('on');
       });
@@ -5189,13 +5218,30 @@ function renamePlace(b){
   const go = async () => {
     const n = inp.value.trim();
     if (!n) return toast('Ad boş ola bilməz', 'bad');
-    if (n === b.name) return closeModal();
+    const nameChanged = n !== b.name;
+    const linkChanged = !!picked && (picked.name || '') !== (b.cloposSlug || '');
+    if (!nameChanged && !linkChanged) return closeModal();
     closeModal();
-    /* XAM adlar hədəf alınır. `brands/rename` canonical-a görə işləyir,
-       bizim göstərdiyimiz ad isə brandLabel() ilə təmizlənmiş formadır —
-       bazada "Mykids (mykids)" yazılıbsa "Mykids" heç nəyə uyğun gəlmir və
-       server səssizcə "ok" qaytarır. `brands/merge` xam adla işləyir. */
-    await placeApi('/api/v2/admin/brands/merge', { aliases: al, canonical: n }, 'Ad dəyişdirildi');
+    try {
+      /* XAM adlar hədəf alınır. `brands/rename` canonical-a görə işləyir,
+         bizim göstərdiyimiz ad isə brandLabel() ilə təmizlənmiş formadır —
+         bazada "Mykids (mykids)" yazılıbsa "Mykids" heç nəyə uyğun gəlmir və
+         server səssizcə "ok" qaytarır. `brands/merge` xam adla işləyir. */
+      if (nameChanged) {
+        const r1 = await api('/api/v2/admin/brands/merge',
+          { method: 'POST', body: JSON.stringify({ aliases: al, canonical: n }) });
+        if (!r1.ok) throw new Error(r1.error || 'alınmadı');
+      }
+      /* Clopos bağlantısı ADDAN AYRIDIR: ad bizimdir (filial daxil),
+         id/slug Clopos-dandır. Ad dəyişməsə də bağlantı yazıla bilər —
+         məhz bu, «seçirəm, yadda saxlayıram, heç nə olmur» halının səbəbi idi. */
+      if (picked) {
+        await api('/api/v2/admin/brands/clopos', { method: 'POST',
+          body: JSON.stringify({ canonical: n, brandId: picked.id, brandSlug: picked.name }) });
+      }
+      toast(nameChanged ? 'Ad və brend bağlantısı yazıldı' : 'Brend bağlantısı yazıldı', 'ok');
+      await loadPlaces(true);
+    } catch (e) { toast('Alınmadı: ' + e.message, 'bad'); }
   };
   document.getElementById('rnGo').onclick = go;
   inp.onkeydown = e => { if (e.key === 'Enter') go(); };
