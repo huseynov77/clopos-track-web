@@ -1188,6 +1188,9 @@ tr:hover .ratedcell .rchg,.ratedcell .rchg:focus-visible{opacity:1}
 .ncbar b{font-family:var(--mono);color:var(--text);font-weight:600}
 .ncprog{flex:1;height:5px;border-radius:99px;background:var(--surf-2);overflow:hidden;min-width:80px}
 .ncprog i{display:block;height:100%;background:var(--ok);transition:width .3s}
+/* Boş span-lar flex boşluğu yaratmasın — yoxlama bitəndə "ncScan" boşalır */
+#ncScan:empty,#ncSkip:empty{display:none}
+#ncScan{font-variant-numeric:tabular-nums;opacity:.75}
 .ncg{border:1px solid var(--line);border-radius:12px;padding:13px 15px;margin-bottom:12px;
   background:var(--surf);transition:opacity .2s,border-color .2s}
 .ncg.done{border-color:color-mix(in srgb,var(--ok) 40%,transparent);background:var(--ok-soft)}
@@ -5139,21 +5142,34 @@ document.getElementById('bLocMerge').addEventListener('click', () => {
 function ncGroups(){
   const g = new Map();
   for (const b of places) {
+    /* ARTIQ BAĞLANMIŞ obyekt təkrar soruşulmur.
+       `cloposId` varsa bu ad bir dəfə Clopos brendinə bağlanıb — deməli
+       yoxlanılıb və düzgündür. Bu şərt olmasa hər açılışda düzəltdiyimiz
+       obyektlər yenidən siyahıya düşürdü. */
+    if (b.cloposId) continue;
     const k = squash(brandLabel(b.name));
     if (k.length < 3) continue;
     if (!g.has(k)) g.set(k, []);
     g.get(k).push(b);
   }
-  return [...g.values()].filter(a => a.length > 1)
+  /* TƏK obyektlər DƏ yoxlanılır.
+     Əvvəl `filter(a => a.length > 1)` vardı: yalnız eyni adın fərqli
+     yazılışları olan qruplar. 631 obyektdən bu, cəmi ~117-ni əhatə edirdi,
+     qalan ~500 obyekt Clopos ilə heç müqayisə olunmurdu — ona görə «cəmi
+     25 səhv» görünürdü. İndi hamısı yoxlanır; siyahıya isə yalnız
+     DÜZƏLİŞ TƏLƏB EDƏNLƏR düşür (`ncSuggest`). */
+  return [...g.values()]
     .sort((a, b) => (b.reduce((s,x)=>s+(x.visits||0),0)) - (a.reduce((s,x)=>s+(x.visits||0),0)));
 }
 
-let ncState = {};   // qrup indeksi → 'done' | 'skip' | 'okalready'
-let ncHit = {};     // qrup indeksi → Clopos nəticəsi (id, slug)
+let ncState = {};   // qrup indeksi -> 'done' | 'skip' | 'okalready'
+let ncHit = {};     // qrup indeksi -> Clopos neticesi (id, slug)
+let ncShown = 0;    // siyahida gosterilen (duzelis teleb eden) qrup sayi
+let ncScanDone = false;
 
 document.getElementById('bClean').addEventListener('click', () => {
   const groups = ncGroups();
-  ncState = {}; ncHit = {};
+  ncState = {}; ncHit = {}; ncShown = 0; ncScanDone = false;
   if (!groups.length) {
     return modal('<div class="mhead"><h3>Təmizlənəcək ad yoxdur</h3>' +
       '<p>Eyni adın fərqli yazılışı tapılmadı.</p>' +
@@ -5162,14 +5178,15 @@ document.getElementById('bClean').addEventListener('click', () => {
   }
 
   modal('<div class="mhead"><h3>Adları təmizlə</h3>' +
-      '<p>Yalnız <b>adlar düzəldilir</b> — obyektlər ayrı qalır, birləşdirilmir. ' +
+      '<p>Bağlanmamış bütün obyektlər Clopos brend siyahısı ilə tutuşdurulur. ' +
+      'Yalnız <b>adlar düzəldilir</b> — obyektlər ayrı qalır, birləşdirilmir. ' +
       'Birləşdirmə məkana baxaraq veriləcək ayrıca qərardır: siyahıda obyektləri ' +
       'seçib «Birləşdir» ilə edilir.</p>' +
       '<button type="button" class="mclose" onclick="closeModal()" aria-label="Bagla">&times;</button></div>' +
     '<div class="mbody">' +
-      '<div class="ncbar"><span><b id="ncDone">0</b> / <b id="ncTotal">' + groups.length + '</b> təsdiqləndi</span>' +
+      '<div class="ncbar"><span><b id="ncDone">0</b> / <b id="ncTotal">0</b> təsdiqləndi</span>' +
         '<span class="ncprog"><i id="ncBar" style="width:0%"></i></span>' +
-        '<span id="ncSkip"></span></div>' +
+        '<span id="ncScan"></span><span id="ncSkip"></span></div>' +
       '<div class="ncwrap" id="ncList"></div>' +
     '</div>' +
     '<div class="mfoot">' +
@@ -5179,7 +5196,9 @@ document.getElementById('bClean').addEventListener('click', () => {
 
   document.getElementById('ncList').innerHTML = groups.map((gr, i) => {
     const tot = gr.reduce((s, x) => s + (x.visits || 0), 0);
-    return '<div class="ncg" id="ncg' + i + '">' +
+    /* Qabıq GİZLİ yaradılır — yoxlama bitəndə ya göstərilir, ya silinir.
+       Beləliklə siyahıda yalnız düzəliş tələb edən adlar qalır. */
+    return '<div class="ncg" id="ncg' + i + '" style="display:none">' +
       '<div class="ncg-h"><b>' + esc(brandLabel(gr[0].name)) + '</b>' +
         '<span>' + gr.length + ' obyekt · ' + tot + ' ziyarət</span>' +
         '<span class="sp">' +
@@ -5234,64 +5253,153 @@ function optRow(i, j, title, sub, val, checked, isClopos){
   '</label>';
 }
 
-/* Təkliflər BİR-BİR gətirilir — 53 paralel sorğu Clopos API-sini yükləyər.
-   Serverdə 6 saatlıq keş var, ona görə ikinci açılış ani olur. */
-async function ncSuggest(groups){
-  for (let i = 0; i < groups.length; i++) {
-    const gr = groups[i];
-    const sg = gr.map(b => slugOf(b.name, b.aliases || [])).find(Boolean);
-    const q = sg || squash(brandLabel(gr[0].name));
-    let hit = null;
+/* Clopos nəticəsi bizim ada nə qədər uyğun gəlir. 0 = qəbul edilmir.
+   Əvvəl belə yoxlama YOX idi: tək sorğu atılır və `results[0]` şərtsiz
+   təklif kimi göstərilirdi — tamam başqa brend də çıxa bilərdi. */
+function ncScore(ourSq, r){
+  const t = squash(r.title || ''), n = squash(r.name || '');
+  if (!t) return 0;
+  if (t === ourSq || n === ourSq) return 100;
+  /* Bizim ad Clopos brendi ilə BAŞLAYIRSA qalan hissə filialdır:
+     "Genatsvale 1 Qis parki" <- "Genatsvale". Uyğun hissə nə qədər uzundursa
+     təsadüf ehtimalı o qədər azdır. */
+  if (ourSq.startsWith(t) && t.length >= 4) return 70 + Math.min(t.length, 25);
+  // Bizimki qısaldılmış yazılışdır: "Coffee Moffie" <- "Coffee Moffie Cafe"
+  if (t.startsWith(ourSq) && ourSq.length >= 5) return 50 + Math.min(ourSq.length, 15);
+  return 0;
+}
+
+/* SƏRT AXTARIŞ — bir neçə sorğu atılır, ən yaxşı nəticə seçilir.
+   Sorğu ardıcıllığı təsadüfi deyil:
+     1) slug   — ən güclü dəlil, ad tam fərqli yazılsa da brendi tapır
+     2) görünən ad (boşluqlu) — Clopos söz-söz axtarır
+     3) sıxılmış ad — «Qutab Bazarı» -> «qutabbazari» formasında yazılanlar
+     4) ilk 2 söz — filial adı axtarışı pozanda: «Coffee Moffie Nərimanov»
+   Yaxşı uyğunluq tapılan kimi dayanır ki, 600 obyekt üçün sorğu sayı
+   partlamasın. */
+async function ncFind(gr){
+  const disp  = brandLabel(gr[0].name);
+  const ourSq = squash(disp);
+  const slug  = gr.map(b => slugOf(b.name, b.aliases || [])).find(Boolean) || '';
+  const words = disp.split(/[\s\-–—,]+/).filter(w => squash(w).length >= 2);
+  const first = words.length >= 3 ? words.slice(0, 2).join(' ') : '';
+
+  const seen = new Set();
+  const queries = [slug, disp, ourSq, first].filter(q => {
+    const k = String(q || '').trim().toLowerCase();
+    if (k.length < 3 || seen.has(k)) return false;
+    seen.add(k); return true;
+  });
+
+  let best = null, bestScore = 0;
+  for (const q of queries) {
+    let list = [];
     try {
       const d = await api('/api/v2/admin/brand-search?q=' + encodeURIComponent(q));
-      hit = (d.results || [])[0] || null;
-    } catch (_) {}
-    ncHit[i] = hit;
-    const box = document.getElementById('ncopt' + i);
-    if (!box) return;   // pəncərə bağlanıb
-    const wait = box.querySelector('.ncwait');
-    if (wait) wait.remove();
+      list = d.results || [];
+    } catch (_) { continue; }
+    for (const r of list) {
+      // Slug-un DƏQİQ uyğunluğu hər şeydən güclüdür
+      const sc = (slug && String(r.name || '').toLowerCase() === slug.toLowerCase())
+        ? 100 : ncScore(ourSq, r);
+      if (sc > bestScore) { best = r; bestScore = sc; }
+    }
+    if (bestScore >= 70) break;
+  }
+  return best;
+}
 
-    /* ONSUZ DA DÜZGÜN olan qrup siyahıdan çıxarılır.
-       Əvvəl belə qruplar hər dəfə yenidən görünürdü: 3 obyektin adını
-       "PakDAD" etdikdən sonra hamısı eyni açarla qruplaşır və siyahıda
-       yenə çıxırdı — halbuki düzəltməli bir şey qalmamışdı.
-       Şərt: bütün adlar eynidir VƏ Clopos təklifi də həmin addır. */
-    const names = new Set(gr.map(x => brandLabel(x.name)));
-    const cur = [...names][0];
-    if (names.size === 1 && (!hit || hit.title === cur)) {
-      /* Ad düzgündür, amma Clopos bağlantısı hələ yazılmayıbsa yazılır —
-         slug siyahıda görünsün. Sətir yenə də siyahıdan çıxır. */
-      if (hit && !gr[0].cloposSlug) {
+/* Bir qrupun yoxlanması: təklifi gətirir, sonra ya kartı göstərir,
+   ya da səssizcə siyahıdan çıxarır. */
+async function ncOne(groups, i){
+  const gr = groups[i];
+  let hit = null;
+  try { hit = await ncFind(gr); } catch (_) {}
+  ncHit[i] = hit;
+
+  const g0 = document.getElementById('ncg' + i);
+  if (!g0) return;                       // pencere baglanib
+
+  const names = new Set(gr.map(x => brandLabel(x.name)));
+  const cur = [...names][0];
+
+  /* FİLİAL QORUNUR. Clopos yalnız BRENDİ bilir, filialı yox:
+       bizdə  "Genatsvale - 1 Qis parki"
+       Clopos "Genatsvale"
+     Clopos adını olduğu kimi qoysaq «1 Qis parki» İTİR və iki fərqli filial
+     bir obyektə çevrilir. */
+  let proposed = '';
+  if (hit) {
+    const br = branchPart(cur, hit.title);
+    proposed = br ? hit.title + ' — ' + br : hit.title;
+  }
+
+  /* ONSUZ DA DÜZGÜN — kart ümumiyyətlə göstərilmir.
+     Şərt: bütün yazılışlar eynidir VƏ (Clopos tapılmayıb VƏ YA təklif elə
+     indiki addır). Clopos tapılıbsa bağlantı yazılır — həm slug siyahıda
+     görünsün, həm də növbəti açılışda bu obyekt heç yoxlanmasın. */
+  if (names.size === 1 && (!hit || proposed === cur)) {
+    if (hit) {
+      for (const b of gr) {
+        if (b.cloposId) continue;
         try {
+          /* XAM ad göndərilir. `brand_settings.canonical` bazadakı adla
+             tutuşdurulur; `brandLabel()` ilə təmizlənmiş ad («Mykids»,
+             halbuki bazada «Mykids (mykids)») heç bir sətrə düşmür və
+             bağlantı görünmür. */
           await api('/api/v2/admin/brands/clopos', { method: 'POST',
-            body: JSON.stringify({ canonical: cur, brandId: hit.id, brandSlug: hit.name }) });
+            body: JSON.stringify({ canonical: b.name, brandId: hit.id, brandSlug: hit.name }) });
+          b.cloposId = hit.id; b.cloposSlug = hit.name;
         } catch (_) {}
       }
-      ncState[i] = 'okalready';
-      const g0 = document.getElementById('ncg' + i);
-      if (g0) g0.remove();
-      ncRefresh();
-      continue;
     }
-    if (hit) {
-      /* FİLİAL QORUNUR. Clopos yalnız BRENDİ bilir, filialı yox:
-           bizdə  "Genatsvale - 1 Qis parki"
-           Clopos "Genatsvale"
-         Clopos adını olduğu kimi qoysaq «1 Qis parki» İTİR və iki fərqli
-         filial bir obyektə çevrilir. Ona görə bizim addakı filial hissəsi
-         ayrılıb Clopos brendinin yanına qoyulur. */
-      const ours = brandLabel(gr[0].name);
-      const br = branchPart(ours, hit.title);
-      const proposed = br ? hit.title + ' — ' + br : hit.title;
-      box.querySelectorAll('input[type=radio]').forEach(x => { x.checked = false; });
-      box.insertAdjacentHTML('afterbegin',
-        optRow(i, 'c', proposed,
-          'Clopos brendi: ' + (hit.name || '') + (hit.id ? ' · id ' + hit.id : '') +
-          (br ? ' · filial saxlanıldı' : ''),
-          proposed, true, true));
-    }
+    ncState[i] = 'okalready';
+    g0.remove(); ncRefresh();
+    return;
   }
+
+  // Buradan sonra qrup HEQIQETEN duzelis teleb edir
+  const box = document.getElementById('ncopt' + i);
+  const wait = box.querySelector('.ncwait');
+  if (wait) wait.remove();
+  if (hit) {
+    box.querySelectorAll('input[type=radio]').forEach(x => { x.checked = false; });
+    box.insertAdjacentHTML('afterbegin',
+      optRow(i, 'c', proposed,
+        'Clopos brendi: ' + (hit.name || '') + (hit.id ? ' · id ' + hit.id : '') +
+        (proposed !== hit.title ? ' · filial saxlanıldı' : ''),
+        proposed, true, true));
+  }
+  g0.style.display = '';
+  ncShown++;
+  ncRefresh();
+}
+
+/* 600+ qrup yoxlanır — 5 paralel axın. Serverdə 6 saatlıq keş var, ona görə
+   ikinci açılış qat-qat sürətlidir; bağlanmış obyektlər isə ümumiyyətlə
+   siyahıya düşmür. */
+async function ncSuggest(groups){
+  let scanned = 0;
+  const setScan = () => {
+    const el = document.getElementById('ncScan');
+    if (!el) return;
+    el.textContent = ncScanDone ? '' : 'yoxlanılır ' + scanned + ' / ' + groups.length;
+  };
+  setScan();
+
+  const cur = { i: 0 };
+  const worker = async () => {
+    while (cur.i < groups.length) {
+      const i = cur.i++;
+      if (!document.getElementById('ncList')) return;   // pencere baglanib
+      await ncOne(groups, i);
+      scanned++; setScan();
+    }
+  };
+  await Promise.all([worker(), worker(), worker(), worker(), worker()]);
+  ncScanDone = true;
+  setScan();
+  ncRefresh();
 }
 
 let ncRefresh = () => {};
@@ -5300,15 +5408,20 @@ function bindNc(groups){
     const d = Object.values(ncState).filter(x => x === 'done').length;
     const sk = Object.values(ncState).filter(x => x === 'skip').length;
     const okA = Object.values(ncState).filter(x => x === 'okalready').length;
-    const total = Math.max(1, groups.length - okA);
+    /* Məxrəc = SİYAHIDA GÖRÜNƏN kart sayı. Əvvəl bütün qrupların sayı idi;
+       indi qrupların böyük hissəsi heç göstərilmir (onsuz da düzgündür),
+       ona görə o rəqəm mənasız olardı. */
+    const total = Math.max(1, ncShown);
     document.getElementById('ncDone').textContent = d;
-    document.getElementById('ncTotal').textContent = total;
+    document.getElementById('ncTotal').textContent = ncShown;
     document.getElementById('ncBar').style.width = Math.round(d / total * 100) + '%';
     document.getElementById('ncSkip').textContent =
       [sk ? sk + ' keçildi' : '', okA ? okA + ' onsuz da düzgün' : ''].filter(Boolean).join(' · ');
-    /* Hamısı bitibsə bunu açıq yaz — boş ekran qalmasın */
+    /* Hamısı bitibsə bunu açıq yaz — boş ekran qalmasın.
+       YALNIZ yoxlama bitəndən sonra: yoxlama gedərkən siyahıda hələ gizli
+       qabıqlar var, «qalmadı» yazmaq yanlış olardı. */
     const list = document.getElementById('ncList');
-    if (list && !list.children.length) {
+    if (list && ncScanDone && !list.children.length) {
       list.innerHTML = emptyBox('&#9989;', 'Təmizlənəcək qalmadı',
         'Bütün adlar Clopos-dakı yazılışa uyğundur.');
     }
@@ -5371,7 +5484,12 @@ function bindNc(groups){
         ' obyektin adı düzəldildi, birləşdirilmədi</span></div>';
       /* Yerli siyahıda da adı yenilə ki, pəncərə bağlanmadan təkrar
          açılsa həmin qrup yenidən çıxmasın */
-      groups[i].forEach(x => { x.name = newName; });
+      /* Yerli siyahı yenilənir: ad + Clopos bağlantısı. Bağlantı yazılmasa
+         pəncərə təkrar açılanda həmin obyekt yenidən yoxlanardı. */
+      groups[i].forEach(x => {
+        x.name = newName;
+        if (ncHit[i]) { x.cloposId = ncHit[i].id; x.cloposSlug = ncHit[i].name; }
+      });
       upd();
     } catch (e) {
       b.disabled = false;
