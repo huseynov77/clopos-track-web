@@ -1208,6 +1208,15 @@ tr:hover .ratedcell .rchg,.ratedcell .rchg:focus-visible{opacity:1}
   background:var(--ok-soft);color:var(--ok);align-self:center}
 .ncdone{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ok);font-weight:600}
 .ncwait{font-size:11.5px;color:var(--faint);font-style:italic}
+/* Xəritə klasterinin siyahısı */
+.cluslist > b{display:block;font-size:12px;font-weight:600;margin-bottom:7px;color:var(--muted)}
+.clusrow{display:flex;align-items:center;gap:9px;width:100%;text-align:left;
+  padding:7px 8px;border-radius:7px;transition:background .12s}
+.clusrow:hover{background:var(--surf-2)}
+.clusrow span{flex:1;min-width:0;font-size:13px;font-weight:500;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.clusrow i{flex:0 0 auto;font-style:normal;font-family:var(--mono);
+  font-size:10.5px;color:var(--faint);letter-spacing:-.03em}
 
 /* ── Obyektlər ── */
 /* Seçim paneli ekranın altında ÜZÜR. Əvvəl axına əlavə olunurdu və
@@ -3060,6 +3069,15 @@ document.addEventListener('click', (ev) => {
   }
   const n = ev.target.closest('[data-pop-notify]');
   if (n) { map && map.closePopup(); urgentTo({ id: n.dataset.popNotify, name: n.dataset.nm }); return; }
+  /* Klaster siyahısındakı sətir → həmin obyektin kartı */
+  const cb = e.target.closest('[data-cb]');
+  if (cb) {
+    const x = mBrands.find(b2 => b2.name === cb.dataset.cb);
+    if (x) { map.closePopup();
+      L.popup({ minWidth: 210, maxWidth: 268 })
+        .setLatLng([x.lat, x.lng]).setContent(brandCard(x)).openOn(map); }
+    return;
+  }
   const pl = ev.target.closest('[data-pop-play]');
   if (pl) { map && map.closePopup(); openPlayback(pl.dataset.popPlay, pl.dataset.nm); return; }
   const cp = ev.target.closest('[data-copy]');
@@ -3335,8 +3353,23 @@ function drawBrandPins(){
             '<svg viewBox="0 0 24 24"><path d="M12 21s7-6.4 7-11a7 7 0 1 0-14 0c0 4.6 7 11 7 11z"/></svg>' +
             '<b>' + n + '</b></div>',
           iconSize: [size, size], iconAnchor: [size/2, size/2] }),
-      }).on('click', () => map.setView([lat, lng], Math.min(19, map.getZoom() + 2)))
-        .bindTooltip(n + ' obyekt', { direction: 'top' })
+      /* Klik: yaxınlaşdırmaq kömək edirsə yaxınlaşdırır, etmirsə SİYAHI açır.
+         Əvvəl həmişə yaxınlaşdırırdı — obyektlər eyni nöqtədə olanda
+         «2 obyekt» əbədi qalırdı və hansı olduğunu görmək mümkün deyildi. */
+      }).on('click', () => {
+        const spread = Math.max(...group.map(x => metersTo({ lat, lng }, x)));
+        if (spread > 25 && map.getZoom() < 19) {
+          map.setView([lat, lng], Math.min(19, map.getZoom() + 2));
+          return;
+        }
+        const html = '<div class="cluslist"><b>' + n + ' obyekt bu nöqtədə</b>' +
+          group.map(x => '<button type="button" class="clusrow" data-cb="' +
+            esc(x.name) + '"><span>' + esc(brandLabel(x.name)) + '</span>' +
+            '<i>' + (x.visits || 0) + ' ziyarət</i></button>').join('') + '</div>';
+        L.popup({ minWidth: 220, maxWidth: 290 })
+          .setLatLng([lat, lng]).setContent(html).openOn(map);
+      })
+        .bindTooltip(n + ' obyekt · siyahı üçün bas', { direction: 'top' })
         .addTo(mBrandLayer);
     }
   }
@@ -4796,8 +4829,9 @@ document.getElementById('bClean').addEventListener('click', () => {
   }
 
   modal('<div class="mhead"><h3>Adları təmizlə</h3>' +
-      '<p>Eyni obyektin fərqli yazılışları birləşdirilir. Hər qrupu ayrıca təsdiqləyirsən — ' +
-      'avtomatik heç nə tətbiq olunmur.</p>' +
+      '<p>Yalnız <b>adlar düzəldilir</b> — obyektlər ayrı qalır, birləşdirilmir. ' +
+      'Birləşdirmə məkana baxaraq veriləcək ayrıca qərardır: siyahıda obyektləri ' +
+      'seçib «Birləşdir» ilə edilir.</p>' +
       '<button type="button" class="mclose" onclick="closeModal()" aria-label="Bagla">&times;</button></div>' +
     '<div class="mbody">' +
       '<div class="ncbar"><span><b id="ncDone">0</b> / <b>' + groups.length + '</b> təsdiqləndi</span>' +
@@ -4806,7 +4840,8 @@ document.getElementById('bClean').addEventListener('click', () => {
       '<div class="ncwrap" id="ncList"></div>' +
     '</div>' +
     '<div class="mfoot">' +
-      '<span class="fh" style="margin:0;flex:1">Tarixçə dəyişmir. Hər birləşdirmə obyekt kartından geri qaytarıla bilər.</span>' +
+      '<span class="fh" style="margin:0;flex:1">Tarixçə dəyişmir. Ad düzəlişi sətirdəki ' +
+        '«Ayır» düyməsi ilə geri qaytarıla bilər.</span>' +
       '<button type="button" class="btn btn-primary" onclick="closeModal()">Bitir</button></div>');
 
   document.getElementById('ncList').innerHTML = groups.map((gr, i) => {
@@ -4816,7 +4851,7 @@ document.getElementById('bClean').addEventListener('click', () => {
         '<span>' + gr.length + ' obyekt · ' + tot + ' ziyarət</span>' +
         '<span class="sp">' +
           '<button type="button" class="btn btn-ghost btn-sm" data-ncskip="' + i + '">Keç</button>' +
-          '<button type="button" class="btn btn-primary btn-sm" data-ncok="' + i + '">Təsdiqlə</button>' +
+          '<button type="button" class="btn btn-primary btn-sm" data-ncok="' + i + '">Adı düzəlt</button>' +
         '</span></div>' +
       '<div id="ncopt' + i + '">' +
         '<div class="ncwait">Clopos-da axtarılır…</div>' +
@@ -4847,7 +4882,15 @@ function branchPart(ourName, cloposTitle){
   const rest = ourName.slice(cut)
     .replace(/^[\s\-–—,.;:()]+/, '')
     .replace(/[\s\-–—,.;:()]+$/, '').trim();
-  return squash(rest).length >= 2 ? rest : '';
+  if (squash(rest).length < 2) return '';
+  /* SLUG FİLİAL DEYİL. "Melamor Bakery Ağ Şəhər (melamorbakery2)" adında
+     qalıq "melamorbakery2"-dir — bu, Clopos slug-udur, filial adı yox.
+     Ada yapışdırsaq "Melamor Bakery Ağ Şəhər — melamorbakery2" kimi mənasız
+     ad alınır. Slug forması: boşluqsuz, kiçik hərf + rəqəm. */
+  if (/^[a-z0-9._-]+$/.test(rest)) return '';
+  // Qalıq brendin öz adının sıxılmış variantıdırsa da filial deyil
+  if (squash(rest) === b || b.startsWith(squash(rest))) return '';
+  return rest;
 }
 
 function optRow(i, j, title, sub, val, checked, isClopos){
@@ -4913,24 +4956,30 @@ function bindNc(groups){
     const i = +b.dataset.ncok;
     const sel = document.querySelector('input[name="nc' + i + '"]:checked');
     if (!sel) return toast('Ad seçin', 'bad');
-    const canonical = sel.value;
-    /* Qrupdakı BÜTÜN yazılışlar (hər obyektin öz aliases-i daxil) yeni ada
-       bağlanır. Tarixçəyə toxunulmur — ayrıca üstünə-yazma cədvəlidir. */
-    const aliases = [];
-    groups[i].forEach(x => {
-      const al = (x.aliases && x.aliases.length) ? x.aliases : [x.name];
-      al.forEach(a => aliases.push(a));
-    });
+    const newName = sel.value;
+    /* YALNIZ AD DƏYİŞİR — birləşdirmə YOX.
+       Fuad: «birləşdirmədə mən məkana baxıram, ona görə birləşdirirəm».
+       Yəni birləşdirmə ayrıca qərardır: iki obyekt həqiqətən eyni yerdirmi.
+       Bu ekran o qərarı vermir, yalnız yazılışı düzəldir.
+
+       Hər obyekt ayrı-ayrılıqda yeni ada keçir. Eyni adı daşısalar da,
+       koordinatları 100 m-dən uzaqdırsa ayrı sətir olaraq qalırlar. */
     b.disabled = true;
+    let ok = 0;
     try {
-      const r = await api('/api/v2/admin/brands/merge',
-        { method: 'POST', body: JSON.stringify({ aliases, canonical }) });
-      if (!r.ok) throw new Error(r.error || 'alınmadı');
+      for (const x of groups[i]) {
+        if (x.name === newName) { ok++; continue; }
+        const r = await api('/api/v2/admin/brands/rename',
+          { method: 'POST', body: JSON.stringify({ canonical: x.name, newName }) });
+        if (!r.ok) throw new Error(r.error || 'alınmadı');
+        ok++;
+      }
       ncState[i] = 'done';
       const g = document.getElementById('ncg' + i);
       g.classList.add('done');
-      g.innerHTML = '<div class="ncdone">&#10003; ' + esc(canonical) +
-        ' <span style="font-weight:400;color:var(--muted)">— ' + aliases.length + ' yazılış birləşdirildi</span></div>';
+      g.innerHTML = '<div class="ncdone">&#10003; ' + esc(newName) +
+        ' <span style="font-weight:400;color:var(--muted)">— ' + ok +
+        ' obyektin adı düzəldildi, birləşdirilmədi</span></div>';
       upd();
     } catch (e) {
       b.disabled = false;
