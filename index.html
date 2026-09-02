@@ -4834,7 +4834,7 @@ document.getElementById('bClean').addEventListener('click', () => {
       'seçib «Birləşdir» ilə edilir.</p>' +
       '<button type="button" class="mclose" onclick="closeModal()" aria-label="Bagla">&times;</button></div>' +
     '<div class="mbody">' +
-      '<div class="ncbar"><span><b id="ncDone">0</b> / <b>' + groups.length + '</b> təsdiqləndi</span>' +
+      '<div class="ncbar"><span><b id="ncDone">0</b> / <b id="ncTotal">' + groups.length + '</b> təsdiqləndi</span>' +
         '<span class="ncprog"><i id="ncBar" style="width:0%"></i></span>' +
         '<span id="ncSkip"></span></div>' +
       '<div class="ncwrap" id="ncList"></div>' +
@@ -4917,6 +4917,21 @@ async function ncSuggest(groups){
     if (!box) return;   // pəncərə bağlanıb
     const wait = box.querySelector('.ncwait');
     if (wait) wait.remove();
+
+    /* ONSUZ DA DÜZGÜN olan qrup siyahıdan çıxarılır.
+       Əvvəl belə qruplar hər dəfə yenidən görünürdü: 3 obyektin adını
+       "PakDAD" etdikdən sonra hamısı eyni açarla qruplaşır və siyahıda
+       yenə çıxırdı — halbuki düzəltməli bir şey qalmamışdı.
+       Şərt: bütün adlar eynidir VƏ Clopos təklifi də həmin addır. */
+    const names = new Set(gr.map(x => brandLabel(x.name)));
+    const cur = [...names][0];
+    if (names.size === 1 && (!hit || hit.title === cur)) {
+      ncState[i] = 'okalready';
+      const g0 = document.getElementById('ncg' + i);
+      if (g0) g0.remove();
+      ncRefresh();
+      continue;
+    }
     if (hit) {
       /* FİLİAL QORUNUR. Clopos yalnız BRENDİ bilir, filialı yox:
            bizdə  "Genatsvale - 1 Qis parki"
@@ -4937,14 +4952,26 @@ async function ncSuggest(groups){
   }
 }
 
+let ncRefresh = () => {};
 function bindNc(groups){
   const upd = () => {
     const d = Object.values(ncState).filter(x => x === 'done').length;
     const sk = Object.values(ncState).filter(x => x === 'skip').length;
+    const okA = Object.values(ncState).filter(x => x === 'okalready').length;
+    const total = Math.max(1, groups.length - okA);
     document.getElementById('ncDone').textContent = d;
-    document.getElementById('ncBar').style.width = Math.round(d / groups.length * 100) + '%';
-    document.getElementById('ncSkip').textContent = sk ? sk + ' keçildi' : '';
+    document.getElementById('ncTotal').textContent = total;
+    document.getElementById('ncBar').style.width = Math.round(d / total * 100) + '%';
+    document.getElementById('ncSkip').textContent =
+      [sk ? sk + ' keçildi' : '', okA ? okA + ' onsuz da düzgün' : ''].filter(Boolean).join(' · ');
+    /* Hamısı bitibsə bunu açıq yaz — boş ekran qalmasın */
+    const list = document.getElementById('ncList');
+    if (list && !list.children.length) {
+      list.innerHTML = emptyBox('&#9989;', 'Təmizlənəcək qalmadı',
+        'Bütün adlar Clopos-dakı yazılışa uyğundur.');
+    }
   };
+  ncRefresh = upd;
   document.querySelectorAll('[data-ncskip]').forEach(b => b.onclick = () => {
     const i = +b.dataset.ncskip;
     ncState[i] = 'skip';
@@ -4991,6 +5018,9 @@ function bindNc(groups){
       g.innerHTML = '<div class="ncdone">&#10003; ' + esc(newName) +
         ' <span style="font-weight:400;color:var(--muted)">— ' + ok +
         ' obyektin adı düzəldildi, birləşdirilmədi</span></div>';
+      /* Yerli siyahıda da adı yenilə ki, pəncərə bağlanmadan təkrar
+         açılsa həmin qrup yenidən çıxmasın */
+      groups[i].forEach(x => { x.name = newName; });
       upd();
     } catch (e) {
       b.disabled = false;
