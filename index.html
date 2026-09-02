@@ -3633,20 +3633,30 @@ function areaResult(poly){
 
   document.getElementById('arCsv').onclick = () => {
     const cols = AR_COLS.filter(c => arOn.includes(c.k));
-    /* İKİ ŞEY MƏCBURİDİR, yoxsa Excel hər şeyi bir sütuna yığır:
+    /* UTF-16LE + TAB — Excel-in şərtsiz düzgün açdığı format.
 
-       1) `sep=;` — birinci sətir. Excel-in yerli ayırıcısı vergüldürsə `;`
-          ilə bölmür; bu direktiv onu məcbur edir. Yerli ayarlardan asılı deyil.
-       2) VERGÜL də sitat içinə alınmalıdır. Ünvanlarda vergül var
-          («Mərkəzi Park küçəsi, Bakü, Azerbaycan») — sitatsız qalsa Excel
-          onları sütun sərhədi sayır və sətir dağılır.
+       Əvvəl UTF-8 + BOM + `sep=;` işlədilirdi: sütunlar bölünürdü, amma
+       hərflər pozulurdu («Ünvan» → «Ãœnvan»). Səbəb: `sep=` sətri olanda
+       Excel BOM-a görə kodlaşdırmanı təyin etmir və faylı yerli kod
+       səhifəsi (Windows-1252) kimi oxuyur.
 
-       BOM isə azərbaycan hərfləri üçündür. */
-    const q = v => { const t = v == null ? '' : String(v);
-      return /[",;\n\r]|^\s|\s$/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
-    const lines = ['sep=;', cols.map(c => q(c.t)).join(';')];
-    arRows.forEach(b => lines.push(cols.map(c => q(c.get(b))).join(';')));
-    const blob = new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+       UTF-16LE-də kodlaşdırma BOM-dan (FF FE) birmənalı bilinir, TAB
+       ayırıcısı isə yerli ayarlardan asılı deyil — nə `sep=` lazımdır,
+       nə də ünvanlardakı vergül problem yaradır. */
+    const TAB = String.fromCharCode(9);
+    const CRLF = String.fromCharCode(13) + String.fromCharCode(10);
+    const q = v => {
+      const t = v == null ? '' : String(v);
+      return /["\t\n\r]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t;
+    };
+    const lines = [cols.map(c => q(c.t)).join(TAB)];
+    arRows.forEach(b => lines.push(cols.map(c => q(c.get(b))).join(TAB)));
+    const text = lines.join(CRLF);
+    const buf = new ArrayBuffer(2 + text.length * 2);
+    const dv = new DataView(buf);
+    dv.setUint8(0, 0xFF); dv.setUint8(1, 0xFE);            // UTF-16LE BOM
+    for (let k = 0; k < text.length; k++) dv.setUint16(2 + k * 2, text.charCodeAt(k), true);
+    const blob = new Blob([buf], { type: 'text/csv' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = 'sahe-' + dayKey(new Date()) + '.csv';
