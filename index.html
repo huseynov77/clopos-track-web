@@ -3532,9 +3532,14 @@ function bindLasso(){
     }
     /* Cızıq EKRANDA QALIR və özü qapanır (SVG `Z`). Dərhal pəncərə açmırıq —
        əvvəlcə nəyi seçdiyini görürsən, sonra təsdiqləyirsən. */
+    /* SEÇİM REJİMİ BURADA DAYANIR. Təsdiq düymələri xəritə elementinin
+       İÇİNDƏDİR — rejim açıq qalsaydı «Göstər»ə basmaq yeni cızıq kimi
+       qəbul olunurdu: bir nöqtəlik «sahə» yaranıb «çox kiçikdir» deyirdi.
+       Cızıq və zolaq ekranda qalır, yalnız siçan izlənməsi dayanır. */
+    lassoOn = false;
     lassoPts = null;
+    document.getElementById('map').classList.remove('lasso');
     lassoPath.setAttribute('class', 'done');
-    map.dragging.disable();
     const n = places.filter(b => b.lat != null &&
       inPoly(map.latLngToContainerPoint([b.lat, b.lng]).x,
              map.latLngToContainerPoint([b.lat, b.lng]).y, poly)).length;
@@ -3543,6 +3548,9 @@ function bindLasso(){
       '<button type="button" id="lsRedo">Yenidən çək</button>' +
       '<button type="button" id="lsOk" class="pri">Göstər</button>';
     lassoHint.style.pointerEvents = 'auto';
+    // Xəritə hələ də mousedown eşidir — zolağın klikləri ora düşməsin
+    ['mousedown','mouseup','touchstart','touchend','click'].forEach(ev =>
+      lassoHint.addEventListener(ev, x => x.stopPropagation()));
     document.getElementById('lsRedo').onclick = () => {
       lassoStop(); bindLasso(); lassoStart();
     };
@@ -3654,7 +3662,9 @@ function areaResult(poly){
     closeModal();
     placePage = 0;
     go('places');
-    renderPlaces();
+    /* `go()` lazım olsa siyahını yenidən çəkir; filtr onun ARDINDAN tətbiq
+       olunmalıdır, yoxsa yeni render onu silir. */
+    setTimeout(renderPlaces, 60);
   };
 }
 
