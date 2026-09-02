@@ -1224,7 +1224,8 @@ tr:hover .ratedcell .rchg,.ratedcell .rchg:focus-visible{opacity:1}
 /* ── Xəritədə sahə seçmə (tor) ── */
 #map.lasso{cursor:crosshair}
 #map.lasso .leaflet-marker-icon,#map.lasso .leaflet-interactive{pointer-events:none}
-#lassoSvg{position:absolute;inset:0;z-index:900;pointer-events:none}
+#lassoSvg{position:absolute;left:0;top:0;width:100%;height:100%;
+  z-index:1000;pointer-events:none;overflow:visible}
 #lassoSvg path{fill:color-mix(in srgb,var(--brand) 14%,transparent);
   stroke:var(--brand);stroke-width:2.5;stroke-dasharray:6 4;stroke-linejoin:round;
   stroke-linecap:round}
@@ -1952,8 +1953,8 @@ tbody tr:hover .rowacts,tr:focus-within .rowacts{opacity:1}
                   <button type="button" data-lay="street" class="on">Xəritə</button>
                   <button type="button" data-lay="sat">Peyk</button>
                 </div>
-                <button type="button" class="btn btn-ghost btn-sm" id="mLasso"
-                        title="Xəritədə sahə cız — içindəki obyektlərin siyahısı çıxsın">
+                <button type="button" class="btn btn-ghost btn-sm" id="mLasso" disabled
+                        title="Əvvəlcə «Obyektlər» qutusunu işarələ">
                   Sahə seç</button>
                 <button type="button" class="btn btn-ghost btn-sm" id="mFit">Hamısını göstər</button>
               </div>
@@ -3451,14 +3452,14 @@ function drawBrandPins(){
    Nöqtə-çoxbucaq yoxlaması PİKSELDƏ aparılır (latlng-də yox): ekran
    koordinatlarında işləmək proyeksiya məsələlərini tamam aradan qaldırır və
    istifadəçinin gördüyü forma ilə birə-bir üst-üstə düşür. */
-let lassoOn = false, lassoPts = null, lassoSvg = null, lassoHint = null;
+let lassoOn = false, lassoPts = null, lassoSvg = null, lassoPath = null, lassoHint = null;
 
 function lassoStop(){
   lassoOn = false;
   const el = document.getElementById('map');
   el.classList.remove('lasso');
   if (map) { map.dragging.enable(); map.boxZoom.enable(); }
-  if (lassoSvg) { lassoSvg.remove(); lassoSvg = null; }
+  if (lassoSvg) { lassoSvg.remove(); lassoSvg = null; lassoPath = null; }
   if (lassoHint) { lassoHint.remove(); lassoHint = null; }
   lassoPts = null;
   const b = document.getElementById('mLasso');
@@ -3471,9 +3472,17 @@ function lassoStart(){
   const el = document.getElementById('map');
   el.classList.add('lasso');
   map.dragging.disable(); map.boxZoom.disable();
-  lassoSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  /* `path` MÜTLƏQ createElementNS ilə yaradılmalıdır. `innerHTML` ilə
+     qoyulan element HTML ad fəzasına düşür — DOM-da görünür, amma brauzer
+     onu SVG kimi çəkmir. Cızıq məhz buna görə görünmürdü. */
+  const NS = 'http://www.w3.org/2000/svg';
+  lassoSvg = document.createElementNS(NS, 'svg');
   lassoSvg.id = 'lassoSvg';
-  lassoSvg.innerHTML = '<path d=""></path>';
+  lassoSvg.setAttribute('width', '100%');
+  lassoSvg.setAttribute('height', '100%');
+  lassoPath = document.createElementNS(NS, 'path');
+  lassoPath.setAttribute('d', '');
+  lassoSvg.appendChild(lassoPath);
   el.appendChild(lassoSvg);
   lassoHint = document.createElement('div');
   lassoHint.className = 'lassohint';
@@ -3505,18 +3514,26 @@ function bindLasso(){
     // Hər pikseli yazmırıq — 4 px addım kifayətdir, yoxsa minlərlə nöqtə yığılır
     if (Math.abs(pt[0] - last[0]) + Math.abs(pt[1] - last[1]) < 4) return;
     lassoPts.push(pt);
-    lassoSvg.firstChild.setAttribute('d',
+    lassoPath.setAttribute('d',
       'M' + lassoPts.map(p => p[0] + ',' + p[1]).join('L') + 'Z');
   };
   const up = (e) => {
     if (!lassoOn || !lassoPts) return;
     e.preventDefault();
     const poly = lassoPts.slice();
-    if (poly.length < 6) { lassoStop(); return toast('Sahə çox kiçikdir', 'bad'); }
+    /* Ölçü ƏHATƏ QUTUSUNA görə yoxlanılır, nöqtə sayına görə yox.
+       Sürətli çəkəndə `mousemove` az işə düşür və böyük sahə cəmi 4-5 nöqtə
+       ilə yazılır — nöqtə sayına baxsaq «çox kiçikdir» deyirdi. */
+    const xs = poly.map(p => p[0]), ys = poly.map(p => p[1]);
+    const w = Math.max(...xs) - Math.min(...xs);
+    const h = Math.max(...ys) - Math.min(...ys);
+    if (poly.length < 3 || w < 20 || h < 20) {
+      lassoStop(); return toast('Sahə çox kiçikdir', 'bad');
+    }
     /* Cızıq EKRANDA QALIR və özü qapanır (SVG `Z`). Dərhal pəncərə açmırıq —
        əvvəlcə nəyi seçdiyini görürsən, sonra təsdiqləyirsən. */
     lassoPts = null;
-    lassoSvg.firstChild.setAttribute('class', 'done');
+    lassoPath.setAttribute('class', 'done');
     map.dragging.disable();
     const n = places.filter(b => b.lat != null &&
       inPoly(map.latLngToContainerPoint([b.lat, b.lng]).x,
@@ -3644,6 +3661,19 @@ function areaResult(poly){
 document.getElementById('mLasso').addEventListener('click', () => {
   if (lassoOn) lassoStop(); else { bindLasso(); lassoStart(); }
 });
+
+/* «Sahə seç» yalnız obyekt nişanları açıq olanda işləyir — gizli obyektləri
+   seçmək çaşdırıcı olardı. Qutu söndürüləndə seçim rejimi də dayanır. */
+function syncLassoBtn(){
+  const on = document.getElementById('mShowBrands').checked;
+  const b = document.getElementById('mLasso');
+  b.disabled = !on;
+  b.title = on ? 'Xəritədə sahə cız — içindəki obyektlərin siyahısı çıxsın'
+               : 'Əvvəlcə «Obyektlər» qutusunu işarələ';
+  if (!on && lassoOn) lassoStop();
+}
+document.getElementById('mShowBrands').addEventListener('change', syncLassoBtn);
+syncLassoBtn();
 
 /* ── Peyk / küçə qatı ──
    Plitkələr Esri-dən gəlir, bizim serverə yük düşmür. Mənbə göstərilir. */
