@@ -1179,6 +1179,36 @@ tr:hover .ratedcell .rchg,.ratedcell .rchg:focus-visible{opacity:1}
 .toast.ok{border-left-color:var(--ok)} .toast.bad{border-left-color:var(--bad)}
 @keyframes slide{from{opacity:0;transform:translateX(18px)}to{opacity:1;transform:none}}
 
+/* ── Ad təmizləmə ekranı ── */
+.ncwrap{max-height:min(70vh,620px);overflow:auto;margin:0 -22px;padding:0 22px}
+.ncbar{display:flex;align-items:center;gap:12px;padding:10px 0 14px;
+  font-size:12.5px;color:var(--muted);border-bottom:1px solid var(--line);margin-bottom:14px}
+.ncbar b{font-family:var(--mono);color:var(--text);font-weight:600}
+.ncprog{flex:1;height:5px;border-radius:99px;background:var(--surf-2);overflow:hidden;min-width:80px}
+.ncprog i{display:block;height:100%;background:var(--ok);transition:width .3s}
+.ncg{border:1px solid var(--line);border-radius:12px;padding:13px 15px;margin-bottom:12px;
+  background:var(--surf);transition:opacity .2s,border-color .2s}
+.ncg.done{border-color:color-mix(in srgb,var(--ok) 40%,transparent);background:var(--ok-soft)}
+.ncg.skip{opacity:.45}
+.ncg-h{display:flex;align-items:center;gap:9px;margin-bottom:10px;font-size:12px;color:var(--faint)}
+.ncg-h b{font-size:13.5px;color:var(--text);font-weight:600;letter-spacing:-.015em}
+.ncg-h .sp{margin-left:auto;display:flex;gap:7px}
+.nco{display:flex;gap:10px;align-items:flex-start;padding:7px 9px;cursor:pointer;
+  border-radius:8px;border:1px solid transparent}
+.nco:hover{background:var(--surf-2)}
+.nco:has(input:checked){background:var(--brand-soft);
+  border-color:color-mix(in srgb,var(--brand) 26%,transparent)}
+.nco input{margin-top:3px;flex:0 0 auto}
+.nco-b{min-width:0;flex:1}
+.nco-b b{display:block;font-size:13px;font-weight:600;letter-spacing:-.01em;word-break:break-word}
+.nco-b i{display:block;font-style:normal;font-family:var(--mono);font-size:10.5px;
+  color:var(--faint);letter-spacing:-.03em;margin-top:2px}
+.nco .src{flex:0 0 auto;font-size:9.5px;font-weight:700;letter-spacing:.06em;
+  text-transform:uppercase;padding:2px 6px;border-radius:5px;
+  background:var(--ok-soft);color:var(--ok);align-self:center}
+.ncdone{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ok);font-weight:600}
+.ncwait{font-size:11.5px;color:var(--faint);font-style:italic}
+
 /* ── Obyektlər ── */
 /* Seçim paneli ekranın altında ÜZÜR. Əvvəl axına əlavə olunurdu və
    ilk seçimdə bütün sətirlər 64 px aşağı sürüşürdü — ikinci klik səhv
@@ -1987,6 +2017,9 @@ tbody tr:hover .rowacts,tr:focus-within .rowacts{opacity:1}
             <input id="bQ" placeholder="Ad və ya ünvan axtar…" spellcheck="false" autocomplete="off">
             <button type="button" class="clr" id="bClr" title="Təmizlə" hidden>&times;</button>
           </div>
+          <button type="button" class="btn btn-ghost btn-sm" id="bClean"
+                  title="Eyni obyektin fərqli yazılışlarını tapıb Clopos-dakı düzgün adla birləşdirir">
+            Adları təmizlə</button>
           <span class="hitn" id="bCount"></span>
         </div>
 
@@ -2373,7 +2406,15 @@ function modal(html){
   m.classList.add('on');
   m.onclick = (e) => { if (e.target === m) closeModal(); };
 }
-function closeModal(){ document.getElementById('mod').classList.remove('on'); }
+function closeModal(){
+  document.getElementById('mod').classList.remove('on');
+  /* Ad təmizləmə pəncərəsində birləşdirmə olubsa siyahı yenilənməlidir —
+     əks halda köhnə adlar ekranda qalırdı. */
+  if (Object.values(ncState || {}).some(x => x === 'done')) {
+    ncState = {};
+    loadPlaces(true);
+  }
+}
 const initials = n => String(n || '?').trim().split(/\s+/).slice(0,2).map(s => s[0] || '').join('').toUpperCase();
 /* Ada görə sabit rəng — eyni ad həmişə eyni rəngi alır. Boz avatarlar
    siyahıda bir-birindən seçilmirdi. */
@@ -4714,6 +4755,184 @@ document.getElementById('bLocMerge').addEventListener('click', () => {
       { canonical: name, lat: g.lat, lng: g.lng }, 'Məkan birləşdirildi');
   };
 });
+
+/* ══════════════ AD TƏMİZLƏMƏ ══════════════
+   Obyekt adları işçilərin Teams-də yazdığından gəlir: eyni yer «Mykids»,
+   «mykids (Xırdalan)», «MY KIDS» kimi üç ayrı obyekt olur. Clopos-un öz
+   brend siyahısı düzgün yazılışı bilir (`mykids` → «MY KİDS»).
+
+   Ekran özü qruplaşdırır və hər qrup üçün Clopos təklifini gətirir, amma
+   HEÇ NƏ AVTOMATİK TƏTBİQ OLUNMUR — hər qrupu ayrıca təsdiqləyirsən.
+   Ölçdük: 53 qrupun 52-si Clopos-da tapıldı (98%), ona görə Clopos adı
+   standart seçilidir. */
+function ncGroups(){
+  const g = new Map();
+  for (const b of places) {
+    const k = squash(brandLabel(b.name));
+    if (k.length < 3) continue;
+    if (!g.has(k)) g.set(k, []);
+    g.get(k).push(b);
+  }
+  return [...g.values()].filter(a => a.length > 1)
+    .sort((a, b) => (b.reduce((s,x)=>s+(x.visits||0),0)) - (a.reduce((s,x)=>s+(x.visits||0),0)));
+}
+
+let ncState = {};   // qrup indeksi → 'done' | 'skip'
+
+document.getElementById('bClean').addEventListener('click', () => {
+  const groups = ncGroups();
+  ncState = {};
+  if (!groups.length) {
+    return modal('<div class="mhead"><h3>Təmizlənəcək ad yoxdur</h3>' +
+      '<p>Eyni adın fərqli yazılışı tapılmadı.</p>' +
+      '<button type="button" class="mclose" onclick="closeModal()">&times;</button></div>' +
+      '<div class="mfoot"><button type="button" class="btn btn-primary" onclick="closeModal()">Bağla</button></div>');
+  }
+
+  modal('<div class="mhead"><h3>Adları təmizlə</h3>' +
+      '<p>Eyni obyektin fərqli yazılışları birləşdirilir. Hər qrupu ayrıca təsdiqləyirsən — ' +
+      'avtomatik heç nə tətbiq olunmur.</p>' +
+      '<button type="button" class="mclose" onclick="closeModal()" aria-label="Bagla">&times;</button></div>' +
+    '<div class="mbody">' +
+      '<div class="ncbar"><span><b id="ncDone">0</b> / <b>' + groups.length + '</b> təsdiqləndi</span>' +
+        '<span class="ncprog"><i id="ncBar" style="width:0%"></i></span>' +
+        '<span id="ncSkip"></span></div>' +
+      '<div class="ncwrap" id="ncList"></div>' +
+    '</div>' +
+    '<div class="mfoot">' +
+      '<span class="fh" style="margin:0;flex:1">Tarixçə dəyişmir. Hər birləşdirmə obyekt kartından geri qaytarıla bilər.</span>' +
+      '<button type="button" class="btn btn-primary" onclick="closeModal()">Bitir</button></div>');
+
+  document.getElementById('ncList').innerHTML = groups.map((gr, i) => {
+    const tot = gr.reduce((s, x) => s + (x.visits || 0), 0);
+    return '<div class="ncg" id="ncg' + i + '">' +
+      '<div class="ncg-h"><b>' + esc(brandLabel(gr[0].name)) + '</b>' +
+        '<span>' + gr.length + ' obyekt · ' + tot + ' ziyarət</span>' +
+        '<span class="sp">' +
+          '<button type="button" class="btn btn-ghost btn-sm" data-ncskip="' + i + '">Keç</button>' +
+          '<button type="button" class="btn btn-primary btn-sm" data-ncok="' + i + '">Təsdiqlə</button>' +
+        '</span></div>' +
+      '<div id="ncopt' + i + '">' +
+        '<div class="ncwait">Clopos-da axtarılır…</div>' +
+        gr.map((b, j) => optRow(i, j, brandLabel(b.name),
+          (b.visits || 0) + ' ziyarət' + (b.address ? ' · ' + b.address : ''), b.name, j === 0)).join('') +
+      '</div></div>';
+  }).join('');
+
+  bindNc(groups);
+  ncSuggest(groups);
+});
+
+/* Bizim addan FİLİAL hissəsini ayırır.
+   "Genatsvale - 1 Qis parki" + Clopos "Genatsvale"  →  "1 Qis parki"
+   "Mykids" + Clopos "MY KİDS"                        →  "" (filial yoxdur)
+   Uyğunluq diakritikasız və işarəsiz müqayisə ilə tapılır; qalıq hissədə
+   ən azı 2 hərf olmalıdır ki, təsadüfi simvol filial sayılmasın. */
+function branchPart(ourName, cloposTitle){
+  const a = squash(ourName), b = squash(cloposTitle);
+  if (!b || !a.startsWith(b) || a.length <= b.length) return '';
+  // Xam addan həmin uzunluqdakı prefiksi kəs — orijinal yazılış qorunsun
+  let seen = 0, cut = 0;
+  for (let i = 0; i < ourName.length; i++) {
+    if (squash(ourName[i]).length) seen++;
+    if (seen >= b.length) { cut = i + 1; break; }
+  }
+  // Baş və SON tərəfdəki ayırıcılar atılır: "(2 ci filial)" → "2 ci filial"
+  const rest = ourName.slice(cut)
+    .replace(/^[\s\-–—,.;:()]+/, '')
+    .replace(/[\s\-–—,.;:()]+$/, '').trim();
+  return squash(rest).length >= 2 ? rest : '';
+}
+
+function optRow(i, j, title, sub, val, checked, isClopos){
+  return '<label class="nco">' +
+    '<input type="radio" name="nc' + i + '" value="' + esc(val) + '"' + (checked ? ' checked' : '') + '>' +
+    '<span class="nco-b"><b>' + esc(title) + '</b><i>' + esc(sub) + '</i></span>' +
+    (isClopos ? '<span class="src">Clopos</span>' : '') +
+  '</label>';
+}
+
+/* Təkliflər BİR-BİR gətirilir — 53 paralel sorğu Clopos API-sini yükləyər.
+   Serverdə 6 saatlıq keş var, ona görə ikinci açılış ani olur. */
+async function ncSuggest(groups){
+  for (let i = 0; i < groups.length; i++) {
+    const gr = groups[i];
+    const sg = gr.map(b => slugOf(b.name, b.aliases || [])).find(Boolean);
+    const q = sg || squash(brandLabel(gr[0].name));
+    let hit = null;
+    try {
+      const d = await api('/api/v2/admin/brand-search?q=' + encodeURIComponent(q));
+      hit = (d.results || [])[0] || null;
+    } catch (_) {}
+    const box = document.getElementById('ncopt' + i);
+    if (!box) return;   // pəncərə bağlanıb
+    const wait = box.querySelector('.ncwait');
+    if (wait) wait.remove();
+    if (hit) {
+      /* FİLİAL QORUNUR. Clopos yalnız BRENDİ bilir, filialı yox:
+           bizdə  "Genatsvale - 1 Qis parki"
+           Clopos "Genatsvale"
+         Clopos adını olduğu kimi qoysaq «1 Qis parki» İTİR və iki fərqli
+         filial bir obyektə çevrilir. Ona görə bizim addakı filial hissəsi
+         ayrılıb Clopos brendinin yanına qoyulur. */
+      const ours = brandLabel(gr[0].name);
+      const br = branchPart(ours, hit.title);
+      const proposed = br ? hit.title + ' — ' + br : hit.title;
+      box.querySelectorAll('input[type=radio]').forEach(x => { x.checked = false; });
+      box.insertAdjacentHTML('afterbegin',
+        optRow(i, 'c', proposed,
+          'Clopos brendi: ' + (hit.name || '') + (hit.id ? ' · id ' + hit.id : '') +
+          (br ? ' · filial saxlanıldı' : ''),
+          proposed, true, true));
+    }
+  }
+}
+
+function bindNc(groups){
+  const upd = () => {
+    const d = Object.values(ncState).filter(x => x === 'done').length;
+    const sk = Object.values(ncState).filter(x => x === 'skip').length;
+    document.getElementById('ncDone').textContent = d;
+    document.getElementById('ncBar').style.width = Math.round(d / groups.length * 100) + '%';
+    document.getElementById('ncSkip').textContent = sk ? sk + ' keçildi' : '';
+  };
+  document.querySelectorAll('[data-ncskip]').forEach(b => b.onclick = () => {
+    const i = +b.dataset.ncskip;
+    ncState[i] = 'skip';
+    document.getElementById('ncg' + i).classList.add('skip');
+    b.closest('.ncg-h').querySelector('.sp').innerHTML = '<span class="ncwait">keçildi</span>';
+    upd();
+  });
+  document.querySelectorAll('[data-ncok]').forEach(b => b.onclick = async () => {
+    const i = +b.dataset.ncok;
+    const sel = document.querySelector('input[name="nc' + i + '"]:checked');
+    if (!sel) return toast('Ad seçin', 'bad');
+    const canonical = sel.value;
+    /* Qrupdakı BÜTÜN yazılışlar (hər obyektin öz aliases-i daxil) yeni ada
+       bağlanır. Tarixçəyə toxunulmur — ayrıca üstünə-yazma cədvəlidir. */
+    const aliases = [];
+    groups[i].forEach(x => {
+      const al = (x.aliases && x.aliases.length) ? x.aliases : [x.name];
+      al.forEach(a => aliases.push(a));
+    });
+    b.disabled = true;
+    try {
+      const r = await api('/api/v2/admin/brands/merge',
+        { method: 'POST', body: JSON.stringify({ aliases, canonical }) });
+      if (!r.ok) throw new Error(r.error || 'alınmadı');
+      ncState[i] = 'done';
+      const g = document.getElementById('ncg' + i);
+      g.classList.add('done');
+      g.innerHTML = '<div class="ncdone">&#10003; ' + esc(canonical) +
+        ' <span style="font-weight:400;color:var(--muted)">— ' + aliases.length + ' yazılış birləşdirildi</span></div>';
+      upd();
+    } catch (e) {
+      b.disabled = false;
+      toast('Alınmadı: ' + e.message, 'bad');
+    }
+  });
+  upd();
+}
 
 document.getElementById('bMerge').addEventListener('click', () => {
   const names = [...new Set(selRows().map(b => b.name))];
