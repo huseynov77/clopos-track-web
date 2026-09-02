@@ -1219,6 +1219,30 @@ tr:hover .ratedcell .rchg,.ratedcell .rchg:focus-visible{opacity:1}
   color:var(--faint);letter-spacing:-.03em;margin-top:1px}
 .rnwait{font-size:11.5px;color:var(--faint);font-style:italic;padding:6px 2px}
 
+/* ── Xəritədə sahə seçmə (tor) ── */
+#map.lasso{cursor:crosshair}
+#map.lasso .leaflet-marker-icon,#map.lasso .leaflet-interactive{pointer-events:none}
+#lassoSvg{position:absolute;inset:0;z-index:900;pointer-events:none}
+#lassoSvg path{fill:color-mix(in srgb,var(--brand) 14%,transparent);
+  stroke:var(--brand);stroke-width:2;stroke-dasharray:6 4;stroke-linejoin:round}
+.lassohint{position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:901;
+  background:var(--surf);border:1px solid var(--line);border-radius:9px;
+  padding:7px 13px;font-size:12.5px;color:var(--muted);box-shadow:var(--sh-lg);
+  pointer-events:none;white-space:nowrap}
+/* Nəticə cədvəli */
+.arwrap{max-height:min(52vh,440px);overflow:auto;border:1px solid var(--line);
+  border-radius:10px}
+.arwrap table{width:100%;font-size:12.5px}
+.arwrap th{position:sticky;top:0;background:var(--surf-2);z-index:2;
+  box-shadow:0 1px 0 var(--line);white-space:nowrap}
+.arcols{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:11px}
+.arcols label{display:inline-flex;align-items:center;gap:6px;cursor:pointer;
+  font-size:11.5px;padding:4px 9px;border-radius:7px;border:1px solid var(--line);
+  background:var(--surf);color:var(--muted);user-select:none}
+.arcols label:has(input:checked){background:var(--brand-soft);color:var(--brand);
+  border-color:color-mix(in srgb,var(--brand) 30%,transparent);font-weight:600}
+.arcols input{margin:0}
+
 /* Xəritə klasterinin siyahısı */
 .cluslist > b{display:block;font-size:12px;font-weight:600;margin-bottom:7px;color:var(--muted)}
 .clusrow{display:flex;align-items:center;gap:9px;width:100%;text-align:left;
@@ -1916,6 +1940,9 @@ tbody tr:hover .rowacts,tr:focus-within .rowacts{opacity:1}
                   <button type="button" data-lay="street" class="on">Xəritə</button>
                   <button type="button" data-lay="sat">Peyk</button>
                 </div>
+                <button type="button" class="btn btn-ghost btn-sm" id="mLasso"
+                        title="Xəritədə sahə cız — içindəki obyektlərin siyahısı çıxsın">
+                  Sahə seç</button>
                 <button type="button" class="btn btn-ghost btn-sm" id="mFit">Hamısını göstər</button>
               </div>
             </div>
@@ -3398,6 +3425,182 @@ function drawBrandPins(){
   }
 }
 
+/* ══════════════ XƏRİTƏDƏ SAHƏ SEÇMƏ ══════════════
+   Rayona görə filtr üçün ünvan mətni yaramır: 633 obyektin yalnız 219-unda
+   (35%) rayon adı var — qalanı «Bakü, Azerbaycan», «Saray», «Y40-17» kimidir.
+   Koordinat isə HƏR obyektdə var. Ona görə sahəni xəritədə cızırıq.
+
+   Nöqtə-çoxbucaq yoxlaması PİKSELDƏ aparılır (latlng-də yox): ekran
+   koordinatlarında işləmək proyeksiya məsələlərini tamam aradan qaldırır və
+   istifadəçinin gördüyü forma ilə birə-bir üst-üstə düşür. */
+let lassoOn = false, lassoPts = null, lassoSvg = null, lassoHint = null;
+
+function lassoStop(){
+  lassoOn = false;
+  const el = document.getElementById('map');
+  el.classList.remove('lasso');
+  if (map) { map.dragging.enable(); map.boxZoom.enable(); }
+  if (lassoSvg) { lassoSvg.remove(); lassoSvg = null; }
+  if (lassoHint) { lassoHint.remove(); lassoHint = null; }
+  lassoPts = null;
+  const b = document.getElementById('mLasso');
+  if (b) b.classList.remove('on');
+}
+
+function lassoStart(){
+  if (!map) return;
+  lassoOn = true;
+  const el = document.getElementById('map');
+  el.classList.add('lasso');
+  map.dragging.disable(); map.boxZoom.disable();
+  lassoSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  lassoSvg.id = 'lassoSvg';
+  lassoSvg.innerHTML = '<path d=""></path>';
+  el.appendChild(lassoSvg);
+  lassoHint = document.createElement('div');
+  lassoHint.className = 'lassohint';
+  lassoHint.textContent = 'Sahəni cız — buraxanda içindəki obyektlər çıxacaq · Esc ləğv';
+  el.appendChild(lassoHint);
+  document.getElementById('mLasso').classList.add('on');
+}
+
+function lassoXY(e, box){
+  const t = e.touches ? e.touches[0] : e;
+  return [t.clientX - box.left, t.clientY - box.top];
+}
+
+function bindLasso(){
+  const el = document.getElementById('map');
+  if (!el || el.dataset.lassoBound) return;
+  el.dataset.lassoBound = '1';
+
+  const down = (e) => {
+    if (!lassoOn) return;
+    e.preventDefault();
+    lassoPts = [lassoXY(e, el.getBoundingClientRect())];
+  };
+  const move = (e) => {
+    if (!lassoOn || !lassoPts) return;
+    e.preventDefault();
+    const pt = lassoXY(e, el.getBoundingClientRect());
+    const last = lassoPts[lassoPts.length - 1];
+    // Hər pikseli yazmırıq — 4 px addım kifayətdir, yoxsa minlərlə nöqtə yığılır
+    if (Math.abs(pt[0] - last[0]) + Math.abs(pt[1] - last[1]) < 4) return;
+    lassoPts.push(pt);
+    lassoSvg.firstChild.setAttribute('d',
+      'M' + lassoPts.map(p => p[0] + ',' + p[1]).join('L') + 'Z');
+  };
+  const up = (e) => {
+    if (!lassoOn || !lassoPts) return;
+    e.preventDefault();
+    const poly = lassoPts;
+    lassoStop();
+    if (poly.length < 6) return toast('Sahə çox kiçikdir', 'bad');
+    areaResult(poly);
+  };
+  el.addEventListener('mousedown', down);
+  el.addEventListener('mousemove', move);
+  window.addEventListener('mouseup', up);
+  el.addEventListener('touchstart', down, { passive: false });
+  el.addEventListener('touchmove', move, { passive: false });
+  el.addEventListener('touchend', up);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && lassoOn) lassoStop(); });
+}
+
+/* Şüa üsulu — nöqtə çoxbucağın içindədirmi */
+function inPoly(x, y, poly){
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const xi = poly[i][0], yi = poly[i][1], xj = poly[j][0], yj = poly[j][1];
+    if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+
+/* ── Nəticə pəncərəsi ── */
+const AR_COLS = [
+  { k:'id',    t:'ID',          on:true,  get:b => b.cloposId || '' },
+  { k:'name',  t:'Obyekt',      on:true,  get:b => brandLabel(b.name) },
+  { k:'slug',  t:'Slug',        on:true,  get:b => b.cloposSlug || slugOf(b.name, b.aliases || []) },
+  { k:'addr',  t:'Ünvan',       on:true,  get:b => b.address || '' },
+  { k:'vis',   t:'Ziyarət',     on:true,  get:b => b.visits || 0 },
+  { k:'ex',    t:'Çıxış',       on:false, get:b => b.exits || 0 },
+  { k:'last',  t:'Son ziyarət', on:false, get:b => b.lastSeen ? dayYear(b.lastSeen) : '' },
+  { k:'coord', t:'Koordinat',   on:false, get:b => (b.lat != null ? b.lat.toFixed(5) + ', ' + b.lng.toFixed(5) : '') },
+];
+let arOn = AR_COLS.filter(c => c.on).map(c => c.k);
+let arRows = [];
+
+function areaResult(poly){
+  arRows = places.filter(b => {
+    if (b.lat == null || b.lng == null) return false;
+    const pt = map.latLngToContainerPoint([b.lat, b.lng]);
+    return inPoly(pt.x, pt.y, poly);
+  }).sort((a, b) => (b.visits || 0) - (a.visits || 0));
+
+  if (!arRows.length) return toast('Bu sahədə obyekt yoxdur', 'bad');
+  const tot = arRows.reduce((s, x) => s + (x.visits || 0), 0);
+
+  modal('<div class="mhead"><h3>Seçilmiş sahə</h3>' +
+      '<p>' + arRows.length + ' obyekt · ' + tot + ' ziyarət</p>' +
+      '<button type="button" class="mclose" onclick="closeModal()" aria-label="Bagla">&times;</button></div>' +
+    '<div class="mbody">' +
+      '<div class="arcols">' + AR_COLS.map(c =>
+        '<label><input type="checkbox" data-arc="' + c.k + '"' +
+        (arOn.includes(c.k) ? ' checked' : '') + '>' + c.t + '</label>').join('') + '</div>' +
+      '<div class="arwrap" id="arWrap"></div>' +
+      '<div class="fh">Yalnız açıq sütunlar ixrac olunur.</div>' +
+    '</div>' +
+    '<div class="mfoot">' +
+      '<button type="button" class="btn btn-ghost" id="arList">Siyahıda göstər</button>' +
+      '<button type="button" class="btn btn-primary" id="arCsv">Excel-ə ixrac</button></div>');
+
+  const draw = () => {
+    const cols = AR_COLS.filter(c => arOn.includes(c.k));
+    document.getElementById('arWrap').innerHTML =
+      '<table><thead><tr>' + cols.map(c => '<th>' + c.t + '</th>').join('') + '</tr></thead><tbody>' +
+      arRows.map(b => '<tr>' + cols.map(c => '<td>' + esc(String(c.get(b))) + '</td>').join('') + '</tr>').join('') +
+      '</tbody></table>';
+  };
+  draw();
+  document.querySelectorAll('[data-arc]').forEach(cb => cb.onchange = () => {
+    arOn = [...document.querySelectorAll('[data-arc]')].filter(x => x.checked).map(x => x.dataset.arc);
+    if (!arOn.length) { cb.checked = true; arOn = [cb.dataset.arc]; return toast('Ən azı bir sütun qalmalıdır', 'bad'); }
+    draw();
+  });
+
+  document.getElementById('arCsv').onclick = () => {
+    const cols = AR_COLS.filter(c => arOn.includes(c.k));
+    /* `;` ayırıcı + UTF-8 BOM — tarixçə ixracı ilə eyni qayda.
+       Excel azərbaycan hərflərini yalnız BOM ilə düzgün oxuyur. */
+    const q = v => { const t = v == null ? '' : String(v);
+      return /[";\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
+    const lines = [cols.map(c => q(c.t)).join(';')];
+    arRows.forEach(b => lines.push(cols.map(c => q(c.get(b))).join(';')));
+    const blob = new Blob(['\ufeff' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'sahe-' + dayKey(new Date()) + '.csv';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    toast(arRows.length + ' obyekt ixrac edildi', 'ok');
+  };
+
+  document.getElementById('arList').onclick = () => {
+    /* Seçilmiş obyektlər Obyektlər səhifəsində filtr kimi qalır —
+       oradan birləşdirmək, ad düzəltmək, məkan təyin etmək olur. */
+    areaFilter = new Set(arRows.map(b => rowKey(b)));
+    closeModal();
+    placePage = 0;
+    go('places');
+    renderPlaces();
+  };
+}
+
+document.getElementById('mLasso').addEventListener('click', () => {
+  if (lassoOn) lassoStop(); else { bindLasso(); lassoStart(); }
+});
+
 /* ── Peyk / küçə qatı ──
    Plitkələr Esri-dən gəlir, bizim serverə yük düşmür. Mənbə göstərilir. */
 let mTileStreet = null, mTileSat = null;
@@ -4389,6 +4592,8 @@ function fillLogFilters(){
 
 /* ══════════════  OBYEKTLƏR  ══════════════ */
 let places = [], placesView = [], placeSel = new Set(), placePage = 0;
+/* Xəritədə cızılmış sahədən gələn filtr — çip ilə silinir */
+let areaFilter = null;
 
 /* Seçim açarı SƏTİRDİR, ad deyil.
    Eyni ad bir neçə koordinat qrupunda ola bilər (məs. "belfast" iki yerdə).
@@ -4512,6 +4717,8 @@ function renderPlaces(){
 
   const dups = dupGroups(places);
   placesView = places.filter(b => {
+    // Xəritədə cızılmış sahə filtri
+    if (areaFilter && !areaFilter.has(rowKey(b))) return false;
     if (q && !((b.name||'').toLowerCase().includes(q) ||
       (b.address||'').toLowerCase().includes(q) ||
       (b.aliases||[]).some(a => a.toLowerCase().includes(q)))) return false;
@@ -4587,12 +4794,14 @@ function renderPlaces(){
     novisit:'Giriş qeydi yox', badname:'Şübhəli ad' };
   const ch = document.getElementById('bChips');
   const cs = [];
+  if (areaFilter) cs.push(['area', 'Xəritədə seçilmiş sahə: ' + areaFilter.size + ' obyekt']);
   if (scope !== 'all') cs.push(['scope', SCOPE_LBL[scope] || scope]);
   if (q) cs.push(['q', 'Axtarış: ' + q]);
   ch.innerHTML = cs.map(([k, t]) => '<span class="fchip">' + esc(t) +
     '<button type="button" data-bx="' + k + '" aria-label="Sil">&times;</button></span>').join('');
   ch.querySelectorAll('[data-bx]').forEach(btn => btn.onclick = () => {
     if (btn.dataset.bx === 'scope') bScope = 'all';
+    if (btn.dataset.bx === 'area') areaFilter = null;
     if (btn.dataset.bx === 'q') document.getElementById('bQ').value = '';
     placePage = 0;
     renderPlaces();
