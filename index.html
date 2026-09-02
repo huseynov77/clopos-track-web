@@ -4968,9 +4968,20 @@ function bindNc(groups){
     let ok = 0;
     try {
       for (const x of groups[i]) {
-        if (x.name === newName) { ok++; continue; }
-        const r = await api('/api/v2/admin/brands/rename',
-          { method: 'POST', body: JSON.stringify({ canonical: x.name, newName }) });
+        /* XAM adlar hədəf alınır, göstərilən ad YOX.
+           `brands/rename` canonical-a görə işləyir, bizim göstərdiyimiz ad isə
+           `brandLabel()` ilə TƏMİZLƏNMİŞ formadır: bazada "Mykids (mykids)"
+           yazılıb, biz "Mykids" göndərirdik — heç bir sətrə uyğun gəlmirdi.
+           Server "ok" qaytarırdı, dəyişiklik olmurdu.
+
+           `brands/merge` alias→canonical yazır və məhz xam adla işləyir.
+           Hər obyekt YALNIZ ÖZ yazılışları ilə çağırılır — başqa obyektlə
+           birləşmir; eyni adı daşısalar da koordinatları ayrı olduğu üçün
+           ayrı sətir qalırlar. */
+        const raws = (x.aliases && x.aliases.length) ? x.aliases : [x.name];
+        if (raws.length === 1 && raws[0] === newName) { ok++; continue; }
+        const r = await api('/api/v2/admin/brands/merge',
+          { method: 'POST', body: JSON.stringify({ aliases: raws, canonical: newName }) });
         if (!r.ok) throw new Error(r.error || 'alınmadı');
         ok++;
       }
