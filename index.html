@@ -1236,6 +1236,10 @@ tr:hover .ratedcell .rchg,.ratedcell .rchg:focus-visible{opacity:1}
    lazımdır, kəsilsə fayda vermir. */
 .braw{font-family:var(--mono);font-size:10.5px;color:var(--faint);
   letter-spacing:-.02em;margin-top:3px;line-height:1.4;word-break:break-word}
+/* Clopos slug — başlığın altında, Clopos panelindəki kimi */
+.bslug{font-family:var(--mono);font-size:10.5px;color:var(--muted);
+  letter-spacing:-.03em;margin-top:2px;line-height:1.3}
+.bslug::before{content:"";opacity:.55}
 .bsub{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px}
 .bsub .tag{font-size:9.5px;padding:1px 5px}
 /* Statistika kartları — kliklənən, hər biri öz filtrini tətbiq edir */
@@ -3503,7 +3507,7 @@ function renderStaff(){
   if (sSortKey && key[sSortKey]) {
     rows = rows.slice().sort((a, b) => {
       const va = key[sSortKey](a), vb = key[sSortKey](b);
-      const r = typeof va === 'string' ? va.localeCompare(vb) : va - vb;
+      const r = typeof va === 'string' ? va.localeCompare(vb, 'az') : va - vb;
       return sSortAsc ? r : -r;
     });
   } else {
@@ -4355,6 +4359,31 @@ function badName(raw){
 /* Əsl ad yalnız MƏNALI fərq olanda göstərilir.
    "Brut Coffee House (brut) - Brut Coffee House" adında slug addan törəyir
    və eyni söz üç dəfə təkrarlanırdı — fayda vermirdi. */
+/* SLUG — Clopos-dakı `name` sahəsinin bizdəki qarşılığı.
+   İşçilər obyekti Teams-də seçəndə ad çox vaxt "Ad (slug)" formasında
+   yazılır: "Genatsvale (genatsvale) - 1 Qis parki". Həmin mötərizə elə
+   Clopos-un brend slug-udur və brend axtarışında ən dəqiq açardır.
+
+   Yalnız HƏQİQƏTƏN slug olana oxşayanı götürürük: kiçik hərf + rəqəm,
+   boşluqsuz, ən azı 3 simvol. "Balique (2 ci filial)" slug deyil —
+   boşluq var, ona görə atılır. Uydurmuruq: tapılmasa boş qaytarır.
+
+   Birləşdirilmiş obyektdə hər yazılışa baxılır — slug onlardan birində
+   ola bilər. */
+function slugOf(raw, aliases){
+  const cand = [];
+  const scan = t => {
+    const m = String(t || '').match(/\(([^()]{3,40})\)/g) || [];
+    m.forEach(x => cand.push(x.slice(1, -1).trim()));
+  };
+  scan(raw);
+  (aliases || []).forEach(scan);
+  for (const c of cand) {
+    if (/^[a-z0-9][a-z0-9._-]{2,}$/.test(c)) return c;
+  }
+  return '';
+}
+
 function rawWorthShowing(raw){
   const shown = brandLabel(raw);
   if (shown === raw) return false;
@@ -4363,7 +4392,10 @@ function rawWorthShowing(raw){
   return strip(raw) !== strip(shown);
 }
 
-let pSortKey = 'visits', pSortAsc = false;
+/* Standart sıra ƏLİFBADIR. Əvvəl ziyarət sayına görə idi — konkret obyekt
+   axtaranda siyahıda hara baxacağın bilinmirdi. İstifadəçi sütun başlığına
+   basıb istədiyi sıraya keçə bilər (ziyarət, son ziyarət). */
+let pSortKey = 'name', pSortAsc = true;
 
 function renderPlaces(){
   const q = (document.getElementById('bQ').value || '').toLowerCase();
@@ -4389,7 +4421,7 @@ function renderPlaces(){
   }[pSortKey] || (b => b.visits || 0);
   placesView.sort((a, b) => {
     const va = kf(a), vb = kf(b);
-    const r = typeof va === 'string' ? va.localeCompare(vb) : va - vb;
+    const r = typeof va === 'string' ? va.localeCompare(vb, 'az') : va - vb;
     return pSortAsc ? r : -r;
   });
 
@@ -4469,8 +4501,14 @@ function renderPlaces(){
     return `<tr class="${placeSel.has(rk)?'selrow':''}">
       <td><input type="checkbox" data-sel="${i}" ${placeSel.has(rk)?'checked':''}></td>
       <td><div class="bname" data-open="${i}" title="Ətraflı bax">${esc(brandLabel(b.name))}</div>
-        ${rawWorthShowing(b.name)
-          ? `<div class="braw" title="Bazadakı əsl ad — birləşdirmə bu ada görə aparılır">${esc(b.name)}</div>` : ''}
+        ${(() => {
+          /* Başlıq altında slug — Clopos-dakı `name` ilə eyni sahədir.
+             Brend axtarışında ən dəqiq açar odur. */
+          const sg = slugOf(b.name, al);
+          if (sg) return `<div class="bslug" title="Clopos brend adı (slug) — axtarışda bu işlədilir">${esc(sg)}</div>`;
+          return rawWorthShowing(b.name)
+            ? `<div class="braw" title="Bazadakı əsl ad — birləşdirmə bu ada görə aparılır">${esc(b.name)}</div>` : '';
+        })()}
         <div class="bsub">
           ${al.length>1?`<span class="tag ok" title="Bu obyektə birləşdirilmiş adlar:\n${esc(al.join('\n'))}">${al.length} yazılış</span>`:''}
           ${places.filter(x => x.name === b.name).length > 1
