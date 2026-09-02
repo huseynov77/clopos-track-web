@@ -3073,8 +3073,18 @@ function drawMap(){
   document.getElementById('mCount').textContent = list.length + ' işçi';
 
   /* Üst-üstə düşən işçiləri kiçik dairə üzrə açır — Sumqayıtda iki nişan
-     eyni pikselə düşəndə biri tamamilə gizlənirdi. */
-  const spread = new Map();
+     eyni pikselə düşəndə biri tamamilə gizlənirdi.
+
+     DİQQƏT — 02.09.2026 düzəlişi: əvvəl bu, işçinin KOORDİNATINI dəyişirdi
+     (`containerPointToLatLng` ilə yeni lat/lng hesablanırdı). Xəritə uzaqdan
+     çəkiləndə 1 piksel 20-40 km olur, 30 piksellik aralama isə işçini 1000 km
+     uzağa atırdı — nişanlar Qazaxıstanda, İraqda görünürdü. Sonrakı çəkilişdə
+     özü düzəlirdi, ona görə keçici idi və gec tapıldı.
+
+     İndi koordinata TOXUNULMUR — yalnız ikonun çəkilmə nöqtəsi (`iconAnchor`)
+     sürüşdürülür. Sürüşmə piksellədir, yəni yaxınlıq səviyyəsindən asılı
+     olmayaraq eyni görünür, mövqe isə HƏMİŞƏ həqiqidir. */
+  const spread = new Map();   // id → [dx, dy] piksel
   if (map.getZoom() != null) {
     const cells = new Map();
     list.forEach(p => {
@@ -3089,10 +3099,7 @@ function drawMap(){
       const R = 15 + grp.length * 3;
       grp.forEach((p, i) => {
         const ang = (2 * Math.PI * i) / grp.length - Math.PI / 2;
-        const c = map.latLngToContainerPoint([p.lat, p.lng]);
-        const moved = map.containerPointToLatLng(
-          [c.x + Math.cos(ang) * R, c.y + Math.sin(ang) * R]);
-        spread.set(p.id, [moved.lat, moved.lng]);
+        spread.set(p.id, [Math.cos(ang) * R, Math.sin(ang) * R]);
       });
     }
   }
@@ -3107,8 +3114,12 @@ function drawMap(){
     const html = '<div class="wmark' + (sel ? ' sel' : '') + (stale ? ' stale' : '') +
       '" style="--wc:' + col + '" title="' + (stale ? 'köhnə mövqe' : '') + '">' +
       esc(initials(p.name)) + '</div>';
-    const icon = L.divIcon({ html, className:'', iconSize:[32,32], iconAnchor:[16,16] });
-    const pos = spread.get(p.id) || [p.lat, p.lng];
+    /* Aralama ikonun çəkilmə nöqtəsindədir, koordinatda deyil — nişan
+       yerindən oynayır, işçinin mövqeyi isə dəqiq qalır. */
+    const off = spread.get(p.id);
+    const icon = L.divIcon({ html, className:'', iconSize:[32,32],
+      iconAnchor: off ? [16 - off[0], 16 - off[1]] : [16, 16] });
+    const pos = [p.lat, p.lng];
 
     if (mMarkers[p.id]) mMarkers[p.id].setLatLng(pos).setIcon(icon);
     else mMarkers[p.id] = L.marker(pos, { icon,
