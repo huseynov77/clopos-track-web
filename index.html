@@ -5447,9 +5447,12 @@ document.getElementById('bAutoLink').addEventListener('click', async () => {
     if (res.score >= 100 && res.hit) {
       try {
         /* XAM ad göndərilir — `brand_settings.canonical` bazadakı adla
-           tutuşdurulur, `brandLabel()` ilə təmizlənmiş ad uyğun gəlmir. */
+           tutuşdurulur, `brandLabel()` ilə təmizlənmiş ad uyğun gəlmir.
+           `brandTitle` — Clopos-un TAM adı, filialı ayırmaq üçün (API-də
+           istifadə olunur, slug qısaldılmış ola bilər). */
         const r = await api('/api/v2/admin/brands/clopos', { method: 'POST',
-          body: JSON.stringify({ canonical: b.name, brandId: res.hit.id, brandSlug: res.hit.name }) });
+          body: JSON.stringify({ canonical: b.name, brandId: res.hit.id,
+            brandSlug: res.hit.name, brandTitle: res.hit.title }) });
         if (r && r.ok === false) throw new Error(r.error || 'alınmadı');
         b.cloposId = res.hit.id; b.cloposSlug = res.hit.name;
         ok++;
@@ -5734,7 +5737,8 @@ async function ncOne(groups, i){
              halbuki bazada «Mykids (mykids)») heç bir sətrə düşmür və
              bağlantı görünmür. */
           await api('/api/v2/admin/brands/clopos', { method: 'POST',
-            body: JSON.stringify({ canonical: b.name, brandId: hit.id, brandSlug: hit.name }) });
+            body: JSON.stringify({ canonical: b.name, brandId: hit.id,
+              brandSlug: hit.name, brandTitle: hit.title }) });
           b.cloposId = hit.id; b.cloposSlug = hit.name;
         } catch (_) {}
       }
@@ -5859,7 +5863,8 @@ function bindNc(groups){
         try {
           await api('/api/v2/admin/brands/clopos', { method: 'POST',
             body: JSON.stringify({ canonical: newName,
-              brandId: ncHit[i].id, brandSlug: ncHit[i].name }) });
+              brandId: ncHit[i].id, brandSlug: ncHit[i].name,
+              brandTitle: ncHit[i].title }) });
         } catch (_) {}
       }
       ncState[i] = 'done';
@@ -6131,7 +6136,8 @@ function renamePlace(b){
          məhz bu, «seçirəm, yadda saxlayıram, heç nə olmur» halının səbəbi idi. */
       if (picked) {
         await api('/api/v2/admin/brands/clopos', { method: 'POST',
-          body: JSON.stringify({ canonical: target, brandId: picked.id, brandSlug: picked.name }) });
+          body: JSON.stringify({ canonical: target, brandId: picked.id,
+            brandSlug: picked.name, brandTitle: picked.title }) });
       }
       toast(nameChanged ? 'Ad və brend bağlantısı yazıldı' : 'Brend bağlantısı yazıldı', 'ok');
       await loadPlaces(true);
