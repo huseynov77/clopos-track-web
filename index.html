@@ -2299,7 +2299,7 @@ tbody tr:hover .rowacts,tr:focus-within .rowacts{opacity:1}
 
 const API = 'https://gps-server-production-9cef.up.railway.app';
 const LS  = { tok:'ct_admin_token', usr:'ct_admin_user', thm:'ct_theme',
-              pg:'ct_page', role:'ct_admin_role' };
+              pg:'ct_page', role:'ct_admin_role', dupSkip:'ct_dup_skip' };
 /* İki rol var: `owner` — geri qaytarıla bilməyən əməliyyatlar (admin
    idarəçiliyi, işçini birdəfəlik silmək, obyekt tarixçəsini silmək);
    `admin` — gündəlik iş. Bura YALNIZ göstərmə üçündür: əsl qərarı server
@@ -5225,6 +5225,17 @@ function locMergeModal(name, group){
    yazılışı (~700 m aralı) buna görə heç göstərilmirdi. */
 const DUP_NEAR_M = 1000;
 
+/* «Keç» edilmiş təklif qrupları — cihazda saxlanılır. Filial olduğu
+   üçün gizlədilən cütlər hər «Təkrarları yoxla» basılanda TƏKRAR
+   göstərilməsin deyə. */
+function loadDupSkip(){
+  try { return new Set(JSON.parse(localStorage.getItem(LS.dupSkip) || '[]')); }
+  catch (_) { return new Set(); }
+}
+function saveDupSkip(set){
+  try { localStorage.setItem(LS.dupSkip, JSON.stringify([...set])); } catch (_) {}
+}
+
 function dupSuggestions(){
   const items = places.filter(b => b.lat != null && b.lng != null);
   const parent = items.map((_, i) => i);
@@ -5300,6 +5311,11 @@ function dupSuggestions(){
         // FƏRQLİ Clopos ID-lər — deməli ən azı biri səhv bağlıdır, diqqət çəkilir
         idsMismatch: ids.size > 1,
         visits: near.reduce((s, x) => s + (x.visits || 0), 0),
+        /* Qrupun TƏRKİBİNƏ görə imza — «Keç» edilən qrup gizlədiləndə bu
+           saxlanılır. Tərkib DƏYİŞƏNDƏ (üçüncü obyekt qoşulur, biri ayrılır)
+           imza da dəyişir və qrup YENİDƏN görünür — köhnə «keç» yeni
+           vəziyyətə aid deyil. */
+        sig: near.map(rowKey).sort().join('~'),
       });
     }
   }
@@ -5309,17 +5325,38 @@ function dupSuggestions(){
 }
 
 document.getElementById('bDupSug').addEventListener('click', () => {
-  const list = dupSuggestions();
+  /* GİZLƏDİLƏNLƏR — «Keç» edilmiş qrup bir daha göstərilmir, TA Kİ
+     tərkibi dəyişənə qədər. `sig` qrupun üzvlərinin (ad+koordinat)
+     imzasıdır — üçüncü obyekt qoşulsa imza dəyişir, qrup yeni sayılır
+     və yenidən görünür. Cihazda saxlanılır (localStorage). */
+  const skip = loadDupSkip();
+  const all = dupSuggestions();
+  const hidden = all.filter(x => skip.has(x.sig)).length;
+  const list = all.filter(x => !skip.has(x.sig));
+
+  const unskipAll = () => {
+    saveDupSkip(new Set());
+    closeModal();
+    document.getElementById('bDupSug').click();
+  };
+
   if (!list.length) {
-    return modal('<div class="mhead"><h3>Təkrar təklifi yoxdur</h3>' +
-      '<p>Eyni brendə bağlı və bir-birinə yaxın obyekt tapılmadı.</p>' +
+    modal('<div class="mhead"><h3>Təkrar təklifi yoxdur</h3>' +
+      '<p>' + (hidden
+        ? hidden + ' qrup əvvəllər «Keç» edilib, gizli saxlanılır.'
+        : 'Eyni brendə bağlı və bir-birinə yaxın obyekt tapılmadı.') + '</p>' +
       '<button type="button" class="mclose" onclick="closeModal()">&times;</button></div>' +
-      '<div class="mfoot"><button type="button" class="btn btn-primary" onclick="closeModal()">Bağla</button></div>');
+      '<div class="mfoot">' +
+        (hidden ? '<button type="button" class="btn btn-ghost btn-sm" id="dsUnskip">' +
+          hidden + ' gizlədilmiş göstər</button>' : '') +
+        '<button type="button" class="btn btn-primary" onclick="closeModal()">Bağla</button></div>');
+    if (hidden) document.getElementById('dsUnskip').onclick = unskipAll;
+    return;
   }
   dsState = {};
   modalWide('<div class="mhead"><h3>Təkrar təklifləri</h3>' +
       '<p><b>' + list.length + ' təklif</b> — eyni Clopos brendinə bağlı və ' +
-      '500 metrdən yaxın obyektlər. <b>Heç nə avtomatik birləşdirilmir</b>: ' +
+      '1 km-dən yaxın obyektlər. <b>Heç nə avtomatik birləşdirilmir</b>: ' +
       'hər qrupda ad və məkan seçilidir, sən «Birləşdir» vurursan.</p>' +
       '<button type="button" class="mclose" onclick="closeModal()" aria-label="Bagla">&times;</button></div>' +
     '<div class="mbody">' +
@@ -5330,7 +5367,10 @@ document.getElementById('bDupSug').addEventListener('click', () => {
     '</div>' +
     '<div class="mfoot"><span class="fh" style="margin:0;flex:1">Tarixçə silinmir — ' +
       'ziyarətlər toplanır. İstənilən vaxt «Ayır» ilə geri qaytarmaq olar.</span>' +
+      (hidden ? '<button type="button" class="btn btn-ghost btn-sm" id="dsUnskip">' +
+        hidden + ' gizlədilmiş göstər</button>' : '') +
       '<button type="button" class="btn btn-primary" onclick="closeModal()">Bitir</button></div>');
+  if (hidden) document.getElementById('dsUnskip').onclick = unskipAll;
 
   document.getElementById('dsList').innerHTML = list.map((x, i) => {
     // Standart seçim: ən çox ziyarəti olan sətir — adı da, məkanı da ondan
@@ -5380,6 +5420,10 @@ function bindDup(list){
     dsState[i] = 'skip';
     document.getElementById('dsg' + i).classList.add('skip');
     btn.disabled = true;
+    // Qrup imzası gizlədilənlərə əlavə olunur — bu tərkib bir daha çıxmır
+    const sk = loadDupSkip();
+    sk.add(list[i].sig);
+    saveDupSkip(sk);
     upd();
   });
 
