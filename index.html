@@ -1197,6 +1197,12 @@ tr:hover .ratedcell .rchg,.ratedcell .rchg:focus-visible{opacity:1}
 .ncbar b{font-family:var(--mono);color:var(--text);font-weight:600}
 .ncprog{flex:1;height:5px;border-radius:99px;background:var(--surf-2);overflow:hidden;min-width:80px}
 .ncprog i{display:block;height:100%;background:var(--ok);transition:width .3s}
+/* «Hamısını yoxla» sayğacları */
+.alstat{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:4px 0 12px}
+.alstat div{background:var(--surf-2);border:1px solid var(--line);border-radius:10px;
+  padding:10px 8px;text-align:center}
+.alstat b{display:block;font-family:var(--mono);font-size:19px;color:var(--text);font-weight:600}
+.alstat i{font-style:normal;font-size:11.5px;color:var(--muted)}
 /* «Çox məkanlı adlar» cədvəli */
 .mrt{width:100%;border-collapse:collapse;font-size:13px}
 .mrt th{text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;
@@ -2107,6 +2113,9 @@ tbody tr:hover .rowacts,tr:focus-within .rowacts{opacity:1}
           <button type="button" class="btn btn-ghost btn-sm" id="bMulti"
                   title="Bir adın bir neçə koordinatı varsa cədvəldə (və API-də) bir neçə sətir kimi görünür">
             Çox məkanlı adlar</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="bAutoLink"
+                  title="Bağlanmamış obyektləri Clopos brend siyahısı ilə tutuşdurur və dəqiq uyğun gələnləri özü bağlayır. Ad dəyişmir.">
+            Hamısını yoxla</button>
           <span class="hitn" id="bCount"></span>
         </div>
 
@@ -5158,6 +5167,104 @@ function locMergeModal(name, group){
   };
 }
 
+/* ══════════════ HAMISINI YOXLA — AVTOMATİK BAĞLAMA ══════════════
+   Bağlanmamış hər obyekti Clopos siyahısı ilə tutuşdurur.
+
+   YALNIZ BAĞLAYIR — `brand_id` və `brand_slug` yazır. Ad, tarixçə, məkan,
+   Teams mesajları — heç birinə toxunmur. Ona görə geri qaytarılası bir şey
+   yoxdur: səhv bağlantı olsa «Adı dəyiş» pəncərəsindən üstünə düzgünü yazılır.
+
+   Kütləvi AD DƏYİŞMƏSİ QƏSDƏN YOXDUR. Ad dəyişməsi bir obyektin bütün
+   yazılışlarına dəyir və eyni adı daşıyan başqa koordinat qruplarını da
+   çəkib aparır — «Subway — Univerium» üç sətir olanda səbəb bu idi.
+   Baxmadan kütləvi edilsə belə hallar da kütləvi olar.
+
+   Avtomatik bağlama YALNIZ dəqiq uyğunluqda (qiymət 100) işləyir:
+     · slug tam uyğun gəlir  — "(melamorbakery2)" → `melamorbakery2`
+     · ya da ad tam uyğun gəlir (diakritikasız, işarəsiz müqayisə)
+   Qalanlar toxunulmur, «Adları təmizlə» ekranında qalır. */
+let autoStop = false;
+
+document.getElementById('bAutoLink').addEventListener('click', async () => {
+  const list = places.filter(b => !b.cloposId && squash(brandLabel(b.name)).length >= 3);
+  if (!list.length) {
+    return modal('<div class="mhead"><h3>Bağlanmamış obyekt yoxdur</h3>' +
+      '<p>Hamısı onsuz da Clopos brendinə bağlıdır.</p>' +
+      '<button type="button" class="mclose" onclick="closeModal()">&times;</button></div>' +
+      '<div class="mfoot"><button type="button" class="btn btn-primary" onclick="closeModal()">Bağla</button></div>');
+  }
+
+  autoStop = false;
+  modal('<div class="mhead"><h3>Hamısını yoxla</h3>' +
+      '<p><b>' + list.length + ' obyekt</b> Clopos brend siyahısı ilə tutuşdurulur. ' +
+      'Dəqiq uyğun gələnlər avtomatik bağlanır — <b>ad dəyişmir</b>. ' +
+      'Şübhəlilər toxunulmur, «Adları təmizlə» ekranında qalır.</p></div>' +
+    '<div class="mbody">' +
+      '<div class="ncbar"><span><b id="alDone">0</b> / <b>' + list.length + '</b> yoxlanıldı</span>' +
+        '<span class="ncprog"><i id="alBar" style="width:0%"></i></span></div>' +
+      '<div class="alstat">' +
+        '<div><b id="alOk">0</b><i>bağlandı</i></div>' +
+        '<div><b id="alMaybe">0</b><i>şübhəli</i></div>' +
+        '<div><b id="alNone">0</b><i>tapılmadı</i></div>' +
+        '<div><b id="alErr">0</b><i>xəta</i></div>' +
+      '</div>' +
+      '<div class="fh" id="alNow">başlanır…</div>' +
+    '</div>' +
+    '<div class="mfoot"><button type="button" class="btn btn-ghost" id="alStop">Dayandır</button>' +
+      '<button type="button" class="btn btn-primary" id="alClose" disabled>Bitir</button></div>');
+  document.getElementById('alStop').onclick = () => { autoStop = true; };
+
+  let done = 0, ok = 0, maybe = 0, none = 0, err = 0;
+  const upd = (name) => {
+    const g = id => document.getElementById(id);
+    if (!g('alDone')) return false;          // pəncərə bağlanıb
+    g('alDone').textContent = done;
+    g('alBar').style.width = Math.round(done / list.length * 100) + '%';
+    g('alOk').textContent = ok; g('alMaybe').textContent = maybe;
+    g('alNone').textContent = none; g('alErr').textContent = err;
+    if (name) g('alNow').textContent = name;
+    return true;
+  };
+
+  const one = async (b) => {
+    let res = { hit: null, score: 0 };
+    try { res = await ncFind([b]); } catch (_) {}
+    if (res.score >= 100 && res.hit) {
+      try {
+        /* XAM ad göndərilir — `brand_settings.canonical` bazadakı adla
+           tutuşdurulur, `brandLabel()` ilə təmizlənmiş ad uyğun gəlmir. */
+        const r = await api('/api/v2/admin/brands/clopos', { method: 'POST',
+          body: JSON.stringify({ canonical: b.name, brandId: res.hit.id, brandSlug: res.hit.name }) });
+        if (r && r.ok === false) throw new Error(r.error || 'alınmadı');
+        b.cloposId = res.hit.id; b.cloposSlug = res.hit.name;
+        ok++;
+      } catch (_) { err++; }
+    } else if (res.hit) { maybe++; } else { none++; }
+    done++;
+    return upd(brandLabel(b.name));
+  };
+
+  let next = 0;
+  const worker = async () => {
+    while (next < list.length && !autoStop) {
+      const b = list[next++];
+      if (!(await one(b))) return;           // pəncərə bağlanıb — dayan
+    }
+  };
+  await Promise.all([worker(), worker(), worker(), worker(), worker()]);
+
+  const g = id => document.getElementById(id);
+  if (g('alNow')) {
+    g('alNow').innerHTML = autoStop
+      ? '<b>Dayandırıldı.</b> ' + ok + ' obyekt bağlandı.'
+      : '<b>Bitdi.</b> ' + ok + ' obyekt bağlandı' +
+        (maybe ? ', ' + maybe + ' şübhəli «Adları təmizlə» ekranında gözləyir' : '') + '.';
+    g('alStop').disabled = true;
+    g('alClose').disabled = false;
+    g('alClose').onclick = async () => { closeModal(); await loadPlaces(true); };
+  }
+});
+
 /* ══════════════ AD TƏMİZLƏMƏ ══════════════
    Obyekt adları işçilərin Teams-də yazdığından gəlir: eyni yer «Mykids»,
    «mykids (Xırdalan)», «MY KIDS» kimi üç ayrı obyekt olur. Clopos-un öz
@@ -5334,7 +5441,9 @@ async function ncFind(gr){
     }
     if (bestScore >= 70) break;
   }
-  return best;
+  /* Qiymət də qaytarılır: avtomatik bağlama YALNIZ dəqiq uyğunluqda
+     (100 — slug tam uyğun və ya ad tam uyğun) işləyir. */
+  return { hit: best, score: bestScore };
 }
 
 /* Bir qrupun yoxlanması: təklifi gətirir, sonra ya kartı göstərir,
@@ -5342,7 +5451,7 @@ async function ncFind(gr){
 async function ncOne(groups, i){
   const gr = groups[i];
   let hit = null;
-  try { hit = await ncFind(gr); } catch (_) {}
+  try { hit = (await ncFind(gr)).hit; } catch (_) {}
   ncHit[i] = hit;
 
   const g0 = document.getElementById('ncg' + i);
@@ -5743,7 +5852,18 @@ function renamePlace(b){
   const go = async () => {
     const n = inp.value.trim();
     if (!n) return toast('Ad boş ola bilməz', 'bad');
-    const nameChanged = n !== b.name;
+    /* MÜQAYİSƏ GÖSTƏRİLƏN ADLA APARILIR.
+       Sahədə `brandLabel(b.name)` görünür — mötərizədəki slug göstərilmir.
+       Əvvəl müqayisə XAM adla idi: bazada «Melamor Bakery Ağ Şəhər
+       (melamorbakery2)» olanda sahə «Melamor Bakery Ağ Şəhər» göstərirdi və
+       istifadəçi heç nə yazmadan «Yadda saxla» vuranda ad SƏSSİZCƏ dəyişirdi —
+       yalnız bağlamaq istəyirdi, slug isə addan düşürdü.
+       İndi sahəyə toxunmasan ad heç vaxt dəyişmir. */
+    const shown = brandLabel(b.name);
+    const nameChanged = n !== shown;
+    /* Ad dəyişmirsə bağlantı XAM ada yazılmalıdır — `brand_settings.canonical`
+       bazadakı adla tutuşdurulur, təmizlənmiş ad heç bir sətrə düşmür. */
+    const target = nameChanged ? n : b.name;
     const linkChanged = !!picked && (picked.name || '') !== (b.cloposSlug || '');
     if (!nameChanged && !linkChanged) return closeModal();
     closeModal();
@@ -5762,7 +5882,7 @@ function renamePlace(b){
          məhz bu, «seçirəm, yadda saxlayıram, heç nə olmur» halının səbəbi idi. */
       if (picked) {
         await api('/api/v2/admin/brands/clopos', { method: 'POST',
-          body: JSON.stringify({ canonical: n, brandId: picked.id, brandSlug: picked.name }) });
+          body: JSON.stringify({ canonical: target, brandId: picked.id, brandSlug: picked.name }) });
       }
       toast(nameChanged ? 'Ad və brend bağlantısı yazıldı' : 'Brend bağlantısı yazıldı', 'ok');
       await loadPlaces(true);
