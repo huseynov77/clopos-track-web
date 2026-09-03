@@ -4815,13 +4815,16 @@ function dupGroups(list){
   const out = [];
   for (const arr of seen.values()) {
     if (arr.length < 2) continue;
-    /* SƏHV DÜZƏLİŞİ: eyni ad bir neçə məkanda olanda (məs. "Balique — 2 ci
-       filial" 3 fərqli, hətta kilometrlərlə uzaq nöqtədə) hamısı EYNİ açara
-       düşür və `arr.length > 1` şərti kifayət edirdi ki, «oxşar ad» sayılsın
-       — halbuki ad heç dəyişməyib, HEÇ BİR oxşarlıq sualı yoxdur. Bu, məkan
-       sayı məsələsidir («Çox məkanlı adlar»ın işidir), ad oxşarlığı deyil.
-       `dupSuggestions` bunu artıq düzgün istisna edirdi, bura unudulmuşdu. */
-    if (new Set(arr.map(r => r.name)).size < 2) continue;
+    /* EYNİ AD DA FLAQ OLUNUR (Fuad-ın qərarı, 2026-09-04). Əvvəl bura
+       istisna əlavə edilmişdi ("ad dəyişməyibsə oxşarlıq sualı yoxdur"),
+       amma bu, kartın MƏNASINI dəyişdi — Fuad «bu, obyektin bir yerdə
+       toplanması lazım ola biləcəyini göstərir, ad eyni olsa da» dedi.
+       Yəni səhv olan İSTİSNA deyil, TÖVSİYƏ mətni idi: "eyni ad + uzaq
+       məkan" görəndə "Çox məkanlı adlar"a göndərmək səhv idi (Balique — 3
+       filial, 4 km aralı, HƏQİQİ ayrı yerlər idi, birləşdirmə səhv olardı).
+       Düzgün həll: FLAQ QALSIN, sətirdəki × ilə Fuad özü qərar versin
+       (real filialdırsa iqnor, GPS küyüdürsə "Çox məkanlı adlar"dan
+       birləşdir). */
     out.push({ rows: arr, sig: arr.map(rowKey).sort().join('~') });
   }
   return out;
@@ -4974,7 +4977,7 @@ function renderPlaces(){
       card('all', 'blue', 'Obyekt', places.length, 'ümumi say') +
       card('dup', 'warn', 'Təkrar ola bilər',
         places.filter(b => dups.has(b.name)).length,
-        'oxşar adlar — birləşdirmək lazım ola bilər' +
+        'oxşar ad, ya da eyni ad çox məkanda — bax, lazım olmayanı iqnor et' +
         (dupCardSkip.size ? ' · <span class="linklike" data-dupcard-reset title="' +
           dupCardSkip.size + ' qrup gizlədilib">' + dupCardSkip.size + ' gizli, sıfırla</span>' : '')) +
       card('merged', 'green', 'Birləşdirilmiş', places.filter(b => (b.aliases||[]).length > 1).length, 'çox yazılışı olan') +
