@@ -5210,50 +5210,72 @@ function locMergeModal(name, group){
    Bu ekran onları qruplaşdırıb hazır təklif verir — AMMA HEÇ NƏ AVTOMATİK
    BİRLƏŞDİRİLMİR, hər qrupu sən təsdiqləyirsən.
 
-   QRUPLAŞMA AÇARI — CLOPOS BREND İD-si, ad yox.
-   «Caffe Fino» və «Caffeino» adları fərqlidir, amma ikisi də `id 14321` —
-   yəni Clopos-a görə eyni brenddir. Bu, ad oxşarlığından qat-qat güclü
-   dəlildir. Bağlantısı olmayanlar üçün ada görə qruplaşma qalır.
+   İKİ QAYDA BİRLƏŞDİRİLİR (Union-Find ilə) — AYRI-AYRI YOX:
+     1) Eyni Clopos brend id-si
+     2) Oxşar ad (prefiks qaydası daxil)
+   Əvvəl bunlar İKİ AYRI açar idi (bağlantısı olan 'c<id>', olmayan
+   'n<ad>») — nəticədə «caffefino» (id 14321) və «caffefino2» (id 14333)
+   kimi cütlər HEÇ VAXT müqayisə olunmurdu, çünki FƏRQLİ id-lərə bağlıdırlar
+   (biri səhv bağlanıb). Union-Find hər iki siqnalı eyni komponentə yığır:
+   ya id eynidir, ya ad oxşardır — hər hansı biri kifayətdir.
 
-   MƏSAFƏ İKİNCİ ŞƏRTDİR. Eyni brendin Bakıda və Sumqayıtda filialı ola bilər —
-   onlar təkrar deyil. Ona görə qrup daxilində yalnız BİR-BİRİNƏ YAXIN
-   (500 m) obyektlər bir təklif olur. Uzaqlar ayrı qalır və heç vaxt
-   təklif edilmir. */
-const DUP_NEAR_M = 500;
+   MƏSAFƏ SONUNCU ŞƏRTDİR. Eyni brendin Bakıda və Sumqayıtda filialı ola
+   bilər — onlar təkrar deyil. Hədd «Çox məkanlı adlar»-dakı «uzaq» həddi
+   ilə EYNİLƏŞDİRİLİB (1 km) — əvvəl 500 m idi və «Coffee La Ross»un iki
+   yazılışı (~700 m aralı) buna görə heç göstərilmirdi. */
+const DUP_NEAR_M = 1000;
 
 function dupSuggestions(){
-  const g = new Map();
-  for (const b of places) {
-    if (b.lat == null || b.lng == null) continue;
-    // Clopos id varsa açar odur; yoxdursa ad (rəqəmsiz, diakritikasız)
-    const k = b.cloposId ? 'c' + b.cloposId
-                         : 'n' + squash(brandLabel(b.name)).replace(/[0-9]/g, '');
-    if (k.length < 3) continue;
-    if (!g.has(k)) g.set(k, []);
-    g.get(k).push(b);
-  }
+  const items = places.filter(b => b.lat != null && b.lng != null);
+  const parent = items.map((_, i) => i);
+  const find = i => { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; } return i; };
+  const union = (i, j) => { const ri = find(i), rj = find(j); if (ri !== rj) parent[ri] = rj; };
+
+  // 1) Eyni Clopos id-si
+  const byId = new Map();
+  items.forEach((b, i) => {
+    if (!b.cloposId) return;
+    if (!byId.has(b.cloposId)) byId.set(b.cloposId, []);
+    byId.get(b.cloposId).push(i);
+  });
+  for (const idxs of byId.values()) for (let i = 1; i < idxs.length; i++) union(idxs[0], idxs[i]);
+
+  // 2) Oxşar ad — Clopos id-dən ASILI OLMAYARAQ. Fərqli id-lərə bağlı
+  //    olsalar belə birləşdirilir: məhz bu, səhv bağlantıları üzə çıxarır.
+  const byName = new Map();
+  items.forEach((b, i) => {
+    const k = squash(brandLabel(b.name)).replace(/[0-9]/g, '');
+    if (k.length < 4) return;
+    if (!byName.has(k)) byName.set(k, []);
+    byName.get(k).push(i);
+  });
+  for (const idxs of byName.values()) for (let i = 1; i < idxs.length; i++) union(idxs[0], idxs[i]);
 
   /* PREFİKS QAYDASI — «Təkrar ola bilər» sayğacı ilə eyni məntiq.
      «Beerbakal1» → açar «beerbakal», «Beerbakalmasazir» → «beerbakalmasazir».
-     Açarlar fərqlidir, ona görə eyni qrupa düşmürdülər. Biri digərinin
-     əvvəlidirsə (ən azı 7 hərf, quyruq 12 hərfdən uzun deyil) birləşdirilir.
-     Yalnız AD açarlarına tətbiq olunur — Clopos id açarları toxunulmur. */
-  const nk = [...g.keys()].filter(k => k[0] === 'n' && k.length >= 8);
-  for (let i = 0; i < nk.length; i++) {
-    for (let j = i + 1; j < nk.length; j++) {
-      const a = nk[i], b2 = nk[j];
-      if (!g.has(a) || !g.has(b2)) continue;
+     Biri digərinin əvvəlidirsə (ən azı 7 hərf, quyruq 12 hərfdən uzun deyil)
+     birləşdirilir. */
+  const nameKeys = [...byName.keys()].filter(k => k.length >= 7);
+  for (let i = 0; i < nameKeys.length; i++) {
+    for (let j = i + 1; j < nameKeys.length; j++) {
+      const a = nameKeys[i], b2 = nameKeys[j];
       const short = a.length <= b2.length ? a : b2;
       const long  = a.length <= b2.length ? b2 : a;
       if (long === short || !long.startsWith(short)) continue;
       if (long.length - short.length > 12) continue;
-      g.get(short).push(...g.get(long));
-      g.delete(long);
+      union(byName.get(a)[0], byName.get(b2)[0]);
     }
   }
 
+  const clusters = new Map();
+  items.forEach((b, i) => {
+    const r = find(i);
+    if (!clusters.has(r)) clusters.set(r, []);
+    clusters.get(r).push(b);
+  });
+
   const out = [];
-  for (const [, arr] of g) {
+  for (const arr of clusters.values()) {
     if (arr.length < 2) continue;
     // Qrup daxilində məsafəyə görə alt-qruplar — filiallar qarışmasın
     const rest = arr.slice().sort((a, b) => (b.visits || 0) - (a.visits || 0));
@@ -5270,20 +5292,23 @@ function dupSuggestions(){
       for (let i = 0; i < near.length; i++)
         for (let j = i + 1; j < near.length; j++)
           far = Math.max(far, metersTo(near[i], near[j]));
+      const ids = new Set(near.map(x => x.cloposId).filter(Boolean));
       out.push({
         rows: near,
         far: Math.round(far),
-        byId: !!head.cloposId,
+        byId: ids.size === 1 && near.every(x => x.cloposId),
+        // FƏRQLİ Clopos ID-lər — deməli ən azı biri səhv bağlıdır, diqqət çəkilir
+        idsMismatch: ids.size > 1,
         visits: near.reduce((s, x) => s + (x.visits || 0), 0),
       });
     }
   }
-  /* Clopos id ilə tapılanlar əvvəldə — onlar ən əminlərdir.
-     Sonra ən çox ziyarəti olanlar. */
-  return out.sort((a, b) => (b.byId - a.byId) || (b.visits - a.visits));
+  /* Clopos id ilə tam təsdiqlənənlər əvvəldə, sonra id ziddiyyəti olanlar
+     (bunlara baxmaq daha vacibdir — səhv bağlantı ola bilər), sonra ziyarətə görə. */
+  return out.sort((a, b) => (b.byId - a.byId) || (b.idsMismatch - a.idsMismatch) || (b.visits - a.visits));
 }
 
-document.getElementById('bDupSug').addEventListener('click', () => {
+document.getElementById('bDupSug').addEventListenerdocument.getElementById('bDupSug').addEventListener('click', () => {
   const list = dupSuggestions();
   if (!list.length) {
     return modal('<div class="mhead"><h3>Təkrar təklifi yoxdur</h3>' +
@@ -5314,6 +5339,10 @@ document.getElementById('bDupSug').addEventListener('click', () => {
         '<span>' + x.rows.length + ' obyekt · ' + x.visits + ' ziyarət · ' +
           (x.far >= 1000 ? (x.far / 1000).toFixed(1) + ' km' : x.far + ' m') +
           (x.byId ? ' · Clopos id ' + x.rows[0].cloposId : ' · ad oxşarlığı') + '</span>' +
+        (x.idsMismatch
+          ? '<span class="tag warn" title="Bu obyektlər FƏRQLİ Clopos brendlərinə bağlıdır — ' +
+            'deməli ən azı biri səhv bağlanıb. Birləşdirdikdən sonra «Adı dəyiş»dən düzgün ' +
+            'brendi yoxlayıb seç.">fərqli ID</span>' : '') +
         '<span class="sp">' +
           '<button type="button" class="btn btn-ghost btn-sm" data-dsskip="' + i + '">Keç</button>' +
           '<button type="button" class="btn btn-primary btn-sm" data-dsok="' + i + '">Birləşdir</button>' +
