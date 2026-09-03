@@ -6817,7 +6817,19 @@ document.getElementById('alSeenAll').addEventListener('click', async () => {
   if (!confirm(rowsNew.length + ' bildiriş oxundu kimi işarələnsin?')) return;
   try {
     await api('/api/alerts/seen', { method:'POST' });
-    alerts = []; renderAlerts(); toast('Hamısı oxundu', 'ok');
+    /* SƏHV DÜZƏLİŞİ: əvvəl yalnız `alerts = []` edilirdi. Bazada bütün
+       bildirişlər düzgün "seen" olurdu, amma `alertsSeen` (oxunmuşlar
+       siyahısı) KÖHNƏ SNAPSHOT olaraq qalırdı — səhifə bu sessiyada bir
+       dəfə açılıbsa, `loadSeenAlerts` bir daha çağırılmır (yalnız
+       `alertsSeen` BOŞ olanda özü yüklənir). Nəticə: indicə oxunan
+       bildirişlər nə "oxunmamış", nə "oxunmuş" siyahısında qalırdı —
+       tamamilə İTİRDİ, yalnız səhifəni təzələyəndə geri gəlirdi.
+       İndi oxunmuşlar siyahısı MƏCBURİ təzələnir. */
+    alerts = [];
+    alertsSeen = []; alSeenEnd = false;
+    renderAlerts();
+    await loadSeenAlerts(false);
+    toast('Hamısı oxundu', 'ok');
   } catch (e) { toast('Alınmadı: ' + e.message, 'bad'); }
 });
 
