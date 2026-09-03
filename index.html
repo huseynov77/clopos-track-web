@@ -4882,6 +4882,7 @@ function renderPlaces(){
     if (scope === 'merged') return (b.aliases||[]).length > 1;
     if (scope === 'novisit') return !(b.visits > 0);
     if (scope === 'badname') return !!badName(b.name);
+    if (scope === 'auto') return !!b.cloposAuto;
     return true;
   });
 
@@ -4906,6 +4907,9 @@ function renderPlaces(){
       novisit:'<circle cx="12" cy="12" r="9"/><path d="M8 12h8"/>',
       badname:'<path d="M4 7V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2"/><path d="M9 20h6"/>' +
               '<path d="M12 4v16"/><path d="m17 15 3 3m0-3-3 3"/>',
+      auto:'<path d="M12 2v4"/><path d="m6.3 6.3 2.8 2.8"/><path d="M2 12h4"/>' +
+           '<path d="m6.3 17.7 2.8-2.8"/><path d="M12 18v4"/><path d="m17.7 17.7-2.8-2.8"/>' +
+           '<path d="M18 12h4"/><path d="m17.7 6.3-2.8 2.8"/>',
     };
     const tot = places.length || 1;
     const card = (key, tone, lbl, val, note) => {
@@ -4930,7 +4934,10 @@ function renderPlaces(){
       card('novisit', 'blue', 'Giriş qeydi yox',
         places.filter(b => !(b.visits > 0)).length, 'çıxış var, giriş yoxdur — GPS hazır olmayıb') +
       card('badname', 'red', 'Şübhəli ad',
-        places.filter(b => badName(b.name)).length, 'test, rəqəm, koordinat və s.');
+        places.filter(b => badName(b.name)).length, 'test, rəqəm, koordinat və s.') +
+      card('auto', 'green', 'Avtomatik bağlanıb',
+        places.filter(b => b.cloposAuto).length,
+        'bot Clopos-a bağladı — bax, uyğun deyilsə dəyiş');
 
     /* Filtr YALNIZ kartlardadır — eyni seçimlər yuxarıda zolaq kimi də
        vardı, təkrar idi. Seçilmiş karta yenidən vuranda filtr sıfırlanır. */
@@ -4947,7 +4954,7 @@ function renderPlaces(){
   /* Aktiv filtr çipi — Tarixçədəki ilə eyni model. Əvvəl filtri söndürmək
      üçün "OBYEKT" kartına qayıtmaq lazım idi. */
   const SCOPE_LBL = { dup:'Təkrar ola bilər', merged:'Birləşdirilmiş',
-    novisit:'Giriş qeydi yox', badname:'Şübhəli ad' };
+    novisit:'Giriş qeydi yox', badname:'Şübhəli ad', auto:'Avtomatik bağlanıb' };
   const ch = document.getElementById('bChips');
   const cs = [];
   if (areaFilter) cs.push(['area', 'Xəritədə seçilmiş sahə: ' + areaFilter.size + ' obyekt']);
@@ -4995,6 +5002,7 @@ function renderPlaces(){
               + places.filter(x => x.name === b.name).length + ' filial</span>'
             : (dups.has(b.name) ? '<span class="tag warn" title="Oxşar adlı BAŞQA obyekt var — birləşdirmək lazım ola bilər">təkrar?</span>' : '')}
           ${badName(b.name) ? `<span class="tag bad" title="Ad şübhəlidir: ${esc(badName(b.name))}">${esc(badName(b.name))}</span>` : ''}
+          ${b.cloposAuto ? '<span class="tag ok" title="Bu bağlantını bot avtomatik yazıb (tam uyğunluqda). Səhvdirsə «Adı dəyiş»dən düzəlt.">avto</span>' : ''}
           ${!(b.visits>0) ? `<span class="tag warn" title="${b.exits
             ? 'Çıxış qeydi var, giriş qeydi yoxdur — giriş anında GPS hazır olmayıb'
             : 'Nə giriş, nə çıxış qeydi var'}">giriş qeydi yoxdur</span>` : ''}
@@ -5044,6 +5052,7 @@ function renderPlaces(){
       : scope === 'merged' ? emptyBox('&#128279;', 'Birləşdirilmiş obyekt yoxdur', 'Hələ heç bir obyekt birləşdirilməyib.')
       : scope === 'novisit' ? emptyBox('&#9989;', 'Hamısının girişi var', 'Giriş qeydi olmayan obyekt yoxdur.')
       : scope === 'badname' ? emptyBox('&#9989;', 'Şübhəli ad yoxdur', 'Bütün obyekt adları qaydasındadır.')
+      : scope === 'auto' ? emptyBox('&#129302;', 'Avtomatik bağlanan yoxdur', 'Bot hələ heç bir yeni obyekti Clopos-a bağlamayıb.')
       : emptyBox('&#127970;', 'Obyekt yoxdur', 'Tarixçədə hələ obyekt qeydi yoxdur.')}</td></tr>`;
 
   document.querySelectorAll('#placesBody [data-sel]').forEach(c => c.onchange = () => {
