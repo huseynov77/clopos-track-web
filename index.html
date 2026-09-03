@@ -504,6 +504,12 @@ tbody tr:hover{background:var(--surf-2)}
   max-width:100%;overflow:hidden;text-overflow:ellipsis;
 }
 .tag.ok{background:var(--ok-soft);color:var(--ok);border-color:color-mix(in srgb,var(--ok) 26%,transparent)}
+/* Tag daxilində kiçik bağlama düyməsi — "təkrar?" nişanını iqnor etmək üçün */
+.tagx{width:13px;height:13px;border-radius:50%;display:grid;place-items:center;
+  font-size:11px;line-height:1;color:inherit;opacity:.6;flex:0 0 auto}
+.tagx:hover{background:var(--bad);color:#fff;opacity:1}
+.linklike{text-decoration:underline;text-underline-offset:2px;cursor:pointer}
+.linklike:hover{color:var(--text)}
 .tag.warn{background:var(--warn-soft);color:var(--warn);border-color:color-mix(in srgb,var(--warn) 26%,transparent)}
 .tag.bad{background:var(--bad-soft);color:var(--bad);border-color:color-mix(in srgb,var(--bad) 26%,transparent)}
 .tag.brand{background:var(--brand-soft);color:var(--brand);border-color:color-mix(in srgb,var(--brand) 26%,transparent)}
@@ -2299,7 +2305,8 @@ tbody tr:hover .rowacts,tr:focus-within .rowacts{opacity:1}
 
 const API = 'https://gps-server-production-9cef.up.railway.app';
 const LS  = { tok:'ct_admin_token', usr:'ct_admin_user', thm:'ct_theme',
-              pg:'ct_page', role:'ct_admin_role', dupSkip:'ct_dup_skip' };
+              pg:'ct_page', role:'ct_admin_role', dupSkip:'ct_dup_skip',
+              dupCardSkip:'ct_dupcard_skip' };
 /* İki rol var: `owner` — geri qaytarıla bilməyən əməliyyatlar (admin
    idarəçiliyi, işçini birdəfəlik silmək, obyekt tarixçəsini silmək);
    `admin` — gündəlik iş. Bura YALNIZ göstərmə üçündür: əsl qərarı server
@@ -4781,27 +4788,47 @@ function dupGroups(list){
     if (!seen.has(k)) seen.set(k, []);
     seen.get(k).push(b);
   }
-  const out = new Set();
-  // 1) Normallaşdırılmış ad TAM eynidirsə — şübhəsiz təkrar
-  for (const arr of seen.values()) if (arr.length > 1) arr.forEach(b => out.add(b.name));
 
-  /* 2) Biri digərinin ƏVVƏLİdirsə (prefiks). Əvvəl sadəcə "içindədir"
-     yoxlanırdı: "kafe" sözü onlarla adda tapılırdı və 652 obyektin 269-u
-     yalan yerə təkrar sayılırdı. İndi yalnız prefiks, ən azı 7 hərf və
-     quyruq 12 hərfdən uzun deyilsə. */
+  /* Biri digərinin ƏVVƏLİdirsə (prefiks) — komşu açarlar BİRLƏŞDİRİLİR
+     (map-in özü, ayrıca deyil). Əvvəl sadəcə "içindədir" yoxlanırdı: "kafe"
+     sözü onlarla adda tapılırdı və 652 obyektin 269-u yalan yerə təkrar
+     sayılırdı. İndi yalnız prefiks, ən azı 7 hərf və quyruq 12 hərfdən
+     uzun deyilsə. */
   const keys = [...seen.keys()].filter(k => k.length >= 7);
   for (let i = 0; i < keys.length; i++) {
     for (let j = i + 1; j < keys.length; j++) {
       const a = keys[i], b2 = keys[j];
+      if (!seen.has(a) || !seen.has(b2)) continue;
       const short = a.length <= b2.length ? a : b2;
       const long  = a.length <= b2.length ? b2 : a;
       if (long === short || !long.startsWith(short)) continue;
       if (long.length - short.length > 12) continue;
-      seen.get(a).forEach(x => out.add(x.name));
-      seen.get(b2).forEach(x => out.add(x.name));
+      seen.get(short).push(...seen.get(long));
+      seen.delete(long);
     }
   }
+
+  /* HƏQİQİ QRUPLAR qaytarılır (əvvəl yalnız düz ad siyahısı idi) — hər
+     qrupun TƏRKİBİNƏ görə imzası (`sig`) var. Bu, «İqnor et» üçün lazımdır:
+     istifadəçi bir qrupu «bu təkrar deyil» deyə gizlədə bilsin, TƏRKİB
+     DƏYİŞƏNƏ QƏDƏR (yeni obyekt qoşulanda imza dəyişir, qrup görünür). */
+  const out = [];
+  for (const arr of seen.values()) {
+    if (arr.length < 2) continue;
+    out.push({ rows: arr, sig: arr.map(rowKey).sort().join('~') });
+  }
   return out;
+}
+
+/* «Təkrar ola bilər» üçün gizlədilənlər — «Təkrar təklifləri»ndəki
+   `LS.dupSkip`-dən AYRICA saxlanılır: bu ekranın qruplaşması fərqlidir
+   (məsafə/Clopos id nəzərə alınmır), ona görə imzalar üst-üstə düşmür. */
+function loadDupCardSkip(){
+  try { return new Set(JSON.parse(localStorage.getItem(LS.dupCardSkip) || '[]')); }
+  catch (_) { return new Set(); }
+}
+function saveDupCardSkip(set){
+  try { localStorage.setItem(LS.dupCardSkip, JSON.stringify([...set])); } catch (_) {}
 }
 
 /* Şübhəli obyekt adları — qaydalar konkretdir, "hiss" ilə deyil.
@@ -4868,7 +4895,18 @@ function renderPlaces(){
   const scope = bScope;
   document.getElementById('bClr').hidden = !q;
 
-  const dups = dupGroups(places);
+  /* Qruplardan gizlədilənlər çıxılır, sonra geriyə uyğunluq üçün
+     `dups.has(name)` işləyən düz Set qurulur — çağıran yerlərin heç biri
+     dəyişmir. `dupGroupOf` isə «İqnor et» düyməsinin hansı qrupu
+     gizlədəcəyini tapması üçündür. */
+  const dupCardSkip = loadDupCardSkip();
+  const dupGroupsAll = dupGroups(places);
+  const dups = new Set();
+  const dupGroupOf = new Map();
+  dupGroupsAll.forEach(g => {
+    if (dupCardSkip.has(g.sig)) return;
+    g.rows.forEach(b => { dups.add(b.name); dupGroupOf.set(b.name, g); });
+  });
   placesView = places.filter(b => {
     // Xəritədə cızılmış sahə filtri
     if (areaFilter && !areaFilter.has(rowKey(b))) return false;
@@ -4929,7 +4967,9 @@ function renderPlaces(){
       card('all', 'blue', 'Obyekt', places.length, 'ümumi say') +
       card('dup', 'warn', 'Təkrar ola bilər',
         places.filter(b => dups.has(b.name)).length,
-        'oxşar adlar — birləşdirmək lazım ola bilər') +
+        'oxşar adlar — birləşdirmək lazım ola bilər' +
+        (dupCardSkip.size ? ' · <span class="linklike" data-dupcard-reset title="' +
+          dupCardSkip.size + ' qrup gizlədilib">' + dupCardSkip.size + ' gizli, sıfırla</span>' : '')) +
       card('merged', 'green', 'Birləşdirilmiş', places.filter(b => (b.aliases||[]).length > 1).length, 'çox yazılışı olan') +
       card('novisit', 'blue', 'Giriş qeydi yox',
         places.filter(b => !(b.visits > 0)).length, 'çıxış var, giriş yoxdur — GPS hazır olmayıb') +
@@ -4947,6 +4987,12 @@ function renderPlaces(){
       placePage = 0;
       renderPlaces();
     });
+    const rst = st.querySelector('[data-dupcard-reset]');
+    if (rst) rst.onclick = (ev) => {
+      ev.stopPropagation();   // kartın öz filtr keçidini tetiklməsin
+      saveDupCardSkip(new Set());
+      renderPlaces();
+    };
   }
   document.getElementById('bCount').innerHTML =
     '<b>' + placesView.length + '</b> ' + (q || scope !== 'all' ? 'nəticə' : 'obyekt');
@@ -5000,7 +5046,11 @@ function renderPlaces(){
           ${places.filter(x => x.name === b.name).length > 1
             ? '<span class="tag" title="Eyni ad, fərqli koordinat — ayrı filiallar ola bilər. «Məkanı birləşdir» ilə bir nöqtəyə yığılır">'
               + places.filter(x => x.name === b.name).length + ' filial</span>'
-            : (dups.has(b.name) ? '<span class="tag warn" title="Oxşar adlı BAŞQA obyekt var — birləşdirmək lazım ola bilər">təkrar?</span>' : '')}
+            : (dups.has(b.name)
+              ? '<span class="tag warn" title="Oxşar adlı BAŞQA obyekt var — birləşdirmək lazım ola bilər">təkrar?' +
+                '<button type="button" class="tagx" data-dupignore="' + i +
+                '" title="Bu təkrar deyil — gizlə (yeni obyekt qoşulsa yenidən görünər)">&times;</button></span>'
+              : '')}
           ${badName(b.name) ? `<span class="tag bad" title="Ad şübhəlidir: ${esc(badName(b.name))}">${esc(badName(b.name))}</span>` : ''}
           ${b.cloposAuto ? '<span class="tag ok" title="Bu bağlantını bot avtomatik yazıb (tam uyğunluqda). Səhvdirsə «Adı dəyiş»dən düzəlt.">avto</span>' : ''}
           ${!(b.visits>0) ? `<span class="tag warn" title="${b.exits
@@ -5106,6 +5156,15 @@ function renderPlaces(){
     if (btn.dataset.pa === 'loc') locPlace(b);
     if (btn.dataset.pa === 'split') splitPlace(b);
     if (btn.dataset.pa === 'del') delPlace(b);
+  });
+  document.querySelectorAll('#placesBody [data-dupignore]').forEach(el => el.onclick = (ev) => {
+    ev.stopPropagation();   // sətirin özünə (data-open) klik kimi getməsin
+    const b = placesView[+el.dataset.dupignore];
+    const g = b && dupGroupOf.get(b.name);
+    if (!g) return;
+    dupCardSkip.add(g.sig);
+    saveDupCardSkip(dupCardSkip);
+    renderPlaces();
   });
   updMergeBar();
 }
