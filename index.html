@@ -2122,7 +2122,7 @@ tbody tr:hover .rowacts,tr:focus-within .rowacts{opacity:1}
         <div class="bar">
           <div class="search">
             <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-            <input id="bQ" placeholder="Ad və ya ünvan axtar…" spellcheck="false" autocomplete="off">
+            <input id="bQ" placeholder="Ad, ünvan, Clopos ID və ya slug axtar…" spellcheck="false" autocomplete="off">
             <button type="button" class="clr" id="bClr" title="Təmizlə" hidden>&times;</button>
           </div>
           <button type="button" class="btn btn-ghost btn-sm" id="bClean"
@@ -4874,7 +4874,10 @@ function renderPlaces(){
     if (areaFilter && !areaFilter.has(rowKey(b))) return false;
     if (q && !((b.name||'').toLowerCase().includes(q) ||
       (b.address||'').toLowerCase().includes(q) ||
-      (b.aliases||[]).some(a => a.toLowerCase().includes(q)))) return false;
+      (b.aliases||[]).some(a => a.toLowerCase().includes(q)) ||
+      // Clopos ID üzrə axtarış — tam ədəd yazılanda işə düşür
+      (b.cloposId != null && String(b.cloposId) === q.trim()) ||
+      (b.cloposSlug||'').toLowerCase().includes(q))) return false;
     if (scope === 'dup') return dups.has(b.name);
     if (scope === 'merged') return (b.aliases||[]).length > 1;
     if (scope === 'novisit') return !(b.visits > 0);
