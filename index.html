@@ -5308,7 +5308,7 @@ function dupSuggestions(){
   return out.sort((a, b) => (b.byId - a.byId) || (b.idsMismatch - a.idsMismatch) || (b.visits - a.visits));
 }
 
-document.getElementById('bDupSug').addEventListenerdocument.getElementById('bDupSug').addEventListener('click', () => {
+document.getElementById('bDupSug').addEventListener('click', () => {
   const list = dupSuggestions();
   if (!list.length) {
     return modal('<div class="mhead"><h3>Təkrar təklifi yoxdur</h3>' +
