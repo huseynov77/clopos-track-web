@@ -5844,10 +5844,17 @@ function branchPart(ourName, cloposTitle){
     if (squash(ourName[i]).length) seen++;
     if (seen >= b.length) { cut = i + 1; break; }
   }
-  // Baş və SON tərəfdəki ayırıcılar atılır: "(2 ci filial)" → "2 ci filial"
-  const rest = ourName.slice(cut)
-    .replace(/^[\s\-–—,.;:()]+/, '')
-    .replace(/[\s\-–—,.;:()]+$/, '').trim();
+  /* SƏHV DÜZƏLİŞİ: bu iki sətir əvvəl `()` daxil bütün ayırıcıları hər iki
+     ucdan kor-koranə atırdı. Filial mətni real, balanslı mötərizə ilə
+     bitəndə (məs. "... (28 may)") YALNIZ SON `)` atılırdı — açan `(` isə
+     ortada qaldığı üçün nəticə balanssız olurdu. Bazada bir neçə adı
+     korlamışdı. İndi: əvvəlcə YALNIZ QEYRİ-MÖTƏRİZƏ ayırıcılar atılır,
+     sonra — YALNIZ bütün qalıq TAM BİR mötərizə cütü ilə əhatələnibsə
+     ("(2 ci filial)" kimi) — o cüt açılır. */
+  let rest = ourName.slice(cut)
+    .replace(/^[\s\-–—,.;:]+/, '')
+    .replace(/[\s\-–—,.;:]+$/, '').trim();
+  if (/^\([^()]*\)$/.test(rest)) rest = rest.slice(1, -1).trim();
   if (squash(rest).length < 2) return '';
   /* SLUG FİLİAL DEYİL. "Melamor Bakery Ağ Şəhər (melamorbakery2)" adında
      qalıq "melamorbakery2"-dir — bu, Clopos slug-udur, filial adı yox.
