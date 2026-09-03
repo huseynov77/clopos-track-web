@@ -222,6 +222,10 @@ aside:hover::-webkit-scrollbar-thumb{background:var(--line-2);background-clip:co
 .btn[disabled]{opacity:.55;cursor:default}
 .btn-primary{background:var(--brand);color:#fff}
 .btn-primary:hover:not([disabled]){background:var(--brand-2)}
+/* Geri qaytarılmayan əməliyyatlar üçün — silmə təsdiqi */
+.btn-danger{background:var(--bad);color:#fff;border-color:var(--bad)}
+.btn-danger:hover:not([disabled]){filter:brightness(1.08)}
+.btn-danger[disabled]{opacity:.45}
 .btn-ghost{border-color:var(--line);color:var(--text);background:var(--surf)}
 .btn-ghost:hover{background:var(--surf-2);border-color:var(--line-2)}
 .btn-sm{padding:6px 11px;font-size:12.5px;border-radius:8px}
@@ -1203,6 +1207,20 @@ tr:hover .ratedcell .rchg,.ratedcell .rchg:focus-visible{opacity:1}
   padding:10px 8px;text-align:center}
 .alstat b{display:block;font-family:var(--mono);font-size:19px;color:var(--text);font-weight:600}
 .alstat i{font-style:normal;font-size:11.5px;color:var(--muted)}
+.alleft{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
+.alleft-h{font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;
+  color:var(--muted);font-weight:600;margin-bottom:8px}
+.alrow{display:flex;align-items:center;gap:10px;padding:8px 0;
+  border-bottom:1px solid var(--line)}
+.alrow:last-child{border-bottom:0}
+.alrow span{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.alrow b{font-size:13px;color:var(--text);font-weight:600}
+.alrow i{font-style:normal;font-size:11.5px;color:var(--muted)}
+.delwarn{background:var(--bad-soft);border:1px solid color-mix(in srgb,var(--bad) 30%,transparent);
+  border-radius:10px;padding:10px 12px;font-size:13px;color:var(--bad);line-height:1.5}
+.delwarn.warn{background:var(--warn-soft);border-color:color-mix(in srgb,var(--warn) 30%,transparent);
+  color:var(--warn)}
+.rowacts .pnotify.dngr:hover{color:var(--bad);border-color:var(--bad)}
 /* «Çox məkanlı adlar» cədvəli */
 .mrt{width:100%;border-collapse:collapse;font-size:13px}
 .mrt th{text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;
@@ -5000,6 +5018,14 @@ function renderPlaces(){
           ?`<button type="button" class="pnotify" data-pa="split" data-i="${i}" title="Ayır">
           <svg viewBox="0 0 24 24"><path d="M6 3v6a3 3 0 0 0 3 3h6a3 3 0 0 1 3 3v6"/>
             <path d="M18 3v6"/><path d="m15 6 3-3 3 3"/></svg></button>`:''}
+        ${/* SİLMƏ — geri qaytarılmır, ona görə yalnız owner görür.
+             Sətir gizlədilmir, TARİXÇƏ SİLİNİR: ziyarətlər, qiymətləndirmələr
+             və bildirişlər gedir. Təsdiq pəncərəsi nə itəcəyini rəqəmlə yazır. */
+          isOwner()
+          ?`<button type="button" class="pnotify dngr" data-pa="del" data-i="${i}" title="Obyekti sil">
+          <svg viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M10 11v6"/><path d="M14 11v6"/>
+            <path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"/>
+            <path d="M9 7V4h6v3"/></svg></button>`:''}
       </div></td></tr>`;
   }).join('') : `<tr><td colspan="8">${
       q ? emptyBox('&#128269;', 'Tapılmadı', '&quot;' + esc(q) + '&quot; üzrə obyekt yoxdur.')
@@ -5059,6 +5085,7 @@ function renderPlaces(){
     if (btn.dataset.pa === 'rename') renamePlace(b);
     if (btn.dataset.pa === 'loc') locPlace(b);
     if (btn.dataset.pa === 'split') splitPlace(b);
+    if (btn.dataset.pa === 'del') delPlace(b);
   });
   updMergeBar();
 }
@@ -5215,6 +5242,7 @@ document.getElementById('bAutoLink').addEventListener('click', async () => {
   document.getElementById('alStop').onclick = () => { autoStop = true; };
 
   let done = 0, ok = 0, maybe = 0, none = 0, err = 0;
+  const left = [];   // bağlanmayanlar — sonda siyahı kimi göstərilir
   const upd = (name) => {
     const g = id => document.getElementById(id);
     if (!g('alDone')) return false;          // pəncərə bağlanıb
@@ -5239,7 +5267,17 @@ document.getElementById('bAutoLink').addEventListener('click', async () => {
         b.cloposId = res.hit.id; b.cloposSlug = res.hit.name;
         ok++;
       } catch (_) { err++; }
-    } else if (res.hit) { maybe++; } else { none++; }
+    } else if (res.hit) {
+      maybe++;
+      left.push({ b, why: 'Təklif var, dəqiq deyil: ' + (res.hit.title || '') +
+        ' (' + (res.hit.name || '') + ')', kind: 'maybe' });
+    } else {
+      none++;
+      left.push({ b, kind: 'none',
+        why: res.seen
+          ? 'Clopos ' + res.seen + ' nəticə verdi, heç biri uyğun gəlmədi'
+          : 'Clopos heç nə qaytarmadı' });
+    }
     done++;
     return upd(brandLabel(b.name));
   };
@@ -5262,6 +5300,26 @@ document.getElementById('bAutoLink').addEventListener('click', async () => {
     g('alStop').disabled = true;
     g('alClose').disabled = false;
     g('alClose').onclick = async () => { closeModal(); await loadPlaces(true); };
+
+    /* BAĞLANMAYANLARIN SİYAHISI. Onsuz sayğac «29 tapılmadı» yazırdı və
+       hansı obyektlər olduğunu görmək mümkün deyildi. Hər sətirdə səbəb
+       yazılır və «Əl ilə axtar» düyməsi «Adı dəyiş» pəncərəsini açır —
+       orada Clopos-da özün axtarıb seçə bilirsən. */
+    if (left.length) {
+      const box = document.createElement('div');
+      box.className = 'alleft';
+      box.innerHTML = '<div class="alleft-h">Bağlanmayanlar — ' + left.length + '</div>' +
+        '<div class="ncwrap">' + left.map((x, i) =>
+          '<div class="alrow"><span><b>' + esc(brandLabel(x.b.name)) + '</b>' +
+            '<i>' + esc(x.why) + '</i></span>' +
+            '<button type="button" class="btn btn-ghost btn-sm" data-alfix="' + i + '">Əl ilə axtar</button>' +
+          '</div>').join('') + '</div>';
+      g('alNow').after(box);
+      box.querySelectorAll('[data-alfix]').forEach(btn => btn.onclick = () => {
+        closeModal();
+        renamePlace(left[+btn.dataset.alfix].b);
+      });
+    }
   }
 });
 
@@ -5426,13 +5484,14 @@ async function ncFind(gr){
     seen.add(k); return true;
   });
 
-  let best = null, bestScore = 0;
+  let best = null, bestScore = 0, seenCount = 0;
   for (const q of queries) {
     let list = [];
     try {
       const d = await api('/api/v2/admin/brand-search?q=' + encodeURIComponent(q));
       list = d.results || [];
     } catch (_) { continue; }
+    seenCount += list.length;
     for (const r of list) {
       // Slug-un DƏQİQ uyğunluğu hər şeydən güclüdür
       const sc = (slug && String(r.name || '').toLowerCase() === slug.toLowerCase())
@@ -5442,8 +5501,11 @@ async function ncFind(gr){
     if (bestScore >= 70) break;
   }
   /* Qiymət də qaytarılır: avtomatik bağlama YALNIZ dəqiq uyğunluqda
-     (100 — slug tam uyğun və ya ad tam uyğun) işləyir. */
-  return { hit: best, score: bestScore };
+     (100 — slug tam uyğun və ya ad tam uyğun) işləyir.
+     `seen` — Clopos ümumiyyətlə nəticə qaytardımı. Onsuz «tapılmadı» iki
+     fərqli halı bir yerə yığırdı: Clopos-da yoxdur, yoxsa var amma
+     uyğun gəlmədi. */
+  return { hit: best, score: bestScore, seen: seenCount, q: queries };
 }
 
 /* Bir qrupun yoxlanması: təklifi gətirir, sonra ya kartı göstərir,
@@ -5914,6 +5976,73 @@ function locPlace(b){
   document.getElementById('lcGo').onclick = go;
   inp.onkeydown = e => { if (e.key === 'Enter') go(); };
 }
+/* OBYEKTİ SİL — geri qaytarılmır.
+
+   Server `history` sətirlərini silir, onunla birlikdə qiymətləndirmələr və
+   bildirişlər də gedir. Obyekt siyahıdan yalnız gizlədilmir — məlumat itir.
+
+   İKİ ŞEYİ NƏZƏRƏ ALIR:
+   1. XAM adlar silinir. Server `brand_name`-ə görə işləyir, cədvəldə isə
+      birləşdirilmiş ad görünür — yalnız onu göndərsək bəzi sətirlər qalardı.
+   2. Eyni ad başqa koordinat qruplarında da varsa ONLAR DA silinir, çünki
+      silmə ada görədir, məkana görə yox. Təsdiqdə bu açıq yazılır. */
+function delPlace(b){
+  const al = (b.aliases && b.aliases.length) ? b.aliases : [b.name];
+  const sameName = places.filter(x => x.name === b.name);
+  const totVisits = sameName.reduce((s, x) => s + (x.visits || 0), 0);
+  modal('<div class="mhead"><h3>Obyekti sil</h3><p>' + esc(brandLabel(b.name)) + '</p>' +
+      '<button type="button" class="mclose" onclick="closeModal()" aria-label="Bagla">&times;</button></div>' +
+    '<div class="mbody">' +
+      '<div class="delwarn">Bu əməliyyat <b>geri qaytarılmır</b>.</div>' +
+      '<div class="fh" style="margin:10px 0 0;font-size:13px;line-height:1.7">Silinəcək:' +
+        '<ul style="margin:6px 0 0;padding-left:18px">' +
+          '<li><b>' + totVisits + ' ziyarət</b> tarixçəsi</li>' +
+          '<li>bu obyektə verilmiş bütün <b>qiymətləndirmələr</b></li>' +
+          '<li>adı çəkilən <b>bildirişlər</b></li>' +
+        '</ul></div>' +
+      (sameName.length > 1
+        ? '<div class="delwarn warn" style="margin-top:10px">Bu ad cədvəldə <b>' +
+          sameName.length + ' sətir</b> tutur. Silmə <b>ada görədir</b> — ' +
+          'hamısı birdən silinəcək, təkcə seçdiyin sətir yox.</div>'
+        : '') +
+      (al.length > 1
+        ? '<div class="fh" style="margin-top:10px">Silinən yazılışlar: ' +
+          al.map(a => '<code>' + esc(a) + '</code>').join(', ') + '</div>'
+        : '') +
+      '<label class="fl" style="margin-top:14px">Təsdiq üçün <b>SİL</b> yaz</label>' +
+      '<input class="fi" id="dpV" autocomplete="off" placeholder="SİL">' +
+    '</div>' +
+    '<div class="mfoot"><button type="button" class="btn btn-ghost" onclick="closeModal()">Ləğv</button>' +
+      '<button type="button" class="btn btn-danger" id="dpGo" disabled>Sil</button></div>');
+  const inp = document.getElementById('dpV');
+  const go = document.getElementById('dpGo');
+  inp.focus();
+  // Düymə yalnız «SİL» yazılandan sonra açılır — səhvən klik olmasın
+  inp.oninput = () => { go.disabled = squash(inp.value) !== 'sil'; };
+  go.onclick = async () => {
+    go.disabled = true;
+    closeModal();
+    let ok = 0;
+    try {
+      for (const a of al) {
+        const r = await api('/api/brand/' + encodeURIComponent(a), { method: 'DELETE' });
+        if (r && r.ok === false) throw new Error(r.error || 'alınmadı');
+        ok++;
+      }
+      placeSel.clear();
+      toast('Silindi', 'ok');
+      await loadPlaces(true);
+      if (mBrandLayer) {
+        mBrandLayer.clearLayers();
+        if (document.getElementById('mShowBrands').checked) loadMapBrands();
+      }
+    } catch (e) {
+      toast('Alınmadı (' + ok + '/' + al.length + '): ' + e.message, 'bad');
+      await loadPlaces(true);
+    }
+  };
+}
+
 function splitPlace(b){
   modal(`<div class="mhead"><h3>Ayır</h3><p>Hansı yazılış ayrıca obyekt olsun?</p></div>
     <div class="mbody">${b.aliases.map((a,i)=>`
