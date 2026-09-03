@@ -3184,9 +3184,14 @@ document.addEventListener('click', (ev) => {
   const h = ev.target.closest('[data-pop-hist]');
   if (h) {
     map && map.closePopup();
-    go('log'); fillLogFilters();
+    /* Filtr `go('log')`-dan ƏVVƏL təyin olunur — eyni yarış problemi
+       `openBrandDetail`-dəki «Tam tarixçə» düyməsində idi: go('log') özü
+       filtrsiz sorğu atır, bizimki `logBusy` bayrağı ilə geri qayıdırdı və
+       cədvəldə bütün işçilərin tarixçəsi qalırdı. */
     document.getElementById('lWorker').value = h.dataset.popHist;
-    loadLog(true);
+    logPage = 0;
+    logTotal = 0;
+    go('log');
     return;
   }
   const n = ev.target.closest('[data-pop-notify]');
@@ -6057,14 +6062,22 @@ async function openBrandDetail(name){
 
   document.getElementById('bdAll').onclick = () => {
     closeModal();
-    go('log'); fillLogFilters();
+    /* FİLTRLƏR `go('log')`-DAN ƏVVƏL TƏYİN OLUNMALIDIR.
+       `go('log')` səhifəyə keçəndə ÖZÜ `loadLog()` çağırır. Filtrləri
+       ONDAN SONRA təyin edib bir də `loadLog(true)` çağıranda iki sorğu
+       yarışırdı: go()-nun filtrsiz sorğusu dərhal `logBusy`-ni tuturdu,
+       bizim filtrli sorğumuz həmin bayraqla dərhal geri qayıdır və heç nə
+       göstərmirdi. Nəticə: filtr çipi düzgün adı yazırdı («Obyekt: 10
+       NUMARA»), cədvəldə isə ümumi, filtrsiz siyahı qalırdı.
+       `logTotal = 0` go()-nu MƏCBURİ təzə (bu dəfə artıq filtrli) sorğu
+       atmağa vadar edir. */
     document.getElementById('lWorker').value = '';
     document.getElementById('lType').value = '';
     document.getElementById('lQ').value = '';
     logBrand = b.name;
-    const bs2 = document.getElementById('lBrand');
-    if (bs2) bs2.value = b.name;
-    loadLog(true);
+    logPage = 0;
+    logTotal = 0;
+    go('log');
   };
 
   try {
