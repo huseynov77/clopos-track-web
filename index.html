@@ -1202,7 +1202,7 @@ tr:hover .ratedcell .rchg,.ratedcell .rchg:focus-visible{opacity:1}
 .ncprog{flex:1;height:5px;border-radius:99px;background:var(--surf-2);overflow:hidden;min-width:80px}
 .ncprog i{display:block;height:100%;background:var(--ok);transition:width .3s}
 /* «Hamısını yoxla» sayğacları */
-.alstat{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:4px 0 12px}
+.alstat{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:4px 0 12px}
 .alstat div{background:var(--surf-2);border:1px solid var(--line);border-radius:10px;
   padding:10px 8px;text-align:center}
 .alstat b{display:block;font-family:var(--mono);font-size:19px;color:var(--text);font-weight:600}
@@ -5400,17 +5400,30 @@ function bindDup(list){
 let autoStop = false;
 
 document.getElementById('bAutoLink').addEventListener('click', async () => {
-  const list = places.filter(b => !b.cloposId && squash(brandLabel(b.name)).length >= 3);
+  /* İKİ NÖV NAMİZƏD:
+     1) 'link'     — bağlantısı yoxdur, tam axtarış aparılır (ncFind)
+     2) 'backfill' — bağlantı ARTIQ VAR (brandId/slug bilinir), amma
+        `brand_title` boşdur. Bu, 2026-09-03-dən əvvəl yazılmış köhnə
+        bağlantılardır — o vaxt tam ad ümumiyyətlə saxlanmırdı. Tam ad
+        olmadan «Bağlanmayanlar API»-də filial düzgün ayrıla bilmir.
+        Bunlar üçün tam axtarış lazım deyil: slug bilinir, yalnız həmin
+        slug-un Clopos-dakı tam adı gətirilir. */
+  const toLink = places.filter(b => !b.cloposId && squash(brandLabel(b.name)).length >= 3);
+  const toBackfill = places.filter(b => b.cloposId && !b.cloposTitle && b.cloposSlug);
+  const list = [...toLink.map(b => ({ b, mode: 'link' })),
+                ...toBackfill.map(b => ({ b, mode: 'backfill' }))];
   if (!list.length) {
-    return modal('<div class="mhead"><h3>Bağlanmamış obyekt yoxdur</h3>' +
-      '<p>Hamısı onsuz da Clopos brendinə bağlıdır.</p>' +
+    return modal('<div class="mhead"><h3>Yoxlanacaq obyekt yoxdur</h3>' +
+      '<p>Hamısı onsuz da Clopos brendinə bağlıdır və tam ad dolğundur.</p>' +
       '<button type="button" class="mclose" onclick="closeModal()">&times;</button></div>' +
       '<div class="mfoot"><button type="button" class="btn btn-primary" onclick="closeModal()">Bağla</button></div>');
   }
 
   autoStop = false;
   modal('<div class="mhead"><h3>Hamısını yoxla</h3>' +
-      '<p><b>' + list.length + ' obyekt</b> Clopos brend siyahısı ilə tutuşdurulur. ' +
+      '<p><b>' + list.length + ' obyekt</b> yoxlanılır' +
+      (toBackfill.length ? ' (' + toLink.length + ' yeni, ' + toBackfill.length +
+        ' mövcud bağlantının tam adı doldurulur)' : '') + '. ' +
       'Dəqiq uyğun gələnlər avtomatik bağlanır — <b>ad dəyişmir</b>. ' +
       'Şübhəlilər toxunulmur, «Adları təmizlə» ekranında qalır.</p></div>' +
     '<div class="mbody">' +
@@ -5418,6 +5431,7 @@ document.getElementById('bAutoLink').addEventListener('click', async () => {
         '<span class="ncprog"><i id="alBar" style="width:0%"></i></span></div>' +
       '<div class="alstat">' +
         '<div><b id="alOk">0</b><i>bağlandı</i></div>' +
+        '<div><b id="alFilled">0</b><i>tam ad dolduruldu</i></div>' +
         '<div><b id="alMaybe">0</b><i>şübhəli</i></div>' +
         '<div><b id="alNone">0</b><i>tapılmadı</i></div>' +
         '<div><b id="alErr">0</b><i>xəta</i></div>' +
@@ -5428,20 +5442,21 @@ document.getElementById('bAutoLink').addEventListener('click', async () => {
       '<button type="button" class="btn btn-primary" id="alClose" disabled>Bitir</button></div>');
   document.getElementById('alStop').onclick = () => { autoStop = true; };
 
-  let done = 0, ok = 0, maybe = 0, none = 0, err = 0;
+  let done = 0, ok = 0, filled = 0, maybe = 0, none = 0, err = 0;
   const left = [];   // bağlanmayanlar — sonda siyahı kimi göstərilir
   const upd = (name) => {
     const g = id => document.getElementById(id);
     if (!g('alDone')) return false;          // pəncərə bağlanıb
     g('alDone').textContent = done;
     g('alBar').style.width = Math.round(done / list.length * 100) + '%';
-    g('alOk').textContent = ok; g('alMaybe').textContent = maybe;
+    g('alOk').textContent = ok; g('alFilled').textContent = filled;
+    g('alMaybe').textContent = maybe;
     g('alNone').textContent = none; g('alErr').textContent = err;
     if (name) g('alNow').textContent = name;
     return true;
   };
 
-  const one = async (b) => {
+  const linkOne = async (b) => {
     let res = { hit: null, score: 0 };
     try { res = await ncFind([b]); } catch (_) {}
     if (res.score >= 100 && res.hit) {
@@ -5468,24 +5483,55 @@ document.getElementById('bAutoLink').addEventListener('click', async () => {
           ? 'Clopos ' + res.seen + ' nəticə verdi, heç biri uyğun gəlmədi'
           : 'Clopos heç nə qaytarmadı' });
     }
+  };
+
+  /* Slug ARTIQ bilinir — tam axtarış lazım deyil, birbaşa həmin slug
+     sorğulanır və dəqiq uyğunluq (`name === slug`) axtarılır. */
+  const backfillOne = async (b) => {
+    try {
+      const d = await api('/api/v2/admin/brand-search?q=' + encodeURIComponent(b.cloposSlug));
+      const hit = (d.results || []).find(x =>
+        String(x.name || '').toLowerCase() === b.cloposSlug.toLowerCase());
+      if (hit && hit.title) {
+        const r = await api('/api/v2/admin/brands/clopos', { method: 'POST',
+          body: JSON.stringify({ canonical: b.name, brandId: b.cloposId,
+            brandSlug: b.cloposSlug, brandTitle: hit.title }) });
+        if (r && r.ok === false) throw new Error(r.error || 'alınmadı');
+        b.cloposTitle = hit.title;
+        filled++;
+      } else {
+        none++;
+        left.push({ b, kind: 'none',
+          why: 'Slug (' + b.cloposSlug + ') üçün Clopos-da tam ad tapılmadı' });
+      }
+    } catch (_) { err++; }
+  };
+
+  const one = async (item) => {
+    if (item.mode === 'backfill') await backfillOne(item.b);
+    else await linkOne(item.b);
     done++;
-    return upd(brandLabel(b.name));
+    return upd(brandLabel(item.b.name));
   };
 
   let next = 0;
   const worker = async () => {
     while (next < list.length && !autoStop) {
-      const b = list[next++];
-      if (!(await one(b))) return;           // pəncərə bağlanıb — dayan
+      const item = list[next++];
+      if (!(await one(item))) return;        // pəncərə bağlanıb — dayan
     }
   };
   await Promise.all([worker(), worker(), worker(), worker(), worker()]);
 
   const g = id => document.getElementById(id);
   if (g('alNow')) {
+    const doneBits = [
+      ok ? ok + ' obyekt bağlandı' : '',
+      filled ? filled + ' obyektin tam adı dolduruldu' : '',
+    ].filter(Boolean).join(', ') || 'dəyişiklik olmadı';
     g('alNow').innerHTML = autoStop
-      ? '<b>Dayandırıldı.</b> ' + ok + ' obyekt bağlandı.'
-      : '<b>Bitdi.</b> ' + ok + ' obyekt bağlandı' +
+      ? '<b>Dayandırıldı.</b> ' + doneBits + '.'
+      : '<b>Bitdi.</b> ' + doneBits +
         (maybe ? ', ' + maybe + ' şübhəli «Adları təmizlə» ekranında gözləyir' : '') + '.';
     g('alStop').disabled = true;
     g('alClose').disabled = false;
