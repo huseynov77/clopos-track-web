@@ -6024,6 +6024,69 @@ document.getElementById('bMerge').addEventListener('click', () => {
   };
 });
 
+/* Obyektin öz pəncərəsi: xülasə + həmin obyektdəki bütün hərəkətlər.
+   Birləşdirilmiş obyektdə server bütün yazılışları da əhatə edir.
+
+   BU FUNKSİYA 2026-09-02-də «Birləşdir» pəncərəsi yenidən yazılarkən
+   səhvən silinmişdi — köhnə blok tam əvəz edilərkən bunun daxilində
+   qaldığı üçün aradan getmişdi. Sətirdəki obyekt adına vuranda heç nə
+   açılmırdı. Bura elə köhnə yerinə, olduğu formada qaytarılıb. */
+async function openBrandDetail(name){
+  const b = places.find(x => x.name === name) ||
+            mBrands.find(x => x.name === name) || { name };
+  const al = b.aliases || [];
+  modal(
+    '<div class="mhead"><h3>' + esc(brandLabel(b.name)) + '</h3>' +
+      '<p>' + esc(b.address || 'ünvan yoxdur') + '</p></div>' +
+    '<div class="bd-stats">' +
+      '<div><span>Ziyarət</span><b>' + (b.visits ?? '—') + '</b></div>' +
+      '<div><span>Son ziyarət</span><b>' + (b.lastSeen ? ago(b.lastSeen) : '—') + '</b></div>' +
+      '<div><span>Yazılış</span><b>' + (al.length || 1) + '</b></div>' +
+    '</div>' +
+    (al.length > 1
+      ? '<div class="bd-al"><span>Birləşdirilmiş adlar</span><div>' +
+          al.map(a => '<i>' + esc(a) + '</i>').join('') + '</div></div>' : '') +
+    '<div class="bd-log" id="bdLog"><div class="empty">Yüklənir…</div></div>' +
+    '<div class="mfoot">' +
+      (b.lat != null
+        ? '<a class="btn btn-ghost btn-sm" target="_blank" rel="noopener" ' +
+          'href="https://maps.google.com/maps?q=' + b.lat + ',' + b.lng + '">Xəritədə aç</a>' : '') +
+      '<button type="button" class="btn btn-ghost btn-sm" id="bdAll">Tam tarixçə</button>' +
+      '<button type="button" class="btn btn-primary btn-sm" onclick="closeModal()">Bağla</button>' +
+    '</div>');
+
+  document.getElementById('bdAll').onclick = () => {
+    closeModal();
+    go('log'); fillLogFilters();
+    document.getElementById('lWorker').value = '';
+    document.getElementById('lType').value = '';
+    document.getElementById('lQ').value = '';
+    logBrand = b.name;
+    const bs2 = document.getElementById('lBrand');
+    if (bs2) bs2.value = b.name;
+    loadLog(true);
+  };
+
+  try {
+    const d = await api('/api/v2/admin/history?limit=60&brand=' + encodeURIComponent(b.name));
+    // Server sahəni `items` adlandırır — `rows` boş qayıdırdı
+    const rows = d.items || [];
+    const el = document.getElementById('bdLog');
+    if (!el) return;
+    el.innerHTML = rows.length
+      ? rows.map(h =>
+          '<div class="bd-r">' +
+            '<span class="tag ' + evTone(h.type) + '">' + esc(evName(h.type)) + '</span>' +
+            '<b>' + esc(h.workerName || '—') + '</b>' +
+            '<span class="bd-t">' + dt(h.time) + '</span>' +
+          '</div>').join('')
+      : emptyBox('&#128337;', 'Hərəkət yoxdur', 'Bu obyektdə hələ heç bir qeyd yoxdur.');
+  } catch (e) {
+    const el = document.getElementById('bdLog');
+    if (el) el.innerHTML = '<div class="empty">Yüklənmədi: ' + esc(e.message) + '</div>';
+  }
+}
+
 /* ══════ ÇOX MƏKANLI ADLAR ══════
    Bir ad, bir neçə sətir — yəni girişlər bir-birindən 100 m-dən uzaq qeyd
    olunub. Bunlar ya həqiqətən ayrı filiallardır, ya da eyni yerin səpələnmiş
