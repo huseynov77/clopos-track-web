@@ -4815,6 +4815,13 @@ function dupGroups(list){
   const out = [];
   for (const arr of seen.values()) {
     if (arr.length < 2) continue;
+    /* SƏHV DÜZƏLİŞİ: eyni ad bir neçə məkanda olanda (məs. "Balique — 2 ci
+       filial" 3 fərqli, hətta kilometrlərlə uzaq nöqtədə) hamısı EYNİ açara
+       düşür və `arr.length > 1` şərti kifayət edirdi ki, «oxşar ad» sayılsın
+       — halbuki ad heç dəyişməyib, HEÇ BİR oxşarlıq sualı yoxdur. Bu, məkan
+       sayı məsələsidir («Çox məkanlı adlar»ın işidir), ad oxşarlığı deyil.
+       `dupSuggestions` bunu artıq düzgün istisna edirdi, bura unudulmuşdu. */
+    if (new Set(arr.map(r => r.name)).size < 2) continue;
     out.push({ rows: arr, sig: arr.map(rowKey).sort().join('~') });
   }
   return out;
@@ -5044,13 +5051,17 @@ function renderPlaces(){
         <div class="bsub">
           ${al.length>1?`<span class="tag ok" title="Bu obyektə birləşdirilmiş adlar:\n${esc(al.join('\n'))}">${al.length} yazılış</span>`:''}
           ${places.filter(x => x.name === b.name).length > 1
-            ? '<span class="tag" title="Eyni ad, fərqli koordinat — ayrı filiallar ola bilər. «Məkanı birləşdir» ilə bir nöqtəyə yığılır">'
+            ? '<span class="tag" title="Eyni ad, fərqli koordinat — ayrı filiallar ola bilər. Yaxındırsa «Çox məkanlı adlar»dan birləşdir, uzaqdırsa (kilometrlərlə) TOXUNMA — həqiqi ayrı filiallardır">'
               + places.filter(x => x.name === b.name).length + ' filial</span>'
-            : (dups.has(b.name)
+            : ''}
+          ${/* «filial» nişanından ASILI OLMAYARAQ göstərilir — əvvəl biri
+               digərini gizlədirdi, ona görə «Balique» kimi HƏM çox məkanlı,
+               HƏM başqa adla oxşar olan sətirlərdə × heç görünmürdü. */
+            dups.has(b.name)
               ? '<span class="tag warn" title="Oxşar adlı BAŞQA obyekt var — birləşdirmək lazım ola bilər">təkrar?' +
                 '<button type="button" class="tagx" data-dupignore="' + i +
                 '" title="Bu təkrar deyil — gizlə (yeni obyekt qoşulsa yenidən görünər)">&times;</button></span>'
-              : '')}
+              : ''}
           ${badName(b.name) ? `<span class="tag bad" title="Ad şübhəlidir: ${esc(badName(b.name))}">${esc(badName(b.name))}</span>` : ''}
           ${b.cloposAuto ? '<span class="tag ok" title="Bu bağlantını bot avtomatik yazıb (tam uyğunluqda). Səhvdirsə «Adı dəyiş»dən düzəlt.">avto</span>' : ''}
           ${!(b.visits>0) ? `<span class="tag warn" title="${b.exits
