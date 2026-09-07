@@ -452,6 +452,11 @@ main{overflow-y:auto;display:flex;flex-direction:column;background:var(--bg)}
 .panel-h{display:flex;align-items:center;gap:12px;padding:14px 18px 13px;border-bottom:1px solid var(--line)}
 .panel-h h3{font-size:12px;font-weight:600;letter-spacing:.07em;text-transform:uppercase}
 .panel-h .right{margin-left:auto;display:flex;gap:10px;align-items:center}
+.segtabs{display:flex;gap:4px}
+.segtab{border:none;background:transparent;color:var(--muted);font-size:12px;font-weight:600;
+  letter-spacing:.03em;padding:6px 12px;border-radius:8px;cursor:pointer;transition:background .15s,color .15s}
+.segtab:hover{color:var(--text)}
+.segtab.on{background:var(--brand-soft);color:var(--brand)}
 /* Rəng izahı — nöqtələrin nə demək olduğu yazılmadan qalmasın */
 .legend{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:500;
   color:var(--faint);text-transform:none;letter-spacing:0;white-space:nowrap}
@@ -2216,9 +2221,22 @@ tbody tr:hover .rowacts,tr:focus-within .rowacts{opacity:1}
             </table></div>
           </div>
 
-          <div class="panel" style="margin-bottom:16px">
-            <div class="panel-h"><h3>Obyekt üzrə</h3></div>
-            <div id="statsWrap"><table id="statsTable">
+          <div class="panel">
+            <div class="panel-h">
+              <div class="segtabs">
+                <button type="button" class="segtab on" data-stab="visits">Bütün ziyarətlər</button>
+                <button type="button" class="segtab" data-stab="objects">Obyekt üzrə</button>
+              </div>
+            </div>
+            <div id="statsVisitsWrap"><table>
+              <thead><tr>
+                <th style="width:120px">Tarix</th>
+                <th>Obyekt</th>
+                <th style="width:230px;text-align:right">Vaxt</th>
+              </tr></thead>
+              <tbody id="statsVisitsBody"></tbody>
+            </table></div>
+            <div id="statsWrap" style="display:none"><table id="statsTable">
               <thead><tr>
                 <th>Obyekt</th>
                 <th style="width:100px;text-align:right">Ziyarət</th>
@@ -2226,20 +2244,6 @@ tbody tr:hover .rowacts,tr:focus-within .rowacts{opacity:1}
                 <th style="width:120px;text-align:right">Orta vaxt</th>
               </tr></thead>
               <tbody id="statsBody"></tbody>
-            </table></div>
-          </div>
-
-          <div class="panel">
-            <div class="panel-h"><h3>Bütün ziyarətlər</h3></div>
-            <div id="statsVisitsWrap"><table>
-              <thead><tr>
-                <th style="width:120px">Tarix</th>
-                <th>Obyekt</th>
-                <th style="width:90px;text-align:right">Giriş</th>
-                <th style="width:110px;text-align:right">Çıxış</th>
-                <th style="width:140px;text-align:right">Müddət</th>
-              </tr></thead>
-              <tbody id="statsVisitsBody"></tbody>
             </table></div>
           </div>
         </div>
@@ -4811,8 +4815,14 @@ const STATS_IC = {
   door: '<path d="M14 3H5v18h9"/><path d="M10 12h11"/><path d="m18 8 3 4-3 4"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
   route: '<circle cx="5" cy="18" r="2.2"/><circle cx="19" cy="6" r="2.2"/><path d="M7 16.5 17 7.5"/>',
-  timer: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2"/><path d="M9 2h6"/>',
+  warn: '<path d="M12 9v5M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>',
 };
+document.querySelectorAll('#pg-stats .segtab').forEach(btn => btn.addEventListener('click', () => {
+  document.querySelectorAll('#pg-stats .segtab').forEach(b => b.classList.toggle('on', b === btn));
+  const showVisits = btn.dataset.stab === 'visits';
+  document.getElementById('statsVisitsWrap').style.display = showVisits ? '' : 'none';
+  document.getElementById('statsWrap').style.display = showVisits ? 'none' : '';
+}));
 function renderStats(r){
   document.getElementById('statsEmpty').style.display = 'none';
   document.getElementById('statsResult').style.display = '';
@@ -4824,17 +4834,17 @@ function renderStats(r){
     '<div class="cbody"><div class="cmain"><div class="cval">' + val + '</div>' +
     (note ? '<div class="cnote">' + note + '</div>' : '') + '</div></div></div>';
 
+  const flagCount = (r.shifts || []).filter(s => s.flag).length;
   document.getElementById('statsCards').innerHTML =
     card('blue', STATS_IC.door, 'Ziyarət', r.totalVisits || 0, (r.distinctObjects || 0) + ' fərqli obyekt') +
     card('green', STATS_IC.clock, 'Növbə saatı', (r.shiftHours || 0) + ' saat', (r.shifts ? r.shifts.length : 0) + ' növbə') +
     card('orange', STATS_IC.route, 'Məsafə', (r.distanceKm || 0) + ' km', (r.gpsPointCount || 0) + ' GPS nöqtəsi') +
-    card('violet', STATS_IC.timer, 'Orta ziyarət', fmtMin(r.avgVisitMinutes || 0), 'obyekt başına');
+    card(flagCount ? 'red' : 'green', STATS_IC.warn, 'Diqqət tələb edən',
+      flagCount, flagCount ? 'uzun/bağlanmamış növbə — bax aşağı' : 'növbələr qaydasındadır');
 
-  const anomaly = (r.shifts || []).some(s => s.flag);
   document.getElementById('statsHint').innerHTML =
     'Məsafə yalnız <b>19 avqust 2026</b>-dan etibarən dəqiqdir (davamlı GPS izləmə o tarixdən işləyir) — ' +
-    'ondan köhnə dövrdə natamam görünə bilər.' +
-    (anomaly ? ' <span class="tag warn">Diqqət: 16 saatdan uzun növbə var — "Növbələr" cədvəlinə bax, bağlamaq unudulmuş ola bilər</span>' : '');
+    'ondan köhnə dövrdə natamam görünə bilər.';
 
   // Növbələr
   const sBody = document.getElementById('statsShiftsBody');
@@ -4857,15 +4867,16 @@ function renderStats(r){
       '<td style="text-align:right">' + fmtMin(avg) + '</td></tr>';
   }).join('') : '<tr><td colspan="4">' + emptyBox('&#128269;', 'Ziyarət yoxdur', 'Bu dövrdə obyekt ziyarəti qeydə alınmayıb.') + '</td></tr>';
 
-  // Bütün ziyarətlər (xronoloji, ən yenisi öndə)
+  // Bütün ziyarətlər (xronoloji, ən yenisi öndə) — giriş→çıxış+müddət BİR sütunda
   const vBody = document.getElementById('statsVisitsBody');
   vBody.innerHTML = (r.visits && r.visits.length) ? r.visits.map(v =>
     '<tr><td>' + dayLabel(v.enter) + '</td>' +
       '<td class="ell" title="' + esc(v.name) + '">' + esc(v.name) + '</td>' +
-      '<td style="text-align:right">' + hm(v.enter) + '</td>' +
-      '<td style="text-align:right">' + (v.exit ? hm(v.exit) : '<span class="dash">davam edir</span>') + '</td>' +
-      '<td style="text-align:right">' + (v.minutes != null ? fmtMin(v.minutes) : '—') + '</td></tr>'
-    ).join('') : '<tr><td colspan="5">' + emptyBox('&#128269;', 'Ziyarət yoxdur', 'Bu dövrdə obyekt ziyarəti qeydə alınmayıb.') + '</td></tr>';
+      '<td style="text-align:right">' + hm(v.enter) + ' → ' +
+        (v.exit ? hm(v.exit) + ' <span class="dash">· ' + fmtMin(v.minutes) + '</span>'
+                : '<span class="dash">davam edir</span>') +
+      '</td></tr>'
+    ).join('') : '<tr><td colspan="3">' + emptyBox('&#128269;', 'Ziyarət yoxdur', 'Bu dövrdə obyekt ziyarəti qeydə alınmayıb.') + '</td></tr>';
 }
 
 function fillLogFilters(){
