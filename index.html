@@ -1850,6 +1850,9 @@ tbody tr:hover .rowacts,tr:focus-within .rowacts{opacity:1}
     <a class="nav" data-page="places">
       <svg viewBox="0 0 24 24"><path d="M4 20V9l8-5 8 5v11"/><path d="M9 20v-6h6v6"/></svg>
       Obyektlər <span class="count" id="cPlaces"></span></a>
+    <a class="nav" data-page="stats">
+      <svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+      Statistika</a>
     <div class="navlbl">Nəzarət</div>
     <a class="nav" data-page="alerts">
       <svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
@@ -2186,6 +2189,35 @@ tbody tr:hover .rowacts,tr:focus-within .rowacts{opacity:1}
         </div>
       </section>
 
+      <!-- STATİSTİKA -->
+      <section class="page" id="pg-stats">
+        <div class="bar">
+          <select id="statsWorker" class="sel"><option value="">İşçi seç…</option></select>
+          <input type="date" id="statsFrom" class="sel" title="Başlanğıc">
+          <input type="date" id="statsTo" class="sel" title="Son">
+          <button type="button" class="btn btn-primary btn-sm" id="statsGo">Göstər</button>
+        </div>
+        <p class="hint" id="statsHint" style="margin:0 0 12px;color:var(--muted,#8a8f98);font-size:12.5px">
+          Məsafə yalnız <b>19 avqust 2026</b>-dan etibarən dəqiqdir (davamlı GPS izləmə o tarixdən işləyir) —
+          ondan köhnə dövr seçsən məsafə 0 və ya natamam görünə bilər. Obyekt/vaxt statistikası bütün tarix üçün etibarlıdır.
+        </p>
+        <div id="statsEmpty" class="empty">İşçi seç və "Göstər"ə bas.</div>
+        <div id="statsResult" style="display:none">
+          <div class="statbar"><div class="stats" id="statsCards"></div></div>
+          <div class="panel">
+            <div id="statsWrap"><table id="statsTable">
+              <thead><tr>
+                <th>Obyekt</th>
+                <th style="width:100px;text-align:right">Ziyarət</th>
+                <th style="width:140px;text-align:right">Obyektdə keçirilən vaxt</th>
+                <th style="width:120px;text-align:right">Orta vaxt</th>
+              </tr></thead>
+              <tbody id="statsBody"></tbody>
+            </table></div>
+          </div>
+        </div>
+      </section>
+
       <!-- BİLDİRİŞLƏR -->
       <section class="page" id="pg-alerts">
         <div class="bar">
@@ -2421,6 +2453,7 @@ const PAGES = {
   staff:   ['İşçilər','Heyət və vəziyyət'],
   log:     ['Tarixçə','Bütün hadisələr'],
   places:  ['Obyektlər','Brendlər və məkanlar'],
+  stats:   ['Statistika','İşçi üzrə obyekt, vaxt və məsafə'],
   alerts:  ['Bildirişlər','Hadisə axını'],
   stars:   ['Qiymətləndirmə','İş keyfiyyəti'],
   settings:['Tənzimləmələr','Sistem və adminlər'],
@@ -2474,6 +2507,7 @@ function go(p){
     else if (!fresh('log')) { mark('log'); loadLog(); }
   }
   if (p === 'places'){ if (!fresh('places')) { mark('places'); loadPlaces(true); } else loadPlaces(); }
+  if (p === 'stats') { fillStatsFilters(); }
   if (p === 'alerts'){ mark('alerts'); loadAlerts(true); }
   if (p === 'stars') { if (!fresh('stars')) { mark('stars'); loadStars(); } }
   if (p === 'settings'){ if (!fresh('settings')) { mark('settings'); loadSettings(); } }
@@ -4708,6 +4742,69 @@ document.getElementById('lCsv').addEventListener('click', async () => {
     toast('CSV endirildi', 'ok');
   } catch (e) { toast('İxrac alınmadı: ' + e.message, 'bad'); }
 });
+
+/* ── Statistika ── */
+function fillStatsFilters(){
+  const ws = document.getElementById('statsWorker');
+  if (ws.options.length <= 1 && staffAll.length) {
+    staffAll.forEach(w => ws.add(new Option(w.name, w.id)));
+  }
+  const f = document.getElementById('statsFrom'), t = document.getElementById('statsTo');
+  // Default: cari ayın əvvəlindən bu günə — GPS izləmə də bu dövrü tam əhatə edir
+  if (!f.value && !t.value) {
+    const now = new Date();
+    f.value = dayKey(new Date(now.getFullYear(), now.getMonth(), 1));
+    t.value = dayKey(now);
+  }
+}
+function fmtMin(mins){
+  mins = Math.round(mins || 0);
+  if (!mins) return '0 dəq';
+  const h = Math.floor(mins / 60), m = mins % 60;
+  return (h ? h + ' saat ' : '') + (m || !h ? m + ' dəq' : '');
+}
+document.getElementById('statsGo').addEventListener('click', loadStats);
+async function loadStats(){
+  const workerId = document.getElementById('statsWorker').value;
+  if (!workerId) { toast('Əvvəlcə işçi seç', 'bad'); return; }
+  const fVal = document.getElementById('statsFrom').value;
+  const tVal = document.getElementById('statsTo').value;
+  const from = fVal ? new Date(fVal + 'T00:00:00').getTime() : 0;
+  const to = tVal ? new Date(tVal + 'T23:59:59').getTime() : Date.now();
+  const btn = document.getElementById('statsGo');
+  btn.disabled = true;
+  try {
+    const r = await api('/api/v2/admin/worker-stats?workerId=' + encodeURIComponent(workerId) +
+      '&from=' + from + '&to=' + to);
+    renderStats(r);
+  } catch (e) { toast('Statistika yüklənmədi: ' + e.message, 'bad'); }
+  finally { btn.disabled = false; }
+}
+function renderStats(r){
+  document.getElementById('statsEmpty').style.display = 'none';
+  document.getElementById('statsResult').style.display = '';
+  const pill = (t, v) => '<div class="spill"><span class="sd"></span>' +
+    '<span class="st">' + t + '</span><span class="sv">' + v + '</span></div>';
+  document.getElementById('statsCards').innerHTML =
+    pill('Ziyarət', r.totalVisits || 0) +
+    pill('Fərqli obyekt', r.distinctObjects || 0) +
+    pill('Növbə saatı', (r.shiftHours || 0) + ' saat') +
+    pill('Məsafə', (r.distanceKm || 0) + ' km');
+  const body = document.getElementById('statsBody');
+  if (!r.objects || !r.objects.length) {
+    body.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted,#8a8f98)">' +
+      'Bu dövrdə obyekt ziyarəti qeydə alınmayıb</td></tr>';
+    return;
+  }
+  body.innerHTML = r.objects.map(o => {
+    const avg = o.visits ? o.minutes / o.visits : 0;
+    return '<tr><td>' + esc(o.name) + '</td>' +
+      '<td style="text-align:right">' + o.visits + '</td>' +
+      '<td style="text-align:right">' + fmtMin(o.minutes) + '</td>' +
+      '<td style="text-align:right">' + fmtMin(avg) + '</td></tr>';
+  }).join('');
+}
+
 function fillLogFilters(){
   const ws = document.getElementById('lWorker');
   if (ws.options.length <= 1 && staffAll.length) {
