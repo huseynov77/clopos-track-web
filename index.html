@@ -4817,6 +4817,7 @@ const STATS_IC = {
   route: '<circle cx="5" cy="18" r="2.2"/><circle cx="19" cy="6" r="2.2"/><path d="M7 16.5 17 7.5"/>',
   warn: '<path d="M12 9v5M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>',
 };
+const STATS_ACTION_LABEL = { contact: 'əlaqə', akt: 'akt', tehvil: 'təhvil', object_photo: 'şəkil' };
 document.querySelectorAll('#pg-stats .segtab').forEach(btn => btn.addEventListener('click', () => {
   document.querySelectorAll('#pg-stats .segtab').forEach(b => b.classList.toggle('on', b === btn));
   const showVisits = btn.dataset.stab === 'visits';
@@ -4867,16 +4868,30 @@ function renderStats(r){
       '<td style="text-align:right">' + fmtMin(avg) + '</td></tr>';
   }).join('') : '<tr><td colspan="4">' + emptyBox('&#128269;', 'Ziyarət yoxdur', 'Bu dövrdə obyekt ziyarəti qeydə alınmayıb.') + '</td></tr>';
 
-  // Bütün ziyarətlər (xronoloji, ən yenisi öndə) — giriş→çıxış+müddət BİR sütunda
+  // Bütün ziyarətlər (xronoloji, ən yenisi öndə) — giriş→çıxış+müddət BİR sütunda,
+  // hər sətirdə hansı sənədlərin (əlaqə/akt/təhvil/şəkil) göndərildiyi tag kimi,
+  // eyni obyektə eyni gündə bir neçə dəfə gedilibsə bunu göstərən bir bayraqla.
   const vBody = document.getElementById('statsVisitsBody');
-  vBody.innerHTML = (r.visits && r.visits.length) ? r.visits.map(v =>
-    '<tr><td>' + dayLabel(v.enter) + '</td>' +
-      '<td class="ell" title="' + esc(v.name) + '">' + esc(v.name) + '</td>' +
+  const dayCount = new Map();
+  (r.visits || []).forEach(v => {
+    const k = v.name + '|' + dayKey(new Date(v.enter));
+    dayCount.set(k, (dayCount.get(k) || 0) + 1);
+  });
+  vBody.innerHTML = (r.visits && r.visits.length) ? r.visits.map(v => {
+    const total = dayCount.get(v.name + '|' + dayKey(new Date(v.enter)));
+    const repeatTag = total > 1
+      ? ' <span class="tag warn" title="Bu obyektə bu gün ' + total + ' dəfə gedilib">' + total + '× bu gün</span>' : '';
+    const actionTags = (v.actions && v.actions.length)
+      ? v.actions.map(a => '<span class="tag ok">' + (STATS_ACTION_LABEL[a] || a) + '</span>').join(' ')
+      : '<span class="tag bad">sənədsiz</span>';
+    return '<tr><td>' + dayLabel(v.enter) + '</td>' +
+      '<td class="ell" title="' + esc(v.name) + '">' + esc(v.name) + repeatTag +
+        '<div style="margin-top:5px;display:flex;gap:5px;flex-wrap:wrap">' + actionTags + '</div></td>' +
       '<td style="text-align:right">' + hm(v.enter) + ' → ' +
         (v.exit ? hm(v.exit) + ' <span class="dash">· ' + fmtMin(v.minutes) + '</span>'
                 : '<span class="dash">davam edir</span>') +
-      '</td></tr>'
-    ).join('') : '<tr><td colspan="3">' + emptyBox('&#128269;', 'Ziyarət yoxdur', 'Bu dövrdə obyekt ziyarəti qeydə alınmayıb.') + '</td></tr>';
+      '</td></tr>';
+  }).join('') : '<tr><td colspan="3">' + emptyBox('&#128269;', 'Ziyarət yoxdur', 'Bu dövrdə obyekt ziyarəti qeydə alınmayıb.') + '</td></tr>';
 }
 
 function fillLogFilters(){
