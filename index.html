@@ -4101,6 +4101,8 @@ function renderStaff(){
             <i class="sdot ${isOff ? 'gone' : isLive ? 'up' : 'down'}"
                title="${isOff ? 'işdən çıxıb' : isLive ? 'onlayn' : 'oflayn'}"></i>
             <span class="bname">${esc(w.name)}</span>
+            ${w.staffType === 'sales'
+              ? '<span class="tag ok" title="' + (w.odooUserId != null ? 'Odoo ID: ' + esc(String(w.odooUserId)) : 'Odoo ID bağlanmayıb') + '">satış</span>' : ''}
             ${w.accessLevel === 'regional'
               ? '<span class="tag" title="Yalnız öz regionunun məlumatını görür">regional</span>' : ''}</div>
         </div></div></td>
@@ -4318,6 +4320,18 @@ function editWorker(w){
           </select>
           <svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
         </div></div>
+      <div class="field"><label>Əməkdaş tipi</label>
+        <div class="selwrap">
+          <select id="wStaffType">
+            <option value="technical">Texniki — növbə, obyekt, akt/təhvil</option>
+            <option value="sales">Satış — yeni obyekt/lead əlavə edir</option>
+          </select>
+          <svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
+        </div></div>
+      <div class="field" id="wOdooField" hidden>
+        <label>Odoo istifadəçi ID-si <span style="color:var(--faint)">(lead-lər onun adına yaranacaq)</span></label>
+        <input id="wOdooId" autocomplete="off" inputmode="numeric" placeholder="məs. 42">
+      </div>
     </div>
     <div class="mfoot">
       ${isNew?'':'<button type="button" class="btn btn-ghost btn-sm" id="wDel" style="color:var(--bad);margin-right:auto">İşdən çıxar</button>'}
@@ -4325,6 +4339,15 @@ function editWorker(w){
       <button type="button" class="btn btn-primary" id="wSave">${isNew?'Yarat':'Saxla'}</button>
     </div>`);
   if (!isNew) document.getElementById('wLevel').value = w.accessLevel || w.access_level || 'full';
+  const stSel = document.getElementById('wStaffType');
+  const odooField = document.getElementById('wOdooField');
+  if (!isNew) {
+    stSel.value = w.staffType || 'technical';
+    if (w.odooUserId != null) document.getElementById('wOdooId').value = w.odooUserId;
+  }
+  const syncOdooField = () => { odooField.hidden = stSel.value !== 'sales'; };
+  syncOdooField();
+  stSel.addEventListener('change', syncOdooField);
   document.getElementById('wSave').onclick = async () => {
     const nm = document.getElementById('wName').value.trim();
     // add-worker "workerName", PUT isə "name" gözləyir — serveri dəyişmədən
@@ -4334,6 +4357,8 @@ function editWorker(w){
       role: document.getElementById('wRole').value.trim() || 'İşçi',
       login: document.getElementById('wLogin').value.trim(),
       accessLevel: document.getElementById('wLevel').value,
+      staffType: stSel.value,
+      odooUserId: stSel.value === 'sales' ? (document.getElementById('wOdooId').value.trim() || null) : null,
     };
     // Şifrə YALNIZ doldurulubsa göndərilir — boş sahə səhvən şifrəni sıfırlamasın
     const pw = document.getElementById('wPass').value;
