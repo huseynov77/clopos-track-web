@@ -2368,8 +2368,7 @@ tbody tr:hover .rowacts,tr:focus-within .rowacts{opacity:1}
 
 const API = 'https://gps-server-production-9cef.up.railway.app';
 const LS  = { tok:'ct_admin_token', usr:'ct_admin_user', thm:'ct_theme',
-              pg:'ct_page', role:'ct_admin_role', dupSkip:'ct_dup_skip',
-              dupCardSkip:'ct_dupcard_skip' };
+              pg:'ct_page', role:'ct_admin_role' };
 /* İki rol var: `owner` — geri qaytarıla bilməyən əməliyyatlar (admin
    idarəçiliyi, işçini birdəfəlik silmək, obyekt tarixçəsini silmək);
    `admin` — gündəlik iş. Bura YALNIZ göstərmə üçündür: əsl qərarı server
@@ -4953,7 +4952,10 @@ async function loadPlaces(force){
   document.getElementById('placesBody').innerHTML =
     '<tr><td colspan="8"><div class="empty">Yüklənir…</div></td></tr>';
   try {
-    const d = await api('/api/v2/admin/brands');
+    const [d] = await Promise.all([
+      api('/api/v2/admin/brands'),
+      loadDupIgnoreFromServer(),
+    ]);
     places = Array.isArray(d) ? d : [];
     document.getElementById('cPlaces').textContent = places.length || '';
     renderPlaces();
@@ -5017,14 +5019,34 @@ function dupGroups(list){
 }
 
 /* «Təkrar ola bilər» üçün gizlədilənlər — «Təkrar təklifləri»ndəki
-   `LS.dupSkip`-dən AYRICA saxlanılır: bu ekranın qruplaşması fərqlidir
-   (məsafə/Clopos id nəzərə alınmır), ona görə imzalar üst-üstə düşmür. */
-function loadDupCardSkip(){
-  try { return new Set(JSON.parse(localStorage.getItem(LS.dupCardSkip) || '[]')); }
-  catch (_) { return new Set(); }
+   `dupSkipCache`-dən AYRICA saxlanılır: bu ekranın qruplaşması fərqlidir
+   (məsafə/Clopos id nəzərə alınmır), ona görə imzalar üst-üstə düşmür.
+   ƏVVƏL localStorage-da idi — hər admin öz brauzerində fərqli görürdü.
+   İndi bazada (`dup_ignore` cədvəli), HAMI ÜÇÜN ORTAQDIR. Səhifə açılanda
+   `loadDupIgnoreFromServer()` bir dəfə çəkib bu keşi doldurur, sonra
+   `renderPlaces()` sinxron oxuyur — hər render-də şəbəkəyə getmək lazım deyil. */
+let dupCardSkipCache = new Set();
+let dupSkipCache = new Set();
+async function loadDupIgnoreFromServer(){
+  try {
+    const [c, s] = await Promise.all([
+      api('/api/v2/admin/dup-ignore?scope=card'),
+      api('/api/v2/admin/dup-ignore?scope=sug'),
+    ]);
+    dupCardSkipCache = new Set(c.sigs || []);
+    dupSkipCache = new Set(s.sigs || []);
+  } catch (_) { /* şəbəkə problemi — boş keşlə davam edir, funksionallıq pozulmur */ }
 }
-function saveDupCardSkip(set){
-  try { localStorage.setItem(LS.dupCardSkip, JSON.stringify([...set])); } catch (_) {}
+function loadDupCardSkip(){ return dupCardSkipCache; }
+async function ignoreDupCard(sig){
+  dupCardSkipCache.add(sig);
+  try { await api('/api/v2/admin/dup-ignore', { method:'POST', body: JSON.stringify({ scope:'card', sig }) }); }
+  catch (e) { toast('Serverdə saxlanmadı, digər adminlərdə görünməyə bilər: ' + e.message, 'bad'); }
+}
+async function resetDupCard(){
+  dupCardSkipCache = new Set();
+  try { await api('/api/v2/admin/dup-ignore/reset', { method:'POST', body: JSON.stringify({ scope:'card' }) }); }
+  catch (e) { toast('Serverdə sıfırlanmadı: ' + e.message, 'bad'); }
 }
 
 /* Şübhəli obyekt adları — qaydalar konkretdir, "hiss" ilə deyil.
@@ -5186,7 +5208,7 @@ function renderPlaces(){
     const rst = st.querySelector('[data-dupcard-reset]');
     if (rst) rst.onclick = (ev) => {
       ev.stopPropagation();   // kartın öz filtr keçidini tetiklməsin
-      saveDupCardSkip(new Set());
+      resetDupCard();
       renderPlaces();
     };
   }
@@ -5362,8 +5384,7 @@ function renderPlaces(){
     const b = placesView[+el.dataset.dupignore];
     const g = b && dupGroupOf.get(b.name);
     if (!g) return;
-    dupCardSkip.add(g.sig);
-    saveDupCardSkip(dupCardSkip);
+    ignoreDupCard(g.sig);
     renderPlaces();
   });
   updMergeBar();
@@ -5493,15 +5514,20 @@ function locMergeModal(name, group){
    yazılışı (~700 m aralı) buna görə heç göstərilmirdi. */
 const DUP_NEAR_M = 1000;
 
-/* «Keç» edilmiş təklif qrupları — cihazda saxlanılır. Filial olduğu
+/* «Keç» edilmiş təklif qrupları — bazada (`dup_ignore`, scope='sug'),
+   HAMI ÜÇÜN ORTAQ (bax `dupCardSkipCache` yuxarıdakı izah). Filial olduğu
    üçün gizlədilən cütlər hər «Təkrarları yoxla» basılanda TƏKRAR
    göstərilməsin deyə. */
-function loadDupSkip(){
-  try { return new Set(JSON.parse(localStorage.getItem(LS.dupSkip) || '[]')); }
-  catch (_) { return new Set(); }
+function loadDupSkip(){ return dupSkipCache; }
+async function ignoreDupSug(sig){
+  dupSkipCache.add(sig);
+  try { await api('/api/v2/admin/dup-ignore', { method:'POST', body: JSON.stringify({ scope:'sug', sig }) }); }
+  catch (e) { toast('Serverdə saxlanmadı, digər adminlərdə görünməyə bilər: ' + e.message, 'bad'); }
 }
-function saveDupSkip(set){
-  try { localStorage.setItem(LS.dupSkip, JSON.stringify([...set])); } catch (_) {}
+async function resetDupSug(){
+  dupSkipCache = new Set();
+  try { await api('/api/v2/admin/dup-ignore/reset', { method:'POST', body: JSON.stringify({ scope:'sug' }) }); }
+  catch (e) { toast('Serverdə sıfırlanmadı: ' + e.message, 'bad'); }
 }
 
 function dupSuggestions(){
@@ -5603,7 +5629,7 @@ document.getElementById('bDupSug').addEventListener('click', () => {
   const list = all.filter(x => !skip.has(x.sig));
 
   const unskipAll = () => {
-    saveDupSkip(new Set());
+    resetDupSug();
     closeModal();
     document.getElementById('bDupSug').click();
   };
@@ -5689,9 +5715,7 @@ function bindDup(list){
     document.getElementById('dsg' + i).classList.add('skip');
     btn.disabled = true;
     // Qrup imzası gizlədilənlərə əlavə olunur — bu tərkib bir daha çıxmır
-    const sk = loadDupSkip();
-    sk.add(list[i].sig);
-    saveDupSkip(sk);
+    ignoreDupSug(list[i].sig);
     upd();
   });
 
