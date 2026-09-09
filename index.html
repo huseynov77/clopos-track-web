@@ -766,6 +766,9 @@ tbody tr:hover{background:var(--surf-2)}
   font:600 10.5px/1 'Instrument Sans',sans-serif;letter-spacing:.02em}
 .wmark.sel{box-shadow:0 0 0 4px color-mix(in srgb,var(--wc) 35%,transparent),0 3px 10px rgba(0,0,0,.35);
   transform:scale(1.12)}
+/* Satış xəritəsindəki onlayn işçi nişanı — lead pin-lərdən (32px) fərqli,
+   kiçik, ki iki tip pin qarışdırılmasın. */
+.wmark.sm{width:26px;height:26px;font-size:9px}
 /* Tək obyekt — kiçik dairə yerinə normal xəritə pini */
 .bpin svg{width:24px;height:31px;display:block;
   filter:drop-shadow(0 2px 3px rgba(0,0,0,.3))}
@@ -1846,6 +1849,9 @@ tbody tr:hover .rowacts,tr:focus-within .rowacts{opacity:1}
     <a class="nav on" data-page="home">
       <svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h14V9.5"/></svg>
       İcmal</a>
+    <a class="nav" data-page="sales-stats">
+      <svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h14V9.5"/></svg>
+      İcmal</a>
     <a class="nav" data-page="map">
       <svg viewBox="0 0 24 24"><path d="M9 4 3 6.5v13L9 17l6 2.5 6-2.5v-13L15 6.5 9 4z"/><path d="M9 4v13M15 6.5v13"/></svg>
       Xəritə</a>
@@ -1867,6 +1873,12 @@ tbody tr:hover .rowacts,tr:focus-within .rowacts{opacity:1}
         <path d="m6.3 17.7 2.8-2.8"/><path d="M12 18v4"/><path d="m17.7 17.7-2.8-2.8"/>
         <path d="M18 12h4"/><path d="m17.7 6.3-2.8 2.8"/></svg>
       Satışlar <span class="count" id="cSales"></span></a>
+    <a class="nav" data-page="sales-worker">
+      <svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+      Statistika</a>
+    <a class="nav" data-page="sales-history">
+      <svg viewBox="0 0 24 24"><path d="M8 6h11M8 12h11M8 18h11"/><path d="M4 6h.01M4 12h.01M4 18h.01"/></svg>
+      Tarixçə</a>
     <div class="navlbl" id="navLblControl">Nəzarət</div>
     <a class="nav" data-page="alerts">
       <svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
@@ -2009,7 +2021,29 @@ tbody tr:hover .rowacts,tr:focus-within .rowacts{opacity:1}
 
       <!-- XƏRİTƏ -->
       <section class="page" id="pg-map">
-        <div class="maplay">
+        <!-- SATIŞ XƏRİTƏSİ — texniki bloka TOXUNMUR, tamamilə ayrı div/Leaflet map.
+             Rejimə görə JS-də göstərilir/gizlədilir (bax applyPanelMode). -->
+        <div id="mapSalesWrap" hidden>
+          <div class="panel" style="overflow:hidden">
+            <div class="panel-h" style="flex-wrap:wrap;gap:8px">
+              <h3>Satış xəritəsi</h3>
+              <div class="right" style="flex-wrap:wrap;gap:8px">
+                <div class="search" style="flex:0 1 200px;min-width:150px">
+                  <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                  <input id="smQ" placeholder="Obyekt, əməkdaş, ünvan…" spellcheck="false" autocomplete="off">
+                  <button type="button" class="clr" id="smClr" title="Təmizlə" hidden>&times;</button>
+                </div>
+                <select id="smWorker" class="sel sm"><option value="">Bütün əməkdaşlar</option></select>
+                <select id="smStatus" class="sel sm"><option value="">Bütün statuslar</option></select>
+                <label class="chk"><input type="checkbox" id="smShowWorkers" checked> İşçilər (onlayn)</label>
+                <button type="button" class="btn btn-ghost btn-sm" id="smFit">Hamısını göstər</button>
+                <span class="tag" id="salesMapCount"></span>
+              </div>
+            </div>
+            <div id="salesMap" style="height:calc(100vh - 220px);min-height:420px"></div>
+          </div>
+        </div>
+        <div id="mapTechnicalWrap" class="maplay">
           <div class="panel" style="overflow:hidden">
             <div class="panel-h">
               <h3>Canlı xəritə</h3>
@@ -2080,7 +2114,7 @@ tbody tr:hover .rowacts,tr:focus-within .rowacts{opacity:1}
               <th class="sortable" data-sk="name">İşçi</th>
               <th class="sortable" data-sk="role">Vəzifə</th>
               <th>Login / ID</th>
-              <th class="sortable" data-sk="shift">Növbə</th>
+              <th class="sortable" data-sk="shift" id="thShift">Növbə</th>
               <th class="sortable" data-sk="seen">Son siqnal</th>
               <th>Yerləşdiyi ünvan</th>
               <th class="sortable" data-sk="batt" style="text-align:right">Batareya</th>
@@ -2160,6 +2194,9 @@ tbody tr:hover .rowacts,tr:focus-within .rowacts{opacity:1}
           <button type="button" class="btn btn-ghost btn-sm" id="bDupSug"
                   title="Eyni Clopos brendinə bağlı və bir-birinə yaxın obyektləri tapır. Heç nə avtomatik birləşdirilmir — hər təklifi sən təsdiqləyirsən.">
             Təkrar təklifləri</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="bSellerRefresh"
+                  title="Artıq Clopos-a bağlı bütün obyektlər üçün satıcı adını yenidən sorğulayır (yalnız satıcı sahəsi yazılır, ad/id/slug toxunulmur).">
+            Satıcıları yenilə</button>
           <span class="hitn" id="bCount"></span>
         </div>
 
@@ -2191,6 +2228,7 @@ tbody tr:hover .rowacts,tr:focus-within .rowacts{opacity:1}
               <th style="width:34px"></th>
               <th style="width:74px" title="Clopos brend id-si — Clopos-a bağlananda dolur">ID</th>
               <th class="sortable" data-pk="name">Obyekt</th>
+              <th style="width:130px" title="Clopos-dakı satıcı — brend bağlantısından gəlir">Satıcı</th>
               <th class="sortable desc" data-pk="visits" style="width:88px;text-align:right">Ziyarət</th>
               <th class="sortable" data-pk="last" style="width:110px">Son ziyarət</th>
               <th>Ünvan</th>
@@ -2266,19 +2304,136 @@ tbody tr:hover .rowacts,tr:focus-within .rowacts{opacity:1}
             <input id="slQ" placeholder="Obyekt, əməkdaş, ünvan axtar…" spellcheck="false" autocomplete="off">
             <button type="button" class="clr" id="slClr" title="Təmizlə" hidden>&times;</button>
           </div>
+          <select id="slWorker" class="sel"><option value="">Bütün əməkdaşlar</option></select>
+          <select id="slStatus" class="sel"><option value="">Bütün statuslar</option></select>
+          <label class="chk"><input type="checkbox" id="slDupOnly"> Yalnız təkrar şübhəliləri (<span id="slDupCount">0</span>)</label>
           <span class="hitn" id="slCount"></span>
+        </div>
+        <div class="selbar" id="slSelBar" hidden style="margin-bottom:12px">
+          <span class="tag brand" id="slSelN"></span>
+          <button type="button" class="btn btn-primary btn-sm" id="slSelDel" style="background:var(--bad);border-color:var(--bad)">Seçilənləri sil</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="slSelClear">Ləğv</button>
         </div>
         <div class="panel">
           <div id="salesWrap"><table id="salesTable">
             <thead><tr>
-              <th>Obyekt</th>
-              <th>Əməkdaş</th>
-              <th style="width:120px">Tarix</th>
+              <th style="width:34px"><input type="checkbox" id="slSelAll"></th>
+              <th class="sortable" data-slk="brand">Obyekt</th>
+              <th class="sortable" data-slk="worker">Əməkdaş</th>
+              <th class="sortable desc" data-slk="time" style="width:120px">Tarix</th>
               <th>Ünvan</th>
               <th style="width:90px;text-align:center">Şəkil</th>
+              <th class="sortable" data-slk="status" style="width:120px">Status</th>
               <th style="width:110px;text-align:right">Odoo</th>
+              <th style="width:56px"></th>
             </tr></thead>
             <tbody id="salesBody"></tbody>
+          </table></div>
+        </div>
+      </section>
+
+      <!-- SATIŞ STATİSTİKASI (yalnız Satış rejimində) -->
+      <section class="page" id="pg-sales-stats">
+        <div class="bar">
+          <select id="ssPer" class="sel">
+            <option value="today">Bugün</option>
+            <option value="yesterday">Dünən</option>
+            <option value="7">Son 7 gün</option>
+            <option value="30">Son 30 gün</option>
+            <option value="90">Son 90 gün</option>
+          </select>
+        </div>
+        <div class="statbar"><div class="stats" id="ssCards"></div></div>
+
+        <div class="grid-2 stretch">
+          <div class="panel">
+            <div class="panel-h"><h3>Bu həftə</h3>
+              <div class="right">
+                <span style="font-size:11px;color:var(--faint);font-family:var(--mono)" id="ssWeekRange"></span>
+                <span class="tag" id="ssWeekTotal"></span></div></div>
+            <div class="chartbox">
+              <div class="cplot">
+                <div class="cgrid" id="ssWeekGrid"></div>
+                <div class="cbars" id="ssWeekChart"></div>
+              </div>
+              <div class="cdays" id="ssWeekDays"></div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-h"><h3>Mərhələ üzrə (Odoo)</h3>
+              <div class="right"><span class="tag" id="ssStageTag"></span></div></div>
+            <div id="ssStages"></div>
+          </div>
+        </div>
+
+        <div class="grid-2" style="margin-top:16px">
+          <div class="panel">
+            <div class="panel-h"><h3>Əməkdaş üzrə</h3>
+              <div class="right"><span class="tag" id="ssWorkersTag"></span></div></div>
+            <div id="ssWorkers"></div>
+          </div>
+          <div class="panel">
+            <div class="panel-h"><h3>Keyfiyyət</h3></div>
+            <div id="ssQuality"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SATIŞ STATİSTİKASI — ƏMƏKDAŞ ÜZRƏ (yalnız Satış rejimində) -->
+      <section class="page" id="pg-sales-worker">
+        <div class="bar">
+          <select id="swWorker" class="sel"><option value="">İşçi seç…</option></select>
+          <input type="date" id="swFrom" class="sel" title="Başlanğıc">
+          <input type="date" id="swTo" class="sel" title="Son">
+          <button type="button" class="btn btn-primary btn-sm" id="swGo">Göstər</button>
+        </div>
+        <div id="swEmpty" class="empty">İşçi seç və "Göstər"ə bas.</div>
+        <div id="swResult" style="display:none">
+          <div class="statbar"><div class="stats" id="swCards"></div></div>
+          <div class="panel">
+            <div class="panel-h"><h3>Lead-lər</h3><div class="right"><span class="tag" id="swCount"></span></div></div>
+            <div id="swWrap"><table id="swTable">
+              <thead><tr>
+                <th style="width:120px">Tarix</th>
+                <th>Obyekt</th>
+                <th>Ünvan</th>
+                <th style="width:120px">Status</th>
+                <th style="width:90px;text-align:center">Şəkil</th>
+                <th style="width:110px;text-align:right">Odoo</th>
+              </tr></thead>
+              <tbody id="swBody"></tbody>
+            </table></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SATIŞ TARİXÇƏSİ (yalnız Satış rejimində) -->
+      <section class="page" id="pg-sales-history">
+        <div class="bar">
+          <div class="search">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+            <input id="shQ" placeholder="Obyekt, əməkdaş axtar…" spellcheck="false" autocomplete="off">
+            <button type="button" class="clr" id="shClr" title="Təmizlə" hidden>&times;</button>
+          </div>
+          <select id="shAction" class="sel">
+            <option value="">Bütün əməliyyatlar</option>
+            <option value="created">Yaradılıb</option>
+            <option value="deleted">Silinib</option>
+          </select>
+          <span class="hitn" id="shCount"></span>
+        </div>
+        <div class="panel">
+          <div id="shWrap"><table id="shTable">
+            <thead><tr>
+              <th style="width:130px">Tarix</th>
+              <th style="width:110px">Əməliyyat</th>
+              <th>Obyekt</th>
+              <th>Əməkdaş</th>
+              <th>Detallar</th>
+              <th style="width:120px">Kim</th>
+            </tr></thead>
+            <tbody id="shBody"></tbody>
           </table></div>
         </div>
       </section>
@@ -2402,7 +2557,7 @@ tbody tr:hover .rowacts,tr:focus-within .rowacts{opacity:1}
 
 const API = 'https://gps-server-production-9cef.up.railway.app';
 const LS  = { tok:'ct_admin_token', usr:'ct_admin_user', thm:'ct_theme',
-              pg:'ct_page', role:'ct_admin_role' };
+              pg:'ct_page', role:'ct_admin_role', pacc:'ct_admin_panel_access' };
 /* İki rol var: `owner` — geri qaytarıla bilməyən əməliyyatlar (admin
    idarəçiliyi, işçini birdəfəlik silmək, obyekt tarixçəsini silmək);
    `admin` — gündəlik iş. Bura YALNIZ göstərmə üçündür: əsl qərarı server
@@ -2478,6 +2633,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
       localStorage.setItem(LS.tok, d.token);
       localStorage.setItem(LS.usr, d.username || '');
       localStorage.setItem(LS.role, d.adminRole || 'admin');
+      localStorage.setItem(LS.pacc, d.panelAccess || 'both');
       enter();
     } else {
       document.getElementById('loginErrTxt').textContent =
@@ -2500,6 +2656,7 @@ function logout(){
   localStorage.removeItem(LS.tok);
   localStorage.removeItem(LS.usr);
   localStorage.removeItem(LS.role);
+  localStorage.removeItem(LS.pacc);
   stopLive();
   closeModal();
   /* Çıxışdan sonra bütün admin datası DOM-dan silinir — əks halda
@@ -2519,6 +2676,9 @@ const PAGES = {
   places:  ['Obyektlər','Brendlər və məkanlar'],
   stats:   ['Statistika','İşçi üzrə obyekt, vaxt və məsafə'],
   sales:   ['Satışlar','Satış əməkdaşlarının əlavə etdiyi lead-lər'],
+  'sales-stats': ['İcmal','Satış komandasının bugünkü vəziyyəti'],
+  'sales-worker': ['Statistika','Əməkdaş üzrə lead statistikası'],
+  'sales-history': ['Tarixçə','Lead-lərin yaradılma və silinmə qeydləri'],
   alerts:  ['Bildirişlər','Hadisə axını'],
   stars:   ['Qiymətləndirmə','İş keyfiyyəti'],
   settings:['Tənzimləmələr','Sistem və adminlər'],
@@ -2563,7 +2723,13 @@ function go(p){
   const fresh = k => Date.now() - (pageLoad[k] || 0) < 60000;
   const mark = k => { pageLoad[k] = Date.now(); };
 
-  if (p === 'map')   { initMap(); setTimeout(() => { map.invalidateSize(); drawMap(); }, 60); }
+  if (p === 'map')   {
+    const salesMode = panelMode === 'sales';
+    document.getElementById('mapSalesWrap').hidden = !salesMode;
+    document.getElementById('mapTechnicalWrap').hidden = salesMode;
+    if (salesMode) { initSalesMap(); setTimeout(() => { if (salesMap) salesMap.invalidateSize(); drawSalesMap(); }, 60); }
+    else { initMap(); setTimeout(() => { map.invalidateSize(); drawMap(); }, 60); }
+  }
   if (p === 'staff') { if (!fresh('staff')) { mark('staff'); loadStaff(); } else renderStaff(); }
   if (p === 'log')   {
     fillLogFilters();
@@ -2574,6 +2740,9 @@ function go(p){
   if (p === 'places'){ if (!fresh('places')) { mark('places'); loadPlaces(true); } else loadPlaces(); }
   if (p === 'stats') { fillStatsFilters(); }
   if (p === 'sales'){ if (!fresh('sales')) { mark('sales'); loadSales(); } else renderSales(); }
+  if (p === 'sales-stats'){ if (!fresh('sales')) { mark('sales'); loadSales(); } else renderSalesStats(); }
+  if (p === 'sales-worker'){ fillSalesWorkerFilters(); }
+  if (p === 'sales-history'){ if (!fresh('sales-history')) { mark('sales-history'); loadSalesHistory(); } else renderSalesHistory(); }
   if (p === 'alerts'){ mark('alerts'); loadAlerts(true); }
   if (p === 'stars') { if (!fresh('stars')) { mark('stars'); loadStars(); } }
   if (p === 'settings'){ if (!fresh('settings')) { mark('settings'); loadSettings(); } }
@@ -2589,8 +2758,8 @@ let panelMode = 'technical';
 try { panelMode = localStorage.getItem('ct_panel_mode') || 'technical'; } catch (_) {}
 // Hər iki rejimdə görünən (paylaşılan) səhifələr — qalanı YA texniki-only,
 // YA satış-only sayılır (SALES_ONLY_PAGES).
-const SALES_VISIBLE_PAGES = new Set(['staff', 'settings', 'alerts', 'sales']);
-const SALES_ONLY_PAGES = new Set(['sales']);   // texniki rejimdə HEÇ görünmür
+const SALES_VISIBLE_PAGES = new Set(['staff', 'settings', 'alerts', 'sales', 'sales-stats', 'sales-worker', 'sales-history', 'map']);
+const SALES_ONLY_PAGES = new Set(['sales', 'sales-stats', 'sales-worker', 'sales-history']);   // texniki rejimdə HEÇ görünmür
 function applyPanelMode(){
   const sales = panelMode === 'sales';
   document.querySelectorAll('#panelModeSwitch [data-pmode]').forEach(b =>
@@ -2607,17 +2776,49 @@ function applyPanelMode(){
      Satışda YALNIZ satışa aid (hələlik heç) bildiriş gəlir, texniki ilə
      QARIŞMIR. Əvvəl bütün zəngi gizlədirdik — bu, "xalça altına
      süpürmək" idi, Fuad-ın tələbi ilə əvəzinə əsl filtr quruldu. */
-  if (sales && !SALES_VISIBLE_PAGES.has(page)) go('staff');
+  // try/catch MÜTLƏQDİR: go() içindəki HƏR HANSI xəta (məs. DOM-la bağlı
+  // gözlənilməz hal) bu sətirdən sonrakı BÜTÜN səhifə skriptini saxlaya
+  // bilər (bax feedback_verify_before_deploy) — bu, YALNIZ bir yönləndirmədir,
+  // uğursuz olsa səhifənin qalanı YENƏ İŞLƏMƏLİDİR.
+  // KRİTİK: giriş edilməyibsə (token yoxdursa) `go('staff')` çağırma —
+  // o, icazəsiz `loadStaff()` işə salır, server 401 qaytarır, bu da
+  // logout()+reload tətikləyir, YENİDƏN eyni şərtlə qarşılaşıb sonsuz
+  // dövrə düşürdü (login ekranı açılmırdı). 2026-09-09 tapılıb düzəldi.
+  if (localStorage.getItem(LS.tok) && sales && !SALES_VISIBLE_PAGES.has(page)) {
+    try { go('staff'); } catch (e) { console.error('applyPanelMode redirect:', e); }
+  }
 }
 document.querySelectorAll('#panelModeSwitch [data-pmode]').forEach(b => b.addEventListener('click', () => {
   const next = b.dataset.pmode;
   if (next === panelMode) return;
   // Tam səhifə yenilənməsi (Fuad-ın qərarı): köhnə vəziyyətdən heç bir iz
   // qalmır, hər şey sıfırdan, YALNIZ yeni rejimin datası ilə yüklənir.
+  // AMMA hazırkı səhifə yeni rejimdə DƏ etibarlıdırsa (məs. Bildirişlər,
+  // Tənzimləmələr — paylaşılan), orada qalınır — hər dəfə "İşçilər"ə
+  // atmaq lazımsızdır, Fuad-ın tələbi ilə düzəldildi.
+  const nextSales = next === 'sales';
+  const validNow = nextSales ? SALES_VISIBLE_PAGES.has(page) : !SALES_ONLY_PAGES.has(page);
   try { localStorage.setItem('ct_panel_mode', next); } catch (_) {}
-  try { localStorage.setItem(LS.pg, 'staff'); } catch (_) {}
+  try { localStorage.setItem(LS.pg, validNow ? page : 'staff'); } catch (_) {}
   location.reload();
 }));
+/* Adminin panel girişi (both/technical/sales) — owner Tənzimləmələr →
+   Adminlər-dən təyin edir (Fuad-ın tələbi, 2026-09-09: "kimlər hər ikisini
+   görsün, kimlər tək satış, kimlər tək texniki"). `applyPanelMode()`-dan
+   ƏVVƏL çağırılır ki, kilidli admin heç səhv rejimdə açılmasın — server
+   tərəfdə də `requirePanelAccess` eyni qaydanı tətbiq edir (bax server.js),
+   bura YALNIZ EKRAN tərəfidir. */
+function applyPanelAccess(){
+  const acc = localStorage.getItem(LS.pacc) || 'both';
+  const switchEl = document.getElementById('panelModeSwitch');
+  if (acc === 'both') { if (switchEl) switchEl.hidden = false; return; }
+  if (switchEl) switchEl.hidden = true;
+  if (panelMode !== acc) {
+    panelMode = acc;
+    try { localStorage.setItem('ct_panel_mode', acc); } catch (_) {}
+  }
+}
+applyPanelAccess();
 applyPanelMode();
 
 /* ── Hadisə adları ── */
@@ -2633,6 +2834,7 @@ const EV = {
   akt:  ['Akt göndərdi','t-doc'],  tehvil:['Təhvil göndərdi','t-doc'],
   object_photo:['Şəkil göndərdi','t-doc'], contact:['Əlaqə yazdı','t-doc'],
   urgent:['Təcili bildiriş','warn'], urgent_ack:['Təcili bildirişi oxudu','warn'],
+  sales_lead:['Yeni lead yaratdı','t-obj'],
 };
 const evName = t => (EV[t] || [t, ''])[0];
 /* Cədvəldə qısa ad — "Obyekti ləğv etdi" 119px yer tuturdu və nişandan
@@ -2643,6 +2845,7 @@ const EV_SHORT = {
   object_cancel:'Ləğv etdi', object_overtime:'Çox qaldı',
   akt:'Akt', tehvil:'Təhvil', object_photo:'Şəkil', contact:'Əlaqə',
   urgent:'Təcili', urgent_ack:'Təcili oxundu',
+  sales_lead:'Lead yaratdı',
 };
 const evShort = t => EV_SHORT[t] || evName(t);
 const evTone = t => (EV[t] || [t, ''])[1];
@@ -3351,6 +3554,17 @@ document.addEventListener('click', (ev) => {
     if (x) { map.closePopup();
       L.popup({ minWidth: 210, maxWidth: 268 })
         .setLatLng([x.lat, x.lng]).setContent(brandCard(x)).openOn(map); }
+    return;
+  }
+  /* Satış xəritəsindəki lead klasteri siyahısı → həmin lead-in kartı */
+  const scl = ev.target.closest('[data-scl]');
+  if (scl) {
+    const l = salesClusterGroup && salesClusterGroup[+scl.dataset.scl];
+    if (l && salesMap) {
+      salesMap.closePopup();
+      L.popup({ minWidth: 272, maxWidth: 320 })
+        .setLatLng([l.lat, l.lng]).setContent(salesLeadCard(l)).openOn(salesMap);
+    }
     return;
   }
   const pl = ev.target.closest('[data-pop-play]');
@@ -4076,12 +4290,19 @@ async function loadStaff(){
     staffAll = Array.isArray(appr) ? appr : [];
     staffInactive = Array.isArray(inact) ? inact : [];
     renderStaff();
+    // Satışlar səhifəsinin "Əməkdaş" filtri bu siyahıdan qurulur — cold-start-da
+    // `loadSales()` bundan ƏVVƏL bitə bilər, o zaman filtr boş qalırdı.
+    if (page === 'sales') renderSales();
   } catch (e) { toast('İşçilər yüklənmədi: ' + e.message, 'bad'); }
 }
 let sSortKey = null, sSortAsc = true;
 
 function renderStaff(){
   const q = (document.getElementById('sQ').value || '').toLowerCase();
+  // Satışda "Növbə" anlayışı yoxdur — sütun tamamilə gizlənir (bax `panelMode`
+  // yoxlaması cədvəl sətirlərində, aşağıda). Fuad-ın tələbi.
+  const thShift = document.getElementById('thShift');
+  if (thShift) thShift.hidden = panelMode === 'sales';
   /* Əvvəl "İşdən çıxmışlar" checkbox-u idi və ƏVƏZLƏYİCİ işləyirdi:
      işarələyəndə aktiv işçilər yox olurdu, hamısını birlikdə görmək
      mümkün deyildi. İndi üç açıq seçim var. */
@@ -4160,7 +4381,11 @@ function renderStaff(){
     const isOff = offIds.has(String(w.id));
     /* "Başlamayıb" iki fərqli halı eyniləşdirirdi: onlayn olub növbə açmayan
        ilə heç vaxt qoşulmayan. İndi ayrılır. */
-    const shiftCell = isOff
+    // Satış işçisində "növbə" anlayışı yoxdur (GPS login-dən sonra daimi
+    // işləyir) — "bağlı"/"növbədə" göstərmək yanlış təsəvvür yaradır.
+    const shiftCell = w.staffType === 'sales'
+      ? '<span class="dash">—</span>'
+      : isOff
       ? `<span class="tag">${w.deletedAt ? 'çıxıb · ' + dt(Number(w.deletedAt)) : 'işdən çıxıb'}</span>`
       : on ? `<span class="tag ok">növbədə</span>${st ? `<div class="sub2">${hm(st)}-dən</div>` : ''}`
       : p.todayOpen ? `<span class="tag">bağlı</span><div class="sub2">${hm(p.todayOpen)}${p.todayClose ? ' – ' + hm(p.todayClose) : ''}</div>`
@@ -4196,7 +4421,7 @@ function renderStaff(){
         </div></div></td>
       <td style="color:var(--muted)">${esc(w.role||'—')}</td>
       <td class="num idcell">${esc(w.login||'—')}<span>${esc(w.id)}</span></td>
-      <td>${shiftCell}</td>
+      ${panelMode === 'sales' ? '' : '<td>' + shiftCell + '</td>'}
       <td>${seenCell}</td>
       <td class="addr" title="${esc(p.address||'')}">${p.address ? esc(p.address) : '<span style="color:var(--faint)">—</span>'}</td>
       <td style="text-align:right">${battChip(b)}</td>
@@ -4375,6 +4600,19 @@ function purgeWorker(w){
   };
 }
 
+/* Cloposdakı satıcıların siyahısı — bir dəfə çəkilir, sessiya boyu keşlənir
+   (nadir dəyişir, hər modal açılışında yenidən sorğu lazımsızdır). */
+let cloposSellersCache = null;
+async function fillSellerSelect(selectedId){
+  const sel = document.getElementById('wSellerId');
+  if (!cloposSellersCache) {
+    try { cloposSellersCache = await api('/api/v2/admin/clopos-sellers'); }
+    catch (_) { cloposSellersCache = []; }
+  }
+  sel.innerHTML = '<option value="">— seçilməyib —</option>' +
+    cloposSellersCache.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
+  if (selectedId != null) sel.value = String(selectedId);
+}
 function editWorker(w){
   const isNew = !w;
   const p = !isNew ? (((summary && summary.workers && summary.workers.list) || [])
@@ -4412,6 +4650,13 @@ function editWorker(w){
         <label>Odoo istifadəçi ID-si <span style="color:var(--faint)">(lead-lər onun adına yaranacaq)</span></label>
         <input id="wOdooId" autocomplete="off" inputmode="numeric" placeholder="məs. 42">
       </div>
+      <div class="field" id="wSellerField" hidden>
+        <label>Clopos satıcısı <span style="color:var(--faint)">(mobil app-da "satdığı obyektlər" bundan gəlir)</span></label>
+        <div class="selwrap">
+          <select id="wSellerId"><option value="">— seçilməyib —</option></select>
+          <svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
+        </div>
+      </div>
     </div>
     <div class="mfoot">
       ${isNew?'':'<button type="button" class="btn btn-ghost btn-sm" id="wDel" style="color:var(--bad);margin-right:auto">İşdən çıxar</button>'}
@@ -4426,6 +4671,9 @@ function editWorker(w){
   const odooField = document.getElementById('wOdooField');
   odooField.hidden = panelMode !== 'sales';
   if (!isNew && w.odooUserId != null) document.getElementById('wOdooId').value = w.odooUserId;
+  const sellerField = document.getElementById('wSellerField');
+  sellerField.hidden = panelMode !== 'sales';
+  if (panelMode === 'sales') fillSellerSelect(!isNew ? w.cloposSellerId : null);
   document.getElementById('wSave').onclick = async () => {
     const nm = document.getElementById('wName').value.trim();
     // add-worker "workerName", PUT isə "name" gözləyir — serveri dəyişmədən
@@ -4437,6 +4685,7 @@ function editWorker(w){
       accessLevel: document.getElementById('wLevel').value,
       staffType: panelMode,
       odooUserId: panelMode === 'sales' ? (document.getElementById('wOdooId').value.trim() || null) : null,
+      cloposSellerId: panelMode === 'sales' ? (document.getElementById('wSellerId').value || null) : null,
     };
     // Şifrə YALNIZ doldurulubsa göndərilir — boş sahə səhvən şifrəni sıfırlamasın
     const pw = document.getElementById('wPass').value;
@@ -4998,46 +5247,797 @@ function renderStats(r){
 
 /* ── Satışlar (yalnız Satış rejimi) ── */
 let salesLeads = [];
+let salesSel = new Set();
+// CRM-də mövcud olan BÜTÜN statuslar (Odoo `crm.stage`) — statuslar filtri
+// yalnız YÜKLƏNMİŞ lead-lərdə görünən statuslarla məhdud olmasın deyə,
+// ayrıca yüklənir. Nadir dəyişdiyi üçün bir dəfə yüklənib saxlanılır.
+let salesStages = [], salesStagesLoaded = false;
+let slSortKey = 'time', slSortAsc = false;
+// GPS mövqeyi ilə işçinin əl ilə düzəltdiyi son mövqe arasındakı məsafə (m) —
+// backend-dəki eyni funksiyanın JS ekvivalenti, admin panel özü "düzəliş
+// olub" işarəsini göstərsin deyə (serverin göndərdiyi orig_lat/orig_lng-dən).
+function metersBetween(aLat, aLng, bLat, bLng){
+  const R = 6371000, rad = d => d * Math.PI / 180;
+  const dLat = rad(bLat - aLat), dLng = rad(bLng - aLng);
+  const x = Math.sin(dLat/2)**2 + Math.cos(rad(aLat)) * Math.cos(rad(bLat)) * Math.sin(dLng/2)**2;
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(x)));
+}
+// Admin geriyə dönük görsün deyə (Fuad-ın tələbi 2026-09-09: "burda da
+// təkrarlanan lead-lər olmalı deyil?") — mobil tərəfdəki YARADANDA xəbərdarlıq
+// (`/api/v2/sales/check-duplicate`) yalnız işçini xəbərdar edir, işçi "yenə
+// göndər" desə admin panel bunu HEÇ göstərmirdi. Eyni qayda (150m və ya
+// oxşar ad) burada BÜTÜN mövcud lead-lər üzərində client-də hesablanır.
+const SALES_DUP_M = 150;
+function findSalesDuplicates(leads){
+  // MƏSAFƏ əsas siqnaldır (fiziki eyni yer = həqiqi dublikat). Ad-oxşarlığı
+  // YALNIZ hər iki tərəfdən koordinat çatışmayanda ehtiyat kimi işlədilir —
+  // əvvəl HƏMİŞƏ yoxlanılırdı və "test obyekt"/"testfidi" kimi qısa, ortaq
+  // sözlü adlar arasında yalançı "təkrar?" işarəsi yaradırdı (Fuad-ın tapdığı,
+  // 2026-09-09: fərqli ünvanlarda olan lead-lər səhv təkrar sayılırdı).
+  const norm = s => (s || '').toLowerCase().trim();
+  const dupMap = new Map();
+  for (let i = 0; i < leads.length; i++) {
+    const a = leads[i];
+    const an = norm(a.brandName);
+    const hasCoord = a.lat != null && a.lng != null;
+    const matches = [];
+    for (let j = 0; j < leads.length; j++) {
+      if (i === j) continue;
+      const b = leads[j];
+      let distanceM = null;
+      if (hasCoord && b.lat != null && b.lng != null) {
+        distanceM = Math.round(metersBetween(a.lat, a.lng, b.lat, b.lng));
+      }
+      const nearMatch = distanceM != null && distanceM <= SALES_DUP_M;
+      const bn = norm(b.brandName);
+      const nameMatch = (!hasCoord || b.lat == null || b.lng == null) &&
+        !!an && !!bn && (an.includes(bn) || bn.includes(an));
+      if (nameMatch || nearMatch) matches.push({ brandName: b.brandName, workerName: b.workerName, distanceM });
+    }
+    if (matches.length) dupMap.set(a.id, matches);
+  }
+  return dupMap;
+}
 async function loadSales(){
   try {
-    salesLeads = await api('/api/v2/admin/sales-leads');
-    if (!Array.isArray(salesLeads)) salesLeads = [];
+    const tasks = [api('/api/v2/admin/sales-leads')];
+    if (!salesStagesLoaded) tasks.push(api('/api/v2/admin/sales-lead-stages').catch(() => ({ stages: [] })));
+    const [leads, stagesRes] = await Promise.all(tasks);
+    salesLeads = Array.isArray(leads) ? leads : [];
+    if (stagesRes) {
+      salesStages = Array.isArray(stagesRes.stages) ? stagesRes.stages : [];
+      salesStagesLoaded = true;
+    }
+    salesSel.clear();
     renderSales();
+    renderSalesStats();
   } catch (e) { toast('Satışlar yüklənmədi: ' + e.message, 'bad'); }
 }
 function renderSales(){
   const q = (document.getElementById('slQ').value || '').toLowerCase();
   document.getElementById('slClr').hidden = !q;
-  const rows = salesLeads.filter(l => !q ||
+  // Əməkdaş filtri — BÜTÜN satış işçilərinin siyahısı (staffAll/staffInactive,
+  // "İşçilər" səhifəsi ilə eyni mənbə), yalnız lead-i olanlar yox — əks halda
+  // hələ lead daxil etməmiş və ya işdən çıxmış işçilər filtrdə görünmürdü.
+  // Status filtri — Odoo CRM-də mövcud olan BÜTÜN mərhələlər (`salesStages`),
+  // yalnız yüklənmiş lead-lərdə rast gəlinənlər yox.
+  const wSel = document.getElementById('slWorker'), stSel = document.getElementById('slStatus');
+  const curW = wSel.value, curSt = stSel.value;
+  const workers = [...new Set(
+    [...staffAll, ...staffInactive]
+      .filter(w => (w.staffType || 'technical') === 'sales')
+      .map(w => w.name).filter(Boolean)
+  )].sort();
+  const statuses = salesStages.length
+    ? salesStages
+    : [...new Set(salesLeads.map(l => l.odooStage).filter(Boolean))].sort();
+  wSel.innerHTML = '<option value="">Bütün əməkdaşlar</option>' +
+    workers.map(w => `<option value="${esc(w)}">${esc(w)}</option>`).join('');
+  stSel.innerHTML = '<option value="">Bütün statuslar</option>' +
+    statuses.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
+  wSel.value = workers.includes(curW) ? curW : '';
+  stSel.value = statuses.includes(curSt) ? curSt : '';
+  // BÜTÜN lead-lər üzərində hesablanır (filtrlənmiş `rows` yox) — cütün o biri
+  // üzvü axtarış/filtrlə gizlənsə belə say düzgün qalsın. Cədvəldə HƏR SƏTRDƏ
+  // nişan yerinə (Fuad-ın tələbi 2026-09-09: "bunları götür, filter ver")
+  // ayrıca "Yalnız təkrar şübhəliləri" checkbox-u var.
+  const dupMap = findSalesDuplicates(salesLeads);
+  document.getElementById('slDupCount').textContent = dupMap.size;
+  const dupOnly = document.getElementById('slDupOnly').checked;
+  const rows = salesLeads.filter(l => (!q ||
     (l.brandName||'').toLowerCase().includes(q) ||
     (l.workerName||'').toLowerCase().includes(q) ||
-    (l.address||'').toLowerCase().includes(q));
+    (l.address||'').toLowerCase().includes(q)) &&
+    (!wSel.value || l.workerName === wSel.value) &&
+    (!stSel.value || l.odooStage === stSel.value) &&
+    (!dupOnly || dupMap.has(l.id)));
+
+  // Sıralama — digər cədvəllərlə (Loglar, Qiymətləndirmə) eyni qayda.
+  const SLK = {
+    brand:  l => (l.brandName || '').toLowerCase(),
+    worker: l => (l.workerName || '').toLowerCase(),
+    time:   l => new Date(l.createdAt).getTime() || 0,
+    status: l => (l.odooStage || '').toLowerCase(),
+  };
+  const slkf = SLK[slSortKey] || SLK.time;
+  rows.sort((a, b) => {
+    const x = slkf(a), y = slkf(b);
+    const c = x < y ? -1 : x > y ? 1 : 0;
+    return slSortAsc ? c : -c;
+  });
+  document.querySelectorAll('#salesTable th.sortable').forEach(x => x.classList.remove('asc','desc'));
+  const slSth = document.querySelector('#salesTable th[data-slk="' + slSortKey + '"]');
+  if (slSth) slSth.classList.add(slSortAsc ? 'asc' : 'desc');
+
   document.getElementById('slCount').innerHTML =
     '<b>' + rows.length + '</b> ' + (q ? 'nəticə' : 'lead');
   const cEl = document.getElementById('cSales');
   if (cEl) cEl.textContent = salesLeads.length || '';
+
+  document.getElementById('slSelBar').hidden = salesSel.size < 1;
+  document.getElementById('slSelN').textContent = salesSel.size + ' seçilib';
+  const allEl = document.getElementById('slSelAll');
+  allEl.checked = rows.length > 0 && rows.every(l => salesSel.has(l.id));
+  allEl.indeterminate = !allEl.checked && rows.some(l => salesSel.has(l.id));
 
   document.getElementById('salesBody').innerHTML = rows.length ? rows.map(l => {
     const coord = (l.lat != null && l.lng != null)
       ? `<a class="pinlink" href="https://www.google.com/maps?q=${l.lat},${l.lng}" target="_blank" rel="noopener"
            title="${l.lat}, ${l.lng}"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.4 7-11a7 7 0 1 0-14 0c0 4.6 7 11 7 11z"/>
            <circle cx="12" cy="10" r="2.4"/></svg></a>` : '';
-    return '<tr>' +
+    // Pin əl ilə düzəldilibsə (serverdən orig_lat/orig_lng gəlibsə və əsl
+    // mövqedən 15m-dən çox fərqlənirsə) admin görsün — fırıldaq izi.
+    const moved = (l.origLat != null && l.origLng != null && l.lat != null && l.lng != null)
+      ? metersBetween(l.origLat, l.origLng, l.lat, l.lng) >= 15 : false;
+    const movedBadge = moved ? ' <span class="tag warn" title="Əl ilə düzəldilib">düzəliş</span>' : '';
+    // Nişan cədvəldə HƏR SƏTRDƏ göstərilmir (əvvəl belə idi, Fuad "götür,
+    // filter ver" dedi) — yalnız "Yalnız təkrar şübhəliləri" işarələnəndə
+    // sətrin üstünə gələndə hansı lead(lər)ə bənzədiyi görünür.
+    const dups = dupMap.get(l.id);
+    const dupTitle = dups ? 'Ola bilər təkrar: ' + dups.map(d =>
+      (d.brandName || '—') + ' — ' + (d.workerName || '—') + (d.distanceM != null ? ' (' + d.distanceM + 'm)' : '')
+    ).join('; ') : '';
+    return '<tr' + (dupTitle ? ' title="' + esc(dupTitle) + '"' : '') + '>' +
+      '<td><input type="checkbox" data-slsel="' + l.id + '"' + (salesSel.has(l.id) ? ' checked' : '') + '></td>' +
       '<td>' + esc(l.brandName) + '</td>' +
       '<td>' + esc(l.workerName || '—') + '</td>' +
       '<td>' + dayLabel(l.createdAt) + ' · ' + hm(l.createdAt) + '</td>' +
-      '<td class="ell addrcol" title="' + esc(l.address||'') + '">' + coord + (l.address ? esc(l.address) : '<span class="dash">—</span>') + '</td>' +
+      '<td class="ell addrcol" title="' + esc(l.address||'') + '">' + coord + (l.address ? esc(l.address) : '<span class="dash">—</span>') + movedBadge + '</td>' +
       '<td style="text-align:center">' + (l.photoUrl ? '<span class="tag ok">var</span>' : '<span class="tag">yoxdur</span>') + '</td>' +
+      '<td>' + (l.odooStage ? '<span class="tag">' + esc(l.odooStage) + '</span>' : '<span class="dash">—</span>') + '</td>' +
       '<td style="text-align:right">' + (l.odooLeadId
-        ? '<a href="https://odoo.clopos.com/web#id=' + l.odooLeadId + '&model=crm.lead&view_type=form" target="_blank" rel="noopener">#' + l.odooLeadId + '</a>'
+        ? '<a class="wlink" href="https://odoo.clopos.com/web#id=' + l.odooLeadId + '&model=crm.lead&view_type=form" target="_blank" rel="noopener" title="Odoo-da aç (yeni tab)">#' + l.odooLeadId + '</a>'
         : '<span class="dash">—</span>') + '</td>' +
+      '<td style="text-align:right"><button type="button" class="pnotify dngr" data-slid="' + l.id + '" title="Sil">' +
+        '<svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg></button></td>' +
       '</tr>';
-  }).join('') : '<tr><td colspan="6">' + emptyBox('&#128188;', 'Lead yoxdur', 'Satış əməkdaşları hələ obyekt əlavə etməyib.') + '</td></tr>';
+  }).join('') : '<tr><td colspan="9">' + emptyBox('&#128188;', 'Lead yoxdur', 'Satış əməkdaşları hələ obyekt əlavə etməyib.') + '</td></tr>';
+  document.querySelectorAll('#salesBody [data-slid]').forEach(btn => btn.onclick = (ev) => {
+    ev.stopPropagation();
+    askDeleteSalesLead(+btn.dataset.slid);
+  });
+  document.querySelectorAll('#salesBody [data-slsel]').forEach(cb => cb.onchange = () => {
+    const id = +cb.dataset.slsel;
+    if (cb.checked) salesSel.add(id); else salesSel.delete(id);
+    renderSales();
+  });
+}
+
+/* ── Satış statistikası (dashboard) ──
+   Ayrıca backend sorğusu YOXDUR — Satışlar səhifəsi ilə eyni mənbədən
+   (`salesLeads`, `salesStages`) client-də hesablanır, İcmalın (texniki
+   dashboard) həftəlik qrafik/kart komponentləri EYNƏN köçürülüb (Fuad-ın
+   tələbi: "texniki əməkdaşlardakı kimi statistikaya baxaq"). */
+let ssPeriod = 'today';
+function renderSalesStats(){
+  const PERLBL2 = { today: 'bugün', yesterday: 'dünən', '7': 'son 7 gün', '30': 'son 30 gün', '90': 'son 90 gün' };
+  const PERCMP = { today: 'dünənlə', yesterday: 'srağagünlə', '7': 'əvvəlki 7 günlə', '30': 'əvvəlki 30 günlə', '90': 'əvvəlki 90 günlə' };
+  // Bugün/dünən GÜN SƏRHƏDİNƏ görə (00:00 – indi/00:00), 7/30/90 gün isə
+  // sürüşən pəncərə (indi - N gün). Fuad-ın tələbi (2026-09-09): ilk açılışda
+  // "bugün" default görünsün, filtrdə dünən/7/30/90 seçilə bilsin.
+  const dayStart = (d) => { const x = new Date(d); x.setHours(0,0,0,0); return x.getTime(); };
+  const todayStart = dayStart(new Date());
+  const now = Date.now();
+  const RANGE = {
+    today: { since: todayStart, until: now, prevSince: todayStart - 86400000, prevUntil: todayStart },
+    yesterday: { since: todayStart - 86400000, until: todayStart, prevSince: todayStart - 2*86400000, prevUntil: todayStart - 86400000 },
+    '7': { since: now - 7*86400000, until: now, prevSince: now - 14*86400000, prevUntil: now - 7*86400000 },
+    '30': { since: now - 30*86400000, until: now, prevSince: now - 60*86400000, prevUntil: now - 30*86400000 },
+    '90': { since: now - 90*86400000, until: now, prevSince: now - 180*86400000, prevUntil: now - 90*86400000 },
+  };
+  const range = RANGE[ssPeriod] || RANGE.today;
+  const inPeriod = salesLeads.filter(l => l.createdAt >= range.since && l.createdAt <= range.until);
+  const prevCount = salesLeads.filter(l => l.createdAt >= range.prevSince && l.createdAt < range.prevUntil).length;
+  const todayK = dayKey(new Date());
+  const todayCount = salesLeads.filter(l => dayKey(new Date(l.createdAt)) === todayK).length;
+  const withPhoto = inPeriod.filter(l => l.photoUrl).length;
+  const withOdoo = inPeriod.filter(l => l.odooLeadId).length;
+  const pct = (n, d) => d ? Math.round(n / d * 100) : 0;
+  const delta = (cur, prev) => {
+    const cmpLbl = PERCMP[ssPeriod] || '';
+    const df = cur - prev;
+    if (df === 0) return `<span class="delta flat">${cmpLbl} eyni</span>`;
+    return `<span class="delta ${df>0?'up':'down'}">${df>0?'↑':'↓'}${Math.abs(df)} ${cmpLbl}</span>`;
+  };
+
+  document.getElementById('ssCards').innerHTML = `
+    <div class="mcard">
+      <div class="chead"><span class="cico blue"><svg viewBox="0 0 24 24"><path d="M12 2v4"/><path d="m6.3 6.3 2.8 2.8"/><path d="M2 12h4"/><path d="m6.3 17.7 2.8-2.8"/><path d="M12 18v4"/><path d="m17.7 17.7-2.8-2.8"/><path d="M18 12h4"/><path d="m17.7 6.3-2.8 2.8"/></svg></span>
+        <span class="clabel">Lead</span></div>
+      <div class="cbody"><div class="cmain"><div class="cval">${inPeriod.length}</div>
+        <div class="cnote">${PERLBL2[ssPeriod]}</div></div></div>
+      <div class="cfoot">${delta(inPeriod.length, prevCount)}</div>
+    </div>
+    <div class="mcard">
+      <div class="chead"><span class="cico green"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+        <span class="clabel">Bu gün</span></div>
+      <div class="cbody"><div class="cmain"><div class="cval">${todayCount}</div>
+        <div class="cnote">yeni lead</div></div></div>
+      <div class="cfoot">cəmi ${salesLeads.length} lead bazada</div>
+    </div>
+    <div class="mcard">
+      <div class="chead"><span class="cico orange"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7 10 4h4l2 3"/><circle cx="12" cy="13.5" r="3.2"/></svg></span>
+        <span class="clabel">Şəkilli</span></div>
+      <div class="cbody"><div class="cmain"><div class="cval">${pct(withPhoto, inPeriod.length)}%</div>
+        <div class="cnote">${withPhoto} / ${inPeriod.length} lead</div></div></div>
+      <div class="cfoot">${PERLBL2[ssPeriod]}</div>
+    </div>
+    <div class="mcard">
+      <div class="chead"><span class="cico violet"><svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg></span>
+        <span class="clabel">Odoo-da</span></div>
+      <div class="cbody"><div class="cmain"><div class="cval">${pct(withOdoo, inPeriod.length)}%</div>
+        <div class="cnote">${withOdoo} / ${inPeriod.length} lead</div></div></div>
+      <div class="cfoot">${PERLBL2[ssPeriod]}</div>
+    </div>`;
+
+  // Bu həftə — bazar ertəsindən başlayan cari həftə (İcmaldakı qrafiklə EYNİ məntiq, bütün tarix üzrə)
+  const byDay = {};
+  salesLeads.forEach(l => { const k = dayKey(new Date(l.createdAt)); byDay[k] = (byDay[k]||0) + 1; });
+  const mon = new Date(); mon.setHours(0,0,0,0);
+  mon.setDate(mon.getDate() - ((mon.getDay() + 6) % 7));
+  const LBL = ['B','B.e','Ç.a','Ç','C.a','C','Ş'];
+  const wdays = [];
+  for (let i = 0; i < 7; i++) {
+    const dd = new Date(mon); dd.setDate(mon.getDate() + i);
+    const k = dayKey(dd);
+    wdays.push({ k, v: byDay[k] || 0, lbl: LBL[dd.getDay()], d: dd.getDate(),
+      weekend: dd.getDay() === 0 || dd.getDay() === 6, today: k === todayK, future: dd.getTime() > Date.now() });
+  }
+  const raw = Math.max(1, ...wdays.map(x => x.v));
+  const step = raw <= 4 ? 1 : raw <= 12 ? 2 : raw <= 30 ? 5 : Math.ceil(raw / 6 / 10) * 10;
+  const wmax = Math.ceil(raw / step) * step;
+  const wtotal = wdays.reduce((s,x) => s + x.v, 0);
+  document.getElementById('ssWeekTotal').textContent = wtotal + ' lead';
+  document.getElementById('ssWeekRange').textContent = dayShort(mon.getTime()) + ' – ' + dayShort(mon.getTime() + 6*86400000);
+  const wticks = [];
+  for (let v = wmax; v >= 0; v -= step) wticks.push(v);
+  document.getElementById('ssWeekGrid').innerHTML = wticks.map(v => `<div class="gl"><span>${v}</span></div>`).join('');
+  document.getElementById('ssWeekChart').innerHTML = wdays.map(x => `
+    <div class="cbar${x.today?' today':''}${x.weekend?' we':''}${x.future?' fut':''}" title="${x.k} — ${x.v} lead">
+      <div class="fill" style="height:${x.future?0:Math.max(x.v?3:0,(x.v/wmax)*100)}%">${x.v?`<span class="n">${x.v}</span>`:''}</div>
+    </div>`).join('');
+  document.getElementById('ssWeekDays').innerHTML = wdays.map(x =>
+    `<span class="${x.today?'today':''}${x.weekend?' we':''}">${x.lbl}<i>${x.d}</i></span>`).join('');
+
+  // Mərhələ üzrə (Odoo status funnel) — seçilmiş dövr üzrə, Odoo-dakı ardıcıllıqla
+  const stageOrder = salesStages.length ? salesStages : [...new Set(inPeriod.map(l => l.odooStage).filter(Boolean))];
+  const stageCounts = {};
+  inPeriod.forEach(l => { const k = l.odooStage || '__none'; stageCounts[k] = (stageCounts[k]||0) + 1; });
+  const stageRows = stageOrder.filter(s => stageCounts[s]).map(s => ({ label: s, count: stageCounts[s] }));
+  if (stageCounts.__none) stageRows.push({ label: 'Sinxronlaşmayıb', count: stageCounts.__none });
+  document.getElementById('ssStageTag').textContent = inPeriod.length + ' lead';
+  document.getElementById('ssStages').innerHTML = stageRows.length ? stageRows.map(r => `
+    <div class="irow">
+      <span class="lname" title="${esc(r.label)}">${esc(r.label)}</span>
+      <span style="flex:0 0 120px"><span class="pbar"><i style="width:${pct(r.count, inPeriod.length)}%;background:var(--brand)"></i></span></span>
+      <span class="lnum" style="flex:0 0 auto">${r.count} <span style="color:var(--faint);font-weight:400">(${pct(r.count, inPeriod.length)}%)</span></span>
+    </div>`).join('') : emptyBox('&#128200;', 'Lead yoxdur', 'Seçilmiş dövrdə lead qeydə alınmayıb.');
+
+  // Əməkdaş üzrə (leaderboard) — seçilmiş dövr üzrə
+  const byWorker = {};
+  inPeriod.forEach(l => { const n = l.workerName || '—'; byWorker[n] = (byWorker[n]||0) + 1; });
+  const wRows = Object.keys(byWorker).map(n => ({ name: n, count: byWorker[n] })).sort((a,b) => b.count - a.count);
+  const wmax2 = Math.max(1, ...wRows.map(x => x.count));
+  document.getElementById('ssWorkersTag').textContent = wRows.length + ' əməkdaş';
+  document.getElementById('ssWorkers').innerHTML = wRows.length ? wRows.map((x,i) => `
+    <div class="lrow${i===0?' first':''}">
+      <span class="lrank">${i+1}</span>
+      <div class="lbody">
+        <div class="ltop">
+          <span class="lname" title="${esc(x.name)}">${esc(x.name)}</span>
+          <span class="lnum">${x.count}</span>
+        </div>
+        <span class="lbar"><i style="width:${(x.count/wmax2)*100}%"></i></span>
+      </div>
+    </div>`).join('') : emptyBox('&#128100;', 'Lead yoxdur', 'Seçilmiş dövrdə heç bir əməkdaş lead daxil etməyib.');
+
+  // Keyfiyyət — audit siqnalları (bax `metersBetween`, "düzəliş" nişanı Satışlar cədvəlində eynidir)
+  const withAddr = inPeriod.filter(l => l.address).length;
+  const withMobile = inPeriod.filter(l => l.mobile).length;
+  const moved = inPeriod.filter(l => l.origLat != null && l.origLng != null && l.lat != null && l.lng != null &&
+    metersBetween(l.origLat, l.origLng, l.lat, l.lng) >= 15).length;
+  const qRows = [
+    { label: 'Ünvanlı', count: withAddr },
+    { label: 'Mobil nömrəli', count: withMobile },
+    { label: 'Şəkilli', count: withPhoto },
+    { label: 'Əl ilə düzəliş edilmiş', count: moved },
+  ];
+  document.getElementById('ssQuality').innerHTML = inPeriod.length ? qRows.map(r => `
+    <div class="irow">
+      <span class="lname">${esc(r.label)}</span>
+      <span style="flex:0 0 120px"><span class="pbar"><i style="width:${pct(r.count, inPeriod.length)}%;background:var(--brand)"></i></span></span>
+      <span class="lnum" style="flex:0 0 auto">${r.count} <span style="color:var(--faint);font-weight:400">(${pct(r.count, inPeriod.length)}%)</span></span>
+    </div>`).join('') : emptyBox('&#128202;', 'Lead yoxdur', 'Seçilmiş dövrdə lead qeydə alınmayıb.');
+}
+document.getElementById('ssPer').addEventListener('change', (e) => { ssPeriod = e.target.value; renderSalesStats(); });
+
+/* ── Satış statistikası — ƏMƏKDAŞ ÜZRƏ (texniki "Statistika" (`pg-stats`)
+   səhifəsi ilə EYNİ interaksiya: işçi seç, tarix aralığı, "Göstər"ə bas —
+   Fuad-ın tələbi 2026-09-09: "əməkdaşın adı seçilsin, ona uyğun statistika
+   göstərilsin". Fərq: server sorğusu YOXDUR, artıq yüklənmiş `salesLeads`-dan
+   client-də filtrlənir (leads GPS tarixçəsi kimi ağır deyil). */
+function fillSalesWorkerFilters(){
+  const ws = document.getElementById('swWorker');
+  if (ws.options.length <= 1 && (staffAll.length || staffInactive.length)) {
+    const workers = [...staffAll, ...staffInactive].filter(w => (w.staffType || 'technical') === 'sales');
+    workers.forEach(w => ws.add(new Option(w.name, w.id)));
+  }
+  const f = document.getElementById('swFrom'), t = document.getElementById('swTo');
+  if (!f.value && !t.value) {
+    const now = new Date();
+    f.value = dayKey(new Date(now.getFullYear(), now.getMonth(), 1));
+    t.value = dayKey(now);
+  }
+}
+document.getElementById('swGo').addEventListener('click', async () => {
+  const workerId = document.getElementById('swWorker').value;
+  if (!workerId) { toast('Əvvəlcə işçi seç', 'bad'); return; }
+  const btn = document.getElementById('swGo');
+  btn.disabled = true;
+  try {
+    if (!salesLeads.length) await loadSales();
+    const fVal = document.getElementById('swFrom').value;
+    const tVal = document.getElementById('swTo').value;
+    const from = fVal ? new Date(fVal + 'T00:00:00').getTime() : 0;
+    const to = tVal ? new Date(tVal + 'T23:59:59').getTime() : Date.now();
+    const rows = salesLeads
+      .filter(l => String(l.workerId) === String(workerId) && l.createdAt >= from && l.createdAt <= to)
+      .sort((a,b) => b.createdAt - a.createdAt);
+    const withPhoto = rows.filter(l => l.photoUrl).length;
+    const withOdoo = rows.filter(l => l.odooLeadId).length;
+    const pct = (n, d) => d ? Math.round(n / d * 100) : 0;
+
+    document.getElementById('swCards').innerHTML = `
+      <div class="mcard">
+        <div class="chead"><span class="cico blue"><svg viewBox="0 0 24 24"><path d="M12 2v4"/><path d="m6.3 6.3 2.8 2.8"/><path d="M2 12h4"/><path d="m6.3 17.7 2.8-2.8"/><path d="M12 18v4"/><path d="m17.7 17.7-2.8-2.8"/><path d="M18 12h4"/><path d="m17.7 6.3-2.8 2.8"/></svg></span>
+          <span class="clabel">Lead</span></div>
+        <div class="cbody"><div class="cmain"><div class="cval">${rows.length}</div>
+          <div class="cnote">seçilmiş dövrdə</div></div></div>
+      </div>
+      <div class="mcard">
+        <div class="chead"><span class="cico orange"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7 10 4h4l2 3"/><circle cx="12" cy="13.5" r="3.2"/></svg></span>
+          <span class="clabel">Şəkilli</span></div>
+        <div class="cbody"><div class="cmain"><div class="cval">${pct(withPhoto, rows.length)}%</div>
+          <div class="cnote">${withPhoto} / ${rows.length} lead</div></div></div>
+      </div>
+      <div class="mcard">
+        <div class="chead"><span class="cico violet"><svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg></span>
+          <span class="clabel">Odoo-da</span></div>
+        <div class="cbody"><div class="cmain"><div class="cval">${pct(withOdoo, rows.length)}%</div>
+          <div class="cnote">${withOdoo} / ${rows.length} lead</div></div></div>
+      </div>`;
+
+    document.getElementById('swCount').textContent = rows.length + ' lead';
+    document.getElementById('swBody').innerHTML = rows.length ? rows.map(l => {
+      const coord = (l.lat != null && l.lng != null)
+        ? `<a class="pinlink" href="https://www.google.com/maps?q=${l.lat},${l.lng}" target="_blank" rel="noopener"
+             title="${l.lat}, ${l.lng}"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.4 7-11a7 7 0 1 0-14 0c0 4.6 7 11 7 11z"/>
+             <circle cx="12" cy="10" r="2.4"/></svg></a>` : '';
+      return '<tr>' +
+        '<td>' + dayLabel(l.createdAt) + ' · ' + hm(l.createdAt) + '</td>' +
+        '<td>' + esc(l.brandName) + '</td>' +
+        '<td class="ell" title="' + esc(l.address||'') + '">' + coord + (l.address ? esc(l.address) : '<span class="dash">—</span>') + '</td>' +
+        '<td>' + (l.odooStage ? '<span class="tag">' + esc(l.odooStage) + '</span>' : '<span class="dash">—</span>') + '</td>' +
+        '<td style="text-align:center">' + (l.photoUrl ? '<span class="tag ok">var</span>' : '<span class="tag">yoxdur</span>') + '</td>' +
+        '<td style="text-align:right">' + (l.odooLeadId
+          ? '<a class="wlink" href="https://odoo.clopos.com/web#id=' + l.odooLeadId + '&model=crm.lead&view_type=form" target="_blank" rel="noopener" title="Odoo-da aç (yeni tab)">#' + l.odooLeadId + '</a>'
+          : '<span class="dash">—</span>') + '</td>' +
+        '</tr>';
+    }).join('') : '<tr><td colspan="6">' + emptyBox('&#128188;', 'Lead yoxdur', 'Seçilmiş dövrdə bu əməkdaşın lead-i yoxdur.') + '</td></tr>';
+
+    document.getElementById('swEmpty').style.display = 'none';
+    document.getElementById('swResult').style.display = '';
+  } catch (e) {
+    toast('Statistika yüklənmədi: ' + e.message, 'bad');
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+/* ── Satış tarixçəsi (yaradılma/silinmə qeydləri) ──
+   Back-office backlog-un 5-ci maddəsi (Fuad-ın tələbi, 2026-09-09): əvvəl
+   bir lead silinəndə HEÇ bir iz qalmırdı. Server tərəfdə hər yaradılma/silinmə
+   `sales_lead_history`-ə yazılır (bax `db.addSalesLeadHistory`), bura YALNIZ
+   göstərir — düzəliş/silmə YOXDUR, saf audit qeydidir. */
+let salesHistory = [];
+async function loadSalesHistory(){
+  try {
+    const r = await api('/api/v2/admin/sales-lead-history');
+    salesHistory = Array.isArray(r.history) ? r.history : [];
+    renderSalesHistory();
+  } catch (e) { toast('Tarixçə yüklənmədi: ' + e.message, 'bad'); }
+}
+function renderSalesHistory(){
+  const q = (document.getElementById('shQ').value || '').toLowerCase();
+  document.getElementById('shClr').hidden = !q;
+  const act = document.getElementById('shAction').value;
+  const rows = salesHistory.filter(h => (!q ||
+    (h.brandName||'').toLowerCase().includes(q) ||
+    (h.workerName||'').toLowerCase().includes(q)) &&
+    (!act || h.action === act));
+  document.getElementById('shCount').innerHTML =
+    '<b>' + rows.length + '</b> ' + (q || act ? 'nəticə' : 'qeyd');
+  const ACT = { created: ['Yaradılıb','ok'], deleted: ['Silinib','bad'] };
+  document.getElementById('shBody').innerHTML = rows.length ? rows.map(h => {
+    const [alabel, atone] = ACT[h.action] || [h.action, ''];
+    const m = h.meta || {};
+    const details = [
+      m.address ? esc(m.address) : '',
+      m.odooLeadId ? '<a class="wlink" href="https://odoo.clopos.com/web#id=' + m.odooLeadId +
+        '&model=crm.lead&view_type=form" target="_blank" rel="noopener" title="Odoo-da aç (yeni tab)">Odoo #' + m.odooLeadId + '</a>' : '',
+      h.action === 'deleted' ? (m.odooDeleted ? '<span class="tag bad">Odoo-dan da silinib</span>' : '<span class="tag">Odoo-da qalıb</span>') : '',
+      h.action === 'created' && m.hasPhoto ? '<span class="tag ok">şəkilli</span>' : '',
+    ].filter(Boolean).join(' · ');
+    return '<tr>' +
+      '<td>' + dayLabel(h.createdAt) + ' · ' + hm(h.createdAt) + '</td>' +
+      '<td><span class="tag ' + atone + '">' + esc(alabel) + '</span></td>' +
+      '<td>' + esc(h.brandName || '—') + '</td>' +
+      '<td>' + esc(h.workerName || '—') + '</td>' +
+      '<td class="ell" title="">' + (details || '<span class="dash">—</span>') + '</td>' +
+      '<td>' + (h.byAdmin ? esc(h.byAdmin) : '<span class="dash">—</span>') + '</td>' +
+      '</tr>';
+  }).join('') : '<tr><td colspan="6">' + emptyBox('&#128337;', 'Qeyd yoxdur', 'Seçilmiş filtrə uyğun tarixçə qeydi yoxdur.') + '</td></tr>';
+}
+document.getElementById('shQ').addEventListener('input', renderSalesHistory);
+document.getElementById('shAction').addEventListener('change', renderSalesHistory);
+document.getElementById('shClr').addEventListener('click', () => {
+  document.getElementById('shQ').value = '';
+  renderSalesHistory();
+});
+
+document.getElementById('slSelAll').addEventListener('change', (e) => {
+  const q = (document.getElementById('slQ').value || '').toLowerCase();
+  const rows = salesLeads.filter(l => !q ||
+    (l.brandName||'').toLowerCase().includes(q) ||
+    (l.workerName||'').toLowerCase().includes(q) ||
+    (l.address||'').toLowerCase().includes(q));
+  if (e.target.checked) rows.forEach(l => salesSel.add(l.id));
+  else rows.forEach(l => salesSel.delete(l.id));
+  renderSales();
+});
+document.getElementById('slSelClear').addEventListener('click', () => { salesSel.clear(); renderSales(); });
+document.getElementById('slSelDel').addEventListener('click', () => {
+  const ids = [...salesSel];
+  if (!ids.length) return;
+  modal(`<div class="mhead"><h3>Seçilənləri sil</h3><p>${ids.length} lead</p>
+      <button type="button" class="mclose" onclick="closeModal()" aria-label="Bağla">&times;</button></div>
+    <div class="mbody">
+      <div style="font-size:13px;line-height:1.6;color:var(--muted)">
+        Yalnız bizim siyahıdan silinəcək (Odoo-da qalanlar toxunulmur).
+        <b style="color:var(--bad)"> Geri qaytarmaq mümkün deyil.</b>
+      </div>
+    </div>
+    <div class="mfoot">
+      <button type="button" class="btn btn-ghost" onclick="closeModal()">Ləğv</button>
+      <button type="button" class="btn btn-primary" id="slBulkGo" style="background:var(--bad);border-color:var(--bad)">${ids.length} lead-i sil</button>
+    </div>`);
+  document.getElementById('slBulkGo').onclick = async () => {
+    let ok = 0, fail = 0;
+    for (const id of ids) {
+      try { await api('/api/v2/admin/sales-leads/' + id, { method: 'DELETE' }); ok++; }
+      catch (_) { fail++; }
+    }
+    closeModal();
+    toast(ok + ' silindi' + (fail ? ', ' + fail + ' alınmadı' : ''), fail ? 'bad' : 'ok');
+    salesSel.clear();
+    loadSales();
+  };
+});
+
+/* SADƏLƏŞDİRİLDİ (Fuad-ın qərarı): Odoo-da silmə adətən icazə
+   məhdudiyyətinə görə uğursuz olur (CRM-lərdə lead silmək çox vaxt admin
+   səviyyəsinə qapalıdır). Sil düyməsi YALNIZ bizim `sales_leads`
+   siyahımızdan silir — Odoo-ya HEÇ TOXUNMUR, orda qalır. */
+function askDeleteSalesLead(id){
+  const l = salesLeads.find(x => x.id === id);
+  if (!l) return;
+  modal(`<div class="mhead"><h3>Lead-i sil</h3><p>${esc(l.brandName)}</p>
+      <button type="button" class="mclose" onclick="closeModal()" aria-label="Bağla">&times;</button></div>
+    <div class="mbody">
+      <div style="font-size:13px;line-height:1.6;color:var(--muted)">
+        Yalnız bizim siyahıdan silinəcək${l.odooLeadId ? ' (Odoo-da #' + l.odooLeadId + ' olaraq qalacaq)' : ''}.
+        <b style="color:var(--bad)"> Geri qaytarmaq mümkün deyil.</b>
+      </div>
+    </div>
+    <div class="mfoot">
+      <button type="button" class="btn btn-ghost" onclick="closeModal()">Ləğv</button>
+      <button type="button" class="btn btn-primary" id="slDelBoth" style="background:var(--bad);border-color:var(--bad)">Sil</button>
+    </div>`);
+  document.getElementById('slDelBoth').onclick = async () => {
+    try {
+      await api('/api/v2/admin/sales-leads/' + id, { method: 'DELETE' });
+      closeModal();
+      toast('Silindi', 'ok');
+      loadSales();
+    } catch (e) { toast('Silinmədi: ' + e.message, 'bad'); }
+  };
 }
 document.getElementById('slQ').addEventListener('input', renderSales);
+document.getElementById('slWorker').addEventListener('change', renderSales);
+document.getElementById('slStatus').addEventListener('change', renderSales);
+document.getElementById('slDupOnly').addEventListener('change', renderSales);
+document.querySelectorAll('#salesTable th.sortable').forEach(th => th.addEventListener('click', () => {
+  const k = th.dataset.slk;
+  if (slSortKey === k) slSortAsc = !slSortAsc;
+  else { slSortKey = k; slSortAsc = k === 'brand' || k === 'worker' || k === 'status'; }
+  renderSales();
+}));
 document.getElementById('slClr').addEventListener('click', () => {
   document.getElementById('slQ').value = '';
   renderSales();
+});
+
+/* ── Satış xəritəsi — texniki "Canlı xəritə"dən TAM AYRI Leaflet map,
+   öz div-i (#salesMap), öz dəyişənləri. Texniki `map`/`initMap`/`drawMap`-a
+   HEÇ TOXUNMUR. Paylaşılan komanda xəritəsidir — bütün satış əməkdaşlarının
+   əlavə etdiyi lead-lər bir yerdə, kim/nə vaxt əlavə edib göstərir. */
+let salesMap = null;
+function initSalesMap(){
+  if (salesMap) return;
+  salesMap = L.map('salesMap', { zoomControl: true }).setView([40.4093, 49.8671], 11);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>',
+  }).addTo(salesMap);
+  // Yaxınlaşdırma/sürüşmə dəyişəndə klasterlər yenidən hesablanır —
+  // `drawBrandPins`-in texniki xəritədəki EYNİ qaydası.
+  salesMap.on('zoomend moveend', () => { drawSalesLeadPins(); drawSalesWorkerPins(); });
+}
+// Satış lead-inin ətraflı kartı — texniki işçi nişanının (`workerCard`)
+// EYNİ dizayn dili (`.wcard`/`.wc-*` klasları), Fuad-ın tələbi ilə.
+function salesLeadCard(l){
+  const row = (k, v) => v ? '<div class="wc-r"><span>' + k + '</span><b>' + v + '</b></div>' : '';
+  const moved = (l.origLat != null && l.origLng != null && l.lat != null && l.lng != null)
+    ? metersBetween(l.origLat, l.origLng, l.lat, l.lng) >= 15 : false;
+  return '<div class="wcard">' +
+    '<div class="wc-h">' +
+      '<div class="av" style="background:var(--brand-soft);border-color:var(--brand);color:var(--brand)">' +
+        esc(initials(l.brandName)) + '</div>' +
+      '<div><div class="wc-n">' + esc(l.brandName) + '</div>' +
+        '<div class="wc-s">' + esc(l.workerName || '—') +
+          (moved ? '<span class="tag warn">düzəliş</span>' : '') +
+          '</div></div>' +
+    '</div>' +
+    '<div class="wc-a">' + esc(l.address || 'ünvan yoxdur') + '</div>' +
+    '<div class="wc-b">' +
+      row('Tarix', dayLabel(l.createdAt) + ' · ' + hm(l.createdAt)) +
+      row('Şəkil', l.photoUrl ? 'var' : 'yoxdur') +
+      row('Odoo status', l.odooStage ? esc(l.odooStage) : '—') +
+      row('Koordinat', l.lat != null
+        ? '<span class="copyc" data-copy="' + l.lat.toFixed(6) + ', ' + l.lng.toFixed(6) +
+          '" title="Kopyala">' + l.lat.toFixed(5) + ', ' + l.lng.toFixed(5) +
+          '<svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/>' +
+          '<path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></span>' : '') +
+    '</div>' +
+    (l.odooLeadId ? '<div class="wc-f">' +
+      '<a class="btn btn-primary btn-sm" href="https://odoo.clopos.com/web#id=' + l.odooLeadId +
+      '&model=crm.lead&view_type=form" target="_blank" rel="noopener">Odoo-da aç →</a></div>' : '') +
+    '</div>';
+}
+// Sadələşdirilmiş işçi kartı — `workerCard()`-dan FƏRQLİ olaraq Marşrut/İzlə/
+// Tarixçə/Bildiriş düymələri YOXDUR (o düymələr texniki `map`-a bağlı popup
+// handler-lərdən asılıdır, `salesMap`-da işləməzdi) — yalnız məlumat.
+function salesWorkerCard(p){
+  const row = (k, v) => v ? '<div class="wc-r"><span>' + k + '</span><b>' + v + '</b></div>' : '';
+  return '<div class="wcard">' +
+    '<div class="wc-h">' +
+      '<div class="av" style="background:' + MTONE.on.c + '1A;border-color:' + MTONE.on.c + '59;color:' + MTONE.on.c + '">' +
+        esc(initials(p.name)) + '</div>' +
+      '<div><div class="wc-n">' + esc(p.name) + '</div>' +
+        '<div class="wc-s"><i class="mdot on"></i>onlayn</div></div>' +
+    '</div>' +
+    '<div class="wc-a">' + esc(p.address || 'ünvan yoxdur') + '</div>' +
+    '<div class="wc-b">' +
+      row('Son siqnal', p.lastSeen ? ago(p.lastSeen) + ' əvvəl' : '') +
+      row('Batareya', p.battery != null && p.battery >= 0 ? battChip(p.battery) : '') +
+      row('Koordinat', p.lat != null
+        ? '<span class="copyc" data-copy="' + p.lat.toFixed(6) + ', ' + p.lng.toFixed(6) +
+          '" title="Kopyala">' + p.lat.toFixed(5) + ', ' + p.lng.toFixed(5) +
+          '<svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/>' +
+          '<path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></span>' : '') +
+    '</div></div>';
+}
+// Eyni/yaxın koordinatda bir neçə pin üst-üstə düşüb basılmaz olurdu (Fuad-ın
+// tapdığı bug, 2026-09-09, screenshot: iki test lead eyni ünvanda) — Fuad
+// haqlı olaraq soruşdu "koordinat pozuntusu deyil?". Əvvəlki versiya ekran
+// mövqeyini (marker-in LatLng-ini) süni sürüşdürürdü. İNDİ texniki tərəfin
+// İKİ SINANMIŞ üsulu köçürülüb, koordinata HEÇ VAXT toxunulmur:
+//  · Lead-lər (statik) → `drawBrandPins`-dəki PİKSEL-ŞƏBƏKƏ klasterləşməsi:
+//    bir neçəsi eyni xanaya düşəndə əsl marker YERİNƏ "N" yazan dairə çəkilir,
+//    basanda ya yaxınlaşdırır, ya siyahı açır (aşağıda `drawSalesLeadPins`).
+//  · Onlayn işçilər (canlı) → `drawMap`-dakı EYNİ üsul: marker-in `LatLng`-i
+//    dəyişmir, YALNIZ ikonun çəkilmə nöqtəsi (`iconAnchor`) piksellə
+//    sürüşdürülür — koordinat HEÇ bir anda saxta olmur (aşağıda
+//    `drawSalesWorkerPins`).
+let salesLeadLayer = null, salesWorkerLayer = null;
+let salesMapRows = [], salesMapWorkers = [], salesClusterGroup = null;
+function drawSalesLeadPins(){
+  if (!salesMap) return;
+  if (!salesLeadLayer) salesLeadLayer = L.layerGroup().addTo(salesMap);
+  salesLeadLayer.clearLayers();
+  const bounds = salesMap.getBounds().pad(0.25);
+  const vis = salesMapRows.filter(l => bounds.contains([l.lat, l.lng]));
+  const CELL = 40;
+  const cells = new Map();
+  for (const l of vis) {
+    const pt = salesMap.latLngToContainerPoint([l.lat, l.lng]);
+    const k = Math.floor(pt.x / CELL) + ':' + Math.floor(pt.y / CELL);
+    if (!cells.has(k)) cells.set(k, []);
+    cells.get(k).push(l);
+  }
+  for (const group of cells.values()) {
+    if (group.length === 1) {
+      const l = group[0];
+      const html = '<div class="wmark" style="--wc:var(--brand)">' + esc(initials(l.brandName)) + '</div>';
+      const icon = L.divIcon({ html, className:'', iconSize:[32,32], iconAnchor:[16,16] });
+      L.marker([l.lat, l.lng], { icon })
+        .bindPopup(salesLeadCard(l), { minWidth: 272, maxWidth: 320, autoPan: true, keepInView: true, autoPanPadding: L.point(24, 24) })
+        .addTo(salesLeadLayer);
+    } else {
+      const lat = group.reduce((s, l) => s + l.lat, 0) / group.length;
+      const lng = group.reduce((s, l) => s + l.lng, 0) / group.length;
+      const n = group.length;
+      const size = Math.min(36, 24 + Math.round(Math.log10(n + 1) * 8));
+      L.marker([lat, lng], {
+        icon: L.divIcon({ className: '',
+          html: '<div class="bclus" style="width:' + size + 'px;height:' + size + 'px">' +
+            '<svg viewBox="0 0 24 24"><path d="M12 21s7-6.4 7-11a7 7 0 1 0-14 0c0 4.6 7 11 7 11z"/></svg>' +
+            '<b>' + n + '</b></div>',
+          iconSize: [size, size], iconAnchor: [size/2, size/2] }),
+      }).on('click', () => {
+        const spread = Math.max(...group.map(l => metersTo({ lat, lng }, l)));
+        if (spread > 25 && salesMap.getZoom() < 19) {
+          salesMap.setView([lat, lng], Math.min(19, salesMap.getZoom() + 2));
+          return;
+        }
+        salesClusterGroup = group;
+        const html = '<div class="cluslist"><b>' + n + ' lead bu nöqtədə</b>' +
+          group.map((l, i) => '<button type="button" class="clusrow" data-scl="' + i +
+            '"><span>' + esc(l.brandName) + '</span><i>' + esc(l.workerName || '') + '</i></button>').join('') + '</div>';
+        L.popup({ minWidth: 220, maxWidth: 290 }).setLatLng([lat, lng]).setContent(html).openOn(salesMap);
+      }).bindTooltip(n + ' lead · siyahı üçün bas', { direction: 'top' })
+        .addTo(salesLeadLayer);
+    }
+  }
+}
+function drawSalesWorkerPins(){
+  if (!salesMap) return;
+  if (!salesWorkerLayer) salesWorkerLayer = L.layerGroup().addTo(salesMap);
+  salesWorkerLayer.clearLayers();
+  const spread = new Map();
+  const cells = new Map();
+  salesMapWorkers.forEach(p => {
+    const pt = salesMap.latLngToContainerPoint([p.lat, p.lng]);
+    const k = Math.floor(pt.x / 26) + ':' + Math.floor(pt.y / 26);
+    if (!cells.has(k)) cells.set(k, []);
+    cells.get(k).push(p);
+  });
+  for (const grp of cells.values()) {
+    if (grp.length < 2) continue;
+    const R = 13 + grp.length * 3;
+    grp.forEach((p, i) => {
+      const ang = (2 * Math.PI * i) / grp.length - Math.PI / 2;
+      spread.set(p.id, [Math.cos(ang) * R, Math.sin(ang) * R]);
+    });
+  }
+  salesMapWorkers.forEach(p => {
+    const off = spread.get(p.id);
+    const html = '<div class="wmark sm" style="--wc:' + MTONE.on.c + '">' + esc(initials(p.name)) + '</div>';
+    const icon = L.divIcon({ html, className: '', iconSize: [26, 26],
+      iconAnchor: off ? [13 - off[0], 13 - off[1]] : [13, 13] });
+    L.marker([p.lat, p.lng], { icon, zIndexOffset: 1000 })
+      .bindPopup(salesWorkerCard(p), { minWidth: 240, maxWidth: 300, autoPan: true, keepInView: true, autoPanPadding: L.point(24, 24) })
+      .addTo(salesWorkerLayer);
+  });
+}
+// Xəritə YALNIZ baxış idi (Fuad-ın tələbi 2026-09-09: "axtarış və s." lazımdır) —
+// Satışlar cədvəli ilə EYNİ filtr mənbələri (staffAll/staffInactive, salesStages),
+// nəticə TƏK lead-ə düşəndə xəritə onun üstünə yaxınlaşıb popup-ı açır.
+let smQ = '', smWorker = '', smStatus = '';
+function fillSalesMapFilters(){
+  const wSel = document.getElementById('smWorker'), stSel = document.getElementById('smStatus');
+  if (!wSel || !stSel) return;
+  const curW = wSel.value, curSt = stSel.value;
+  const workers = [...new Set(
+    [...staffAll, ...staffInactive].filter(w => (w.staffType || 'technical') === 'sales').map(w => w.name).filter(Boolean)
+  )].sort();
+  const statuses = salesStages.length ? salesStages : [...new Set(salesLeads.map(l => l.odooStage).filter(Boolean))].sort();
+  wSel.innerHTML = '<option value="">Bütün əməkdaşlar</option>' +
+    workers.map(w => `<option value="${esc(w)}">${esc(w)}</option>`).join('');
+  stSel.innerHTML = '<option value="">Bütün statuslar</option>' +
+    statuses.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
+  wSel.value = workers.includes(curW) ? curW : '';
+  stSel.value = statuses.includes(curSt) ? curSt : '';
+}
+async function drawSalesMap(){
+  if (!salesMap) return;
+  if (!salesLeads.length) { try { await loadSales(); } catch (_) {} }
+  fillSalesMapFilters();
+  const q = smQ.toLowerCase();
+  const rows = salesLeads.filter(l => (l.lat != null && l.lng != null) && (!q ||
+    (l.brandName||'').toLowerCase().includes(q) ||
+    (l.workerName||'').toLowerCase().includes(q) ||
+    (l.address||'').toLowerCase().includes(q)) &&
+    (!smWorker || l.workerName === smWorker) &&
+    (!smStatus || l.odooStage === smStatus));
+
+  // İşçilər (yalnız ONLAYN, Fuad-ın tələbi 2026-09-09: oflayn olanlar
+  // avtomatik gizlənsin) — `staffAll`/`staffInactive`-dan satış işçilərinin
+  // id-si, canlı mövqe isə `summary.workers.list`-dən (İcmal ilə eyni mənbə,
+  // GPS ingestion texniki/satış üçün ORTAQDIR).
+  const showWorkers = document.getElementById('smShowWorkers').checked;
+  let onlineWorkers = [];
+  if (showWorkers) {
+    const fiveMin = Date.now() - 5*60*1000;
+    const salesIds = new Set([...staffAll, ...staffInactive]
+      .filter(w => (w.staffType || 'technical') === 'sales').map(w => String(w.id)));
+    const liveList = (summary && summary.workers && summary.workers.list) || [];
+    onlineWorkers = liveList.filter(p => salesIds.has(String(p.id)) &&
+      p.lastSeen && p.lastSeen > fiveMin && p.lat != null && p.lng != null);
+  }
+  salesMapRows = rows;
+  salesMapWorkers = onlineWorkers;
+
+  // ƏVVƏLCƏ görünüş (zoom/mərkəz) təyin olunur, SONRA pin-lər çəkilir —
+  // klasterləşmə cari görünən sahəyə (`salesMap.getBounds()`) görə işləyir,
+  // əks halda tək axtarış nəticəsi hələ ekranda olmadığı üçün görünməzdi.
+  const pts = [...rows.map(l => [l.lat, l.lng]), ...onlineWorkers.map(p => [p.lat, p.lng])];
+  const single = rows.length === 1 && !onlineWorkers.length ? rows[0] : null;
+  if (single) salesMap.setView([single.lat, single.lng], 16);
+  else if (pts.length) salesMap.fitBounds(L.latLngBounds(pts).pad(0.2));
+
+  drawSalesLeadPins();
+  drawSalesWorkerPins();
+  if (single && salesLeadLayer) {
+    const layers = salesLeadLayer.getLayers();
+    if (layers.length === 1) layers[0].openPopup();
+  }
+
+  document.getElementById('salesMapCount').textContent =
+    rows.length + (rows.length !== salesLeads.length ? ' / ' + salesLeads.length : '') + ' lead' +
+    (showWorkers ? ' · ' + onlineWorkers.length + ' onlayn işçi' : '');
+}
+document.getElementById('smShowWorkers').addEventListener('change', drawSalesMap);
+document.getElementById('smQ').addEventListener('input', (e) => {
+  smQ = e.target.value;
+  document.getElementById('smClr').hidden = !smQ;
+  drawSalesMap();
+});
+document.getElementById('smClr').addEventListener('click', () => {
+  smQ = '';
+  document.getElementById('smQ').value = '';
+  document.getElementById('smClr').hidden = true;
+  drawSalesMap();
+});
+document.getElementById('smWorker').addEventListener('change', (e) => { smWorker = e.target.value; drawSalesMap(); });
+document.getElementById('smStatus').addEventListener('change', (e) => { smStatus = e.target.value; drawSalesMap(); });
+document.getElementById('smFit').addEventListener('click', () => {
+  smQ = ''; smWorker = ''; smStatus = '';
+  document.getElementById('smQ').value = '';
+  document.getElementById('smClr').hidden = true;
+  document.getElementById('smWorker').value = '';
+  document.getElementById('smStatus').value = '';
+  drawSalesMap();
 });
 
 function fillLogFilters(){
@@ -5097,7 +6097,7 @@ const selRows = () => places.filter(b => placeSel.has(rowKey(b)));
 async function loadPlaces(force){
   if (places.length && !force) { renderPlaces(); return; }
   document.getElementById('placesBody').innerHTML =
-    '<tr><td colspan="8"><div class="empty">Yüklənir…</div></td></tr>';
+    '<tr><td colspan="9"><div class="empty">Yüklənir…</div></td></tr>';
   try {
     const [d] = await Promise.all([
       api('/api/v2/admin/brands'),
@@ -5108,7 +6108,7 @@ async function loadPlaces(force){
     renderPlaces();
   } catch (e) {
     document.getElementById('placesBody').innerHTML =
-      `<tr><td colspan="8"><div class="empty">Yüklənmədi: ${esc(e.message)}</div></td></tr>`;
+      `<tr><td colspan="9"><div class="empty">Yüklənmədi: ${esc(e.message)}</div></td></tr>`;
   }
 }
 /* Bənzər adları tapır — bu səhifənin əsas işi məhz təkrarları görməkdir.
@@ -5426,6 +6426,9 @@ function renderPlaces(){
             ? 'Çıxış qeydi var, giriş qeydi yoxdur — giriş anında GPS hazır olmayıb'
             : 'Nə giriş, nə çıxış qeydi var'}">giriş qeydi yoxdur</span>` : ''}
         </div></td>
+      <td style="font-size:12px" title="${b.sellerId!=null?'Satıcı id: '+esc(String(b.sellerId)):''}">${b.sellerName
+        ? esc(b.sellerName)
+        : (b.cloposId ? '<span class="dash">—</span>' : '')}</td>
       <td class="num" style="text-align:right">
         <b style="font-weight:600">${b.visits||0}</b>
         ${b.exits ? `<i class="exn ${b.exits > (b.visits||0) ? 'odd' : ''}"
@@ -5465,7 +6468,7 @@ function renderPlaces(){
             <path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"/>
             <path d="M9 7V4h6v3"/></svg></button>`:''}
       </div></td></tr>`;
-  }).join('') : `<tr><td colspan="8">${
+  }).join('') : `<tr><td colspan="9">${
       q ? emptyBox('&#128269;', 'Tapılmadı', '&quot;' + esc(q) + '&quot; üzrə obyekt yoxdur.')
       : scope === 'dup' ? emptyBox('&#9989;', 'Təkrar tapılmadı', 'Oxşar adlı obyekt yoxdur — siyahı təmizdir.')
       : scope === 'merged' ? emptyBox('&#128279;', 'Birləşdirilmiş obyekt yoxdur', 'Hələ heç bir obyekt birləşdirilməyib.')
@@ -5919,6 +6922,26 @@ function bindDup(list){
    Qalanlar toxunulmur, «Adları təmizlə» ekranında qalır. */
 let autoStop = false;
 
+document.getElementById('bSellerRefresh').addEventListener('click', async () => {
+  /* Sadə düymə — bütün iş serverdə gedir (bax POST .../brands/refresh-sellers):
+     hər bağlı brend öz tam adı ilə yenidən axtarılır, id üst-üstə düşəndə
+     YALNIZ satıcı sahəsi yazılır, ad/id/slug TOXUNULMUR. */
+  const btn = document.getElementById('bSellerRefresh');
+  btn.disabled = true;
+  const orig = btn.textContent;
+  btn.textContent = 'Yenilənir…';
+  try {
+    const r = await api('/api/v2/admin/brands/refresh-sellers', { method: 'POST' });
+    if (r && r.ok === false) throw new Error(r.error || 'alınmadı');
+    toast(`${r.updated} satıcı dolduruldu (${r.total} bağlı brenddən, ${r.notFound} tapılmadı)`, 'ok');
+    await loadPlaces(true);
+  } catch (e) {
+    toast('Alınmadı: ' + e.message, 'bad');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = orig;
+  }
+});
 document.getElementById('bAutoLink').addEventListener('click', async () => {
   /* İKİ NÖV NAMİZƏD:
      1) 'link'     — bağlantısı yoxdur, tam axtarış aparılır (ncFind)
@@ -5987,7 +7010,8 @@ document.getElementById('bAutoLink').addEventListener('click', async () => {
            istifadə olunur, slug qısaldılmış ola bilər). */
         const r = await api('/api/v2/admin/brands/clopos', { method: 'POST',
           body: JSON.stringify({ canonical: b.name, brandId: res.hit.id,
-            brandSlug: res.hit.name, brandTitle: res.hit.title }) });
+            brandSlug: res.hit.name, brandTitle: res.hit.title,
+            sellerId: res.hit.seller_id, sellerName: res.hit.seller_name }) });
         if (r && r.ok === false) throw new Error(r.error || 'alınmadı');
         b.cloposId = res.hit.id; b.cloposSlug = res.hit.name;
         ok++;
@@ -6015,7 +7039,8 @@ document.getElementById('bAutoLink').addEventListener('click', async () => {
       if (hit && hit.title) {
         const r = await api('/api/v2/admin/brands/clopos', { method: 'POST',
           body: JSON.stringify({ canonical: b.name, brandId: b.cloposId,
-            brandSlug: b.cloposSlug, brandTitle: hit.title }) });
+            brandSlug: b.cloposSlug, brandTitle: hit.title,
+            sellerId: hit.seller_id, sellerName: hit.seller_name }) });
         if (r && r.ok === false) throw new Error(r.error || 'alınmadı');
         b.cloposTitle = hit.title;
         filled++;
@@ -6336,7 +7361,8 @@ async function ncOne(groups, i){
              bağlantı görünmür. */
           await api('/api/v2/admin/brands/clopos', { method: 'POST',
             body: JSON.stringify({ canonical: b.name, brandId: hit.id,
-              brandSlug: hit.name, brandTitle: hit.title }) });
+              brandSlug: hit.name, brandTitle: hit.title,
+              sellerId: hit.seller_id, sellerName: hit.seller_name }) });
           b.cloposId = hit.id; b.cloposSlug = hit.name;
         } catch (_) {}
       }
@@ -6462,7 +7488,8 @@ function bindNc(groups){
           await api('/api/v2/admin/brands/clopos', { method: 'POST',
             body: JSON.stringify({ canonical: newName,
               brandId: ncHit[i].id, brandSlug: ncHit[i].name,
-              brandTitle: ncHit[i].title }) });
+              brandTitle: ncHit[i].title,
+              sellerId: ncHit[i].seller_id, sellerName: ncHit[i].seller_name }) });
         } catch (_) {}
       }
       ncState[i] = 'done';
@@ -6812,7 +7839,8 @@ function renamePlace(b, onDone){
       if (picked) {
         await api('/api/v2/admin/brands/clopos', { method: 'POST',
           body: JSON.stringify({ canonical: target, brandId: picked.id,
-            brandSlug: picked.name, brandTitle: picked.title }) });
+            brandSlug: picked.name, brandTitle: picked.title,
+            sellerId: picked.seller_id, sellerName: picked.seller_name }) });
       }
       toast(nameChanged ? 'Ad və brend bağlantısı yazıldı' : 'Brend bağlantısı yazıldı', 'ok');
       await loadPlaces(true);
@@ -6961,7 +7989,7 @@ const AL_GRP = {
   object_overtime:'attn', shift_overtime:'attn', object_cancel:'attn',
   urgent:'attn', urgent_ack:'attn',
   shift_open:'shift', shift_close:'shift',
-  object_enter:'obj', object_exit:'obj',
+  object_enter:'obj', object_exit:'obj', sales_lead:'obj',
   akt:'doc', tehvil:'doc', object_photo:'doc', contact:'doc',
 };
 const alGrp = t => AL_GRP[t] || 'doc';
@@ -7750,10 +8778,12 @@ async function renderAdmins(){
     const c = avColor(u.username);
     // Kim olduğunu BİR cümlə deyir; əvvəl "sən", "əsas", "id", rol —
     // dörd ayrı nişan yan-yana düzülürdü.
+    const PACC_LBL = { both: 'Texniki + Satış', technical: 'yalnız Texniki', sales: 'yalnız Satış' };
     const who = [
       isMe ? 'sən' : null,
       isRoot ? 'əsas hesab' : null,
       isOwn ? 'bütün əməliyyatlar' : 'silmə və admin idarəçiliyi bağlıdır',
+      PACC_LBL[u.panelAccess] || null,
     ].filter(Boolean).join(' · ');
     return '<div class="adm' + (isMe ? ' me' : '') + '">' +
       '<div class="av" style="background:' + c + '1F;border-color:' + c +
@@ -7770,6 +8800,10 @@ async function renderAdmins(){
         (own && !isRoot
           ? '<button type="button" class="btn btn-ghost btn-sm" data-arole="' + esc(u.id) +
               '" data-cur="' + esc(u.role || 'admin') + '" data-nm="' + esc(u.username) + '">Rol</button>' : '') +
+        (own && !isRoot
+          ? '<button type="button" class="btn btn-ghost btn-sm" data-apacc="' + esc(u.id) +
+              '" data-cur="' + esc(u.panelAccess || 'both') + '" data-nm="' + esc(u.username) +
+              '" title="Hansı rejimə giriş icazəsi var">Giriş</button>' : '') +
         /* Silinə bilməyən sətirdə sönük düymə saxlamağın mənası yoxdur —
            səbəb ad altındakı izahda onsuz da yazılıb. */
         (own && !isRoot && !isMe
@@ -7817,6 +8851,35 @@ async function renderAdmins(){
         await api('/api/admin/users/' + encodeURIComponent(id),
           { method:'PUT', body: JSON.stringify({ username: nm, role: sel ? sel.value : 'admin' }) });
         closeModal(); toast('Rol dəyişdirildi', 'ok'); loadSettings();
+      } catch (e) { toast('Alınmadı: ' + e.message, 'bad'); }
+    };
+  });
+  /* Panel girişi — hansı rejim(lər)ə baxa bilsin (Fuad-ın tələbi,
+     2026-09-09). Server tərəfdə `requirePanelAccess` bunu ZORLA tətbiq edir,
+     bura sadəcə seçim ekranıdır. */
+  el.querySelectorAll('[data-apacc]').forEach(b => b.onclick = () => {
+    const id = b.dataset.apacc, nm = b.dataset.nm, cur = b.dataset.cur || 'both';
+    modal('<div class="mhead"><h3>Panel girişi</h3><p>' + esc(nm) + '</p>' +
+        '<button type="button" class="mclose" onclick="closeModal()" aria-label="Bagla">&times;</button></div>' +
+      '<div class="mbody">' +
+        '<label class="mopt"><input type="radio" name="pa" value="both"' +
+          (cur === 'both' ? ' checked' : '') + '><span class="mopt-b"><b>Hər ikisi</b>' +
+          '<i>Texniki və Satış arasında sərbəst keçid edə bilər.</i></span></label>' +
+        '<label class="mopt"><input type="radio" name="pa" value="technical"' +
+          (cur === 'technical' ? ' checked' : '') + '><span class="mopt-b"><b>Yalnız Texniki</b>' +
+          '<i>Satış menyusu görünmür, Satışa aid heç bir sorğu qəbul olunmur.</i></span></label>' +
+        '<label class="mopt"><input type="radio" name="pa" value="sales"' +
+          (cur === 'sales' ? ' checked' : '') + '><span class="mopt-b"><b>Yalnız Satış</b>' +
+          '<i>Texniki menyusu görünmür, Texnikiyə aid heç bir sorğu qəbul olunmur.</i></span></label>' +
+      '</div>' +
+      '<div class="mfoot"><button type="button" class="btn btn-ghost" onclick="closeModal()">Ləğv</button>' +
+        '<button type="button" class="btn btn-primary" id="paSave">Yadda saxla</button></div>');
+    document.getElementById('paSave').onclick = async () => {
+      const sel = document.querySelector('input[name="pa"]:checked');
+      try {
+        await api('/api/admin/users/' + encodeURIComponent(id),
+          { method:'PUT', body: JSON.stringify({ username: nm, panelAccess: sel ? sel.value : 'both' }) });
+        closeModal(); toast('Panel girişi dəyişdirildi', 'ok'); loadSettings();
       } catch (e) { toast('Alınmadı: ' + e.message, 'bad'); }
     };
   });
@@ -8017,6 +9080,12 @@ document.getElementById('aAdd').addEventListener('click', () => {
           <option value="admin">admin — gündəlik iş, silmə yoxdur</option>
           <option value="owner">owner — tam səlahiyyət</option>
         </select></div>
+      <div class="field"><label>Panel girişi</label>
+        <select class="sel" id="aPacc" style="width:100%">
+          <option value="both">Hər ikisi — Texniki və Satış</option>
+          <option value="technical">Yalnız Texniki</option>
+          <option value="sales">Yalnız Satış</option>
+        </select></div>
       <div class="fh">Ən azı 8 simvol. Şifrə bazada bcrypt ilə saxlanılır.</div></div>
     <div class="mfoot"><button type="button" class="btn btn-ghost" onclick="closeModal()">Ləğv</button>
       <button type="button" class="btn btn-primary" id="aSave">Yarat</button></div>`);
@@ -8026,7 +9095,8 @@ document.getElementById('aAdd').addEventListener('click', () => {
     if (!username || !password) return toast('Ad və şifrə lazımdır','bad');
     if (password.length < 8) return toast('Şifrə ən azı 8 simvol olmalıdır','bad');
     const role = (document.getElementById('aR') || {}).value || 'admin';
-    try { await api('/api/admin/users', { method:'POST', body: JSON.stringify({ username, password, role }) });
+    const panelAccess = (document.getElementById('aPacc') || {}).value || 'both';
+    try { await api('/api/admin/users', { method:'POST', body: JSON.stringify({ username, password, role, panelAccess }) });
       closeModal(); toast('Admin yaradıldı','ok'); loadSettings(); }
     catch (e) { toast('Alınmadı: ' + e.message,'bad'); }
   };
@@ -8158,6 +9228,15 @@ function enter(){
     if (d && d.role) {
       localStorage.setItem(LS.role, d.role);
       applyRole();
+    }
+    if (d && d.panelAccess) {
+      const changed = (localStorage.getItem(LS.pacc) || 'both') !== d.panelAccess;
+      localStorage.setItem(LS.pacc, d.panelAccess);
+      applyPanelAccess();
+      // Owner girişi ARADAN GÖTÜRÜBSƏ (əvvəl 'both' idi, indi kilidlidir)
+      // panelMode indi dəyişmiş ola bilər — səhifə köhnə rejimin datası
+      // ilə açıq qalmasın deyə təzədən yüklənir.
+      if (changed && d.panelAccess !== 'both') location.reload();
     }
   }).catch(() => {});
   loadPlaces();
