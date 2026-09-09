@@ -6320,12 +6320,15 @@ function renderPlaces(){
     g.rows.forEach(b => { dups.add(b.name); dupGroupOf.set(b.name, g); });
   });
   // Satıcı dropdown-u — mövcud `places`-dən qurulur, seçilmiş dəyər saxlanılır.
+  // "Satıcı yoxdur" (Fuad-ın tələbi 2026-09-09) — satıcısı təyin olunmayan
+  // obyektləri tapmaq üçün, Clopos-a bağlı olub-olmamasından ASILI OLMAYARAQ.
   const bSellerSel = document.getElementById('bSeller');
   if (bSellerSel) {
     const sellers = [...new Set(places.map(p => p.sellerName).filter(Boolean))].sort();
     bSellerSel.innerHTML = '<option value="">Bütün satıcılar</option>' +
+      '<option value="__none__">Satıcı yoxdur</option>' +
       sellers.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
-    bSellerSel.value = sellers.includes(bSeller) ? bSeller : (bSeller = '');
+    bSellerSel.value = (bSeller === '__none__' || sellers.includes(bSeller)) ? bSeller : (bSeller = '');
   }
   // Eyni adın neçə sətri var — "Bir neçə filial" filtri bundan istifadə edir.
   const nameCount = new Map();
@@ -6344,7 +6347,8 @@ function renderPlaces(){
     if (scope === 'novisit') return !(b.visits > 0);
     if (scope === 'badname') return !!badName(b.name);
     if (scope === 'auto') return !!b.cloposAuto;
-    if (bSeller && b.sellerName !== bSeller) return false;
+    if (bSeller === '__none__' && b.sellerName) return false;
+    if (bSeller && bSeller !== '__none__' && b.sellerName !== bSeller) return false;
     if (bLinked === 'linked' && b.cloposId == null) return false;
     if (bLinked === 'unlinked' && b.cloposId != null) return false;
     if (bBranch === 'multi' && (nameCount.get(b.name) || 0) < 2) return false;
