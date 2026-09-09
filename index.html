@@ -9215,6 +9215,14 @@ function enter(){
   const fromHash = (location.hash || '').replace(/^#\/?/, '');
   const last = (() => { try { return localStorage.getItem(LS.pg); } catch (_) { return null; } })();
   go(PAGES[fromHash] ? fromHash : (PAGES[last] ? last : 'home'));
+  /* KRİTİK: bootstrap-da (skript yüklənəndə) `applyPanelMode()` artıq BİR
+     DƏFƏ çağırılıb, amma o zaman `page` hələ default `'home'` idi (yuxarıdakı
+     `go(...)` hələ işləməmişdi) — Satış rejimində 'home' həmişə etibarsız
+     sayılıb hər dəfə "staff"-a atırdı, bu da `LS.pg`-ni "staff" ilə əvəz
+     edib problemi GİLƏYƏ ÇEVİRİRDİ (hər refresh-də təkrarlanırdı, səbəbi
+     tapmaq çətin idi). İndi `page` DÜZGÜN təyin olunandan SONRA yenidən
+     çağırılır ki, redirect-yoxlaması əsl açıq səhifəyə görə işləsin. */
+  applyPanelMode();
   /* Panel Xəritə tabında açılırsa, go() drawMap()-i `summary` hələ gəlməmiş
      çağırır və siyahı boş qalırdı — növbəti 30 saniyəlik yeniləməyə qədər.
      Ona görə məlumat gələn kimi açıq səhifə yenidən çəkilir. */
