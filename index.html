@@ -457,6 +457,22 @@ main{overflow-y:auto;display:flex;flex-direction:column;background:var(--bg)}
   letter-spacing:.03em;padding:6px 12px;border-radius:8px;cursor:pointer;transition:background .15s,color .15s}
 .segtab:hover{color:var(--text)}
 .segtab.on{background:var(--brand-soft);color:var(--brand)}
+/* Texniki/Satış keçidi — sadə tint yerinə aydın, "seçilib" hiss verən
+   həll: aktiv tərəf real pill (kölgəli, tam kontrastlı mətn), qeyri-aktiv
+   solğun. Ümumi `.segtab.on`-a TOXUNMUR (o birilərdə — Statistika görünüş
+   tab-ları, pager ölçü seçimi — hələ də işlək qalır). */
+#panelModeSwitch{gap:2px}
+#panelModeSwitch .segtab{padding:7px 12px;font-size:12.5px;font-weight:600;
+  color:var(--faint);border-radius:8px;transition:background .18s cubic-bezier(.4,0,.2,1),
+  color .18s,box-shadow .18s}
+#panelModeSwitch .segtab.on{background:var(--surf);color:var(--text);font-weight:700;
+  box-shadow:0 1px 2px rgba(0,0,0,.06),0 1px 6px rgba(0,0,0,.08)}
+/* Qaranlıq temada `--surf` `--surf-2`-dən TÜND-dür (əksinə) — birbaşa
+   işlətsək aktiv tərəf "batmış" görünərdi. Ona görə burda ayrıca, həmişə
+   AÇIQLAŞDIRAN fon işlədilir ki, iki temada da "qaldırılmış" hiss qalsın. */
+:root[data-theme="dark"] #panelModeSwitch .segtab.on{
+  background:color-mix(in srgb, white 9%, var(--surf-2));
+  box-shadow:0 1px 2px rgba(0,0,0,.3),0 1px 6px rgba(0,0,0,.35)}
 /* Rəng izahı — nöqtələrin nə demək olduğu yazılmadan qalmasın */
 .legend{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:500;
   color:var(--faint);text-transform:none;letter-spacing:0;white-space:nowrap}
