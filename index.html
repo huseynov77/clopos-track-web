@@ -2198,6 +2198,7 @@ tbody tr:hover .rowacts,tr:focus-within .rowacts{opacity:1}
               <th class="sortable" data-lk="worker" style="width:14%">İşçi</th>
               <th class="sortable" data-lk="type" style="width:148px">Hadisə</th>
               <th class="sortable" data-lk="brand" style="width:16%">Obyekt</th>
+              <th style="width:110px" title="Obyekt seçilən Teams kanalı">İş növü</th>
               <th style="width:24%">Ünvan</th>
               <th>Qeyd</th>
             </tr></thead>
@@ -4906,7 +4907,7 @@ async function loadLog(reset){
     document.getElementById('logBody').innerHTML = logRows.length ? logRows.map((h, i) => {
       const dk = dayKey(new Date(h.time));
       const sep = dk !== prevDay
-        ? `<tr class="daysep"><td colspan="6">${dayLabel(h.time)}</td></tr>` : '';
+        ? `<tr class="daysep"><td colspan="7">${dayLabel(h.time)}</td></tr>` : '';
       prevDay = dk;
       // Mövqe əvvəlki qeyddən dəyişməyibsə işarələnir — GPS donub qala bilər
       const prevH = logRows[i-1];
@@ -4927,11 +4928,12 @@ async function loadLog(reset){
                  <svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/>
                  <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>` : ''}</td>
         <td class="ell" title="${esc(h.brandName||'')}">${h.brandName?esc(brandLabel(h.brandName)):'<span class="dash">—</span>'}</td>
+        <td>${h.workType ? `<span class="tag ${WORK_TYPE_TONE[h.workType]}">${WORK_TYPE_LABEL[h.workType]}</span>` : '<span class="dash">—</span>'}</td>
         <td class="ell addrcol" title="${esc(h.address||'')}">${coord}${h.address?esc(h.address):'<span class="dash">—</span>'}${
           frozen ? '<span class="frozen" title="Mövqe əvvəlki qeyddən dəyişməyib">mövqe köhnə</span>' : ''}</td>
         <td><div class="notecol" title="${esc(noteOf(h))}">${esc(noteOf(h))}</div></td>
       </tr>`;
-    }).join('') : `<tr><td colspan="6">${emptyBox('&#128269;', 'Nəticə tapılmadı',
+    }).join('') : `<tr><td colspan="7">${emptyBox('&#128269;', 'Nəticə tapılmadı',
         'Bu filtrlərə uyğun hadisə yoxdur. Tarix aralığını genişləndirin və ya filtrləri sıfırlayın.')}</td></tr>`;
 
     /* "Problemli" süzgəci — server tərəfdə belə bir tip yoxdur, ona görə
@@ -4952,7 +4954,7 @@ async function loadLog(reset){
       });
       if (!document.querySelector('#logBody tr[data-lrow]')) {
         document.getElementById('logBody').innerHTML =
-          `<tr><td colspan="6">${emptyBox('&#9989;', 'Problemli qeyd yoxdur',
+          `<tr><td colspan="7">${emptyBox('&#9989;', 'Problemli qeyd yoxdur',
             'Bu səhifədə ləğv, vaxt aşımı, təkrar göndərmə və ya köhnə mövqe qeydi yoxdur.')}</td></tr>`;
       }
     }
@@ -5004,7 +5006,7 @@ async function loadLog(reset){
     if (nx) nx.onclick = () => { if ((logPage+1)*LOG_LIMIT < logTotal){ logPage++; loadLog(); toTop(); } };
   } catch (e) {
     document.getElementById('logBody').innerHTML =
-      `<tr><td colspan="6"><div class="empty">Yüklənmədi: ${esc(e.message)}</div></td></tr>`;
+      `<tr><td colspan="7"><div class="empty">Yüklənmədi: ${esc(e.message)}</div></td></tr>`;
   } finally { logBusy = false; }
 }
 let logRows = [];
