@@ -1985,8 +1985,6 @@ tbody tr:hover .rowacts,tr:focus-within .rowacts{opacity:1}
           <div class="stats" id="homeCards"></div>
           <div class="statfoot" id="homeSub"></div>
         </div>
-        <div id="homeWorkType" hidden style="display:flex;gap:6px;flex-wrap:wrap;margin:-8px 0 16px"></div>
-
         <div class="grid-2 stretch">
           <!-- Canlı heyət -->
           <div class="panel">
@@ -2308,7 +2306,6 @@ tbody tr:hover .rowacts,tr:focus-within .rowacts{opacity:1}
             <div class="stats" id="statsCards"></div>
             <div class="statfoot" id="statsHint"></div>
           </div>
-          <div id="statsWorkType" hidden style="display:flex;gap:6px;flex-wrap:wrap;margin:-6px 0 16px"></div>
 
           <div class="panel" style="margin-bottom:16px">
             <div class="panel-h"><h3>Növbələr</h3></div>
@@ -3164,6 +3161,14 @@ async function loadHome(){
       <span class="cico ${tone}"><svg viewBox="0 0 24 24">${ic}</svg></span>
       <span class="clabel">${label}</span>${right || ''}</div>`;
 
+    // İş növü üzrə (texniki/quraşdırma/gəncə) — Fuad-ın tələbi, 2026-09-10,
+    // 2026-09-10 YENİDƏN: ayrıca sətir yox, "Ziyarət" kartının İÇİNƏ.
+    // "Naməlum" (köhnə app versiyası, iş növü yoxdur) qəsdən göstərilmir —
+    // Fuad: "onlar yəqin köhnə versiya istifadə edir, ekrana salma".
+    const wt = d.workTypeCounts || {};
+    const wtLine = ['texniki', 'qurasdirma', 'gence']
+      .filter(k => wt[k] > 0).map(k => WORK_TYPE_LABEL[k] + ' ' + wt[k]).join(' · ');
+
     document.getElementById('homeCards').innerHTML = `
       <div class="mcard ${dark?'':''}">
         ${head('green', IC.shift, 'Növbədə')}
@@ -3188,7 +3193,8 @@ async function loadHome(){
       <div class="mcard">
         ${head('blue', IC.door, 'Ziyarət', dl(t.objects, y.objects))}
         <div class="cbody">
-          <div class="cmain"><div class="cval">${t.objects ?? 0}</div></div>
+          <div class="cmain"><div class="cval">${t.objects ?? 0}</div>
+            ${wtLine ? `<div class="cnote">${esc(wtLine)}</div>` : ''}</div>
           <div class="sparkwrap">${spark(series('ziyaret'), COL.blue)}</div>
         </div>
         <div class="cfoot">${esc(foot(y.objects))}</div>
@@ -3217,20 +3223,6 @@ async function loadHome(){
         <span class="sk">${k}</span>
         <span class="sv${v?'':' zero'}">${v}</span>${dl}</div>`;
     }).join('');
-
-    // İş növü üzrə (texniki/quraşdırma/gəncə) — Fuad-ın tələbi, 2026-09-10.
-    // Köhnə ("unknown") ziyarətlər yalnız 0-dan çoxdursa göstərilir.
-    const wt = d.workTypeCounts || {};
-    const wtEl = document.getElementById('homeWorkType');
-    if (wtEl) {
-      const order = ['texniki', 'qurasdirma', 'gence', 'unknown'];
-      const rows = order.filter(k => wt[k] > 0);
-      wtEl.hidden = !rows.length;
-      wtEl.innerHTML = rows.map(k =>
-        '<span class="tag ' + WORK_TYPE_TONE[k] + '" style="font-size:12px;padding:5px 10px" title="' +
-          curLbl + '">' + WORK_TYPE_LABEL[k] + ' <b style="font-family:var(--mono);margin-left:3px">' + wt[k] + '</b></span>'
-      ).join('');
-    }
 
     /* Heyət */
     const list = w.list || [];
@@ -5260,27 +5252,21 @@ function renderStats(r){
     '<div class="cbody"><div class="cmain"><div class="cval">' + val + '</div>' +
     (note ? '<div class="cnote">' + note + '</div>' : '') + '</div></div></div>';
 
+  // İş növü üzrə (texniki/quraşdırma/gəncə) — Fuad-ın tələbi, 2026-09-10,
+  // 2026-09-10 YENİDƏN: ayrıca sətir yox, "Ziyarət" kartının İÇİNƏ (bax
+  // homeCards-dakı eyni məntiq). "Naməlum" qəsdən göstərilmir.
+  const wt = r.workTypeCounts || {};
+  const wtLine = ['texniki', 'qurasdirma', 'gence']
+    .filter(k => wt[k] > 0).map(k => WORK_TYPE_LABEL[k] + ' ' + wt[k]).join(' · ');
+
   const flagCount = (r.shifts || []).filter(s => s.flag).length;
   document.getElementById('statsCards').innerHTML =
-    card('blue', STATS_IC.door, 'Ziyarət', r.totalVisits || 0, (r.distinctObjects || 0) + ' fərqli obyekt') +
+    card('blue', STATS_IC.door, 'Ziyarət', r.totalVisits || 0,
+      (r.distinctObjects || 0) + ' fərqli obyekt' + (wtLine ? ' · ' + esc(wtLine) : '')) +
     card('green', STATS_IC.clock, 'Növbə saatı', (r.shiftHours || 0) + ' saat', (r.shifts ? r.shifts.length : 0) + ' növbə') +
     card('orange', STATS_IC.route, 'Məsafə', (r.distanceKm || 0) + ' km', (r.gpsPointCount || 0) + ' GPS nöqtəsi') +
     card(flagCount ? 'red' : 'green', STATS_IC.warn, 'Diqqət tələb edən',
       flagCount, flagCount ? 'uzun/bağlanmamış növbə — bax aşağı' : 'növbələr qaydasındadır');
-
-  // İş növü üzrə (texniki/quraşdırma/gəncə) — Fuad-ın tələbi, 2026-09-10.
-  // `unknown` sıfırdırsa göstərilmir (bu sahə tam işlədikdən sonra normal hal).
-  const wt = r.workTypeCounts || {};
-  const wtEl = document.getElementById('statsWorkType');
-  if (wtEl) {
-    const order = ['texniki', 'qurasdirma', 'gence', 'unknown'];
-    const rows = order.filter(k => wt[k] > 0);
-    wtEl.hidden = !rows.length;
-    wtEl.innerHTML = rows.map(k =>
-      '<span class="tag ' + WORK_TYPE_TONE[k] + '" style="font-size:12px;padding:5px 10px">' +
-        WORK_TYPE_LABEL[k] + ' <b style="font-family:var(--mono);margin-left:3px">' + wt[k] + '</b></span>'
-    ).join('');
-  }
 
   document.getElementById('statsHint').innerHTML =
     'Məsafə yalnız <b>19 avqust 2026</b>-dan etibarən dəqiqdir (davamlı GPS izləmə o tarixdən işləyir) — ' +
