@@ -554,6 +554,10 @@ tbody tr:hover{background:var(--surf-2)}
 .tag.t-obj{background:var(--brand-soft);color:var(--brand);border-color:color-mix(in srgb,var(--brand) 26%,transparent)}
 .tag.t-doc{background:#E8F0FE;color:#2563C9;border-color:#2563C933}
 :root[data-theme="dark"] .tag.t-doc{background:#131C2E;color:#7FA8F0;border-color:#7FA8F033}
+/* İş növü teqləri (texniki/quraşdırma/gəncə) üçün 3-cü ton — "violet",
+   Statistikada/İcmalda/obyekt tarixçəsində eyni rəng işlədilir. */
+.tag.violet{background:#EFE8FB;color:#6D45C4;border-color:#6D45C433}
+:root[data-theme="dark"] .tag.violet{background:#1E1730;color:#B294EE;border-color:#B294EE33}
 
 .grid-2{display:grid;grid-template-columns:1.4fr 1fr;gap:18px;align-items:start}
 
@@ -1981,6 +1985,7 @@ tbody tr:hover .rowacts,tr:focus-within .rowacts{opacity:1}
           <div class="stats" id="homeCards"></div>
           <div class="statfoot" id="homeSub"></div>
         </div>
+        <div id="homeWorkType" hidden style="display:flex;gap:6px;flex-wrap:wrap;margin:-8px 0 16px"></div>
 
         <div class="grid-2 stretch">
           <!-- Canlı heyət -->
@@ -2302,6 +2307,7 @@ tbody tr:hover .rowacts,tr:focus-within .rowacts{opacity:1}
             <div class="stats" id="statsCards"></div>
             <div class="statfoot" id="statsHint"></div>
           </div>
+          <div id="statsWorkType" hidden style="display:flex;gap:6px;flex-wrap:wrap;margin:-6px 0 16px"></div>
 
           <div class="panel" style="margin-bottom:16px">
             <div class="panel-h"><h3>Növbələr</h3></div>
@@ -3210,6 +3216,20 @@ async function loadHome(){
         <span class="sk">${k}</span>
         <span class="sv${v?'':' zero'}">${v}</span>${dl}</div>`;
     }).join('');
+
+    // İş növü üzrə (texniki/quraşdırma/gəncə) — Fuad-ın tələbi, 2026-09-10.
+    // Köhnə ("unknown") ziyarətlər yalnız 0-dan çoxdursa göstərilir.
+    const wt = d.workTypeCounts || {};
+    const wtEl = document.getElementById('homeWorkType');
+    if (wtEl) {
+      const order = ['texniki', 'qurasdirma', 'gence', 'unknown'];
+      const rows = order.filter(k => wt[k] > 0);
+      wtEl.hidden = !rows.length;
+      wtEl.innerHTML = rows.map(k =>
+        '<span class="tag ' + WORK_TYPE_TONE[k] + '" style="font-size:12px;padding:5px 10px" title="' +
+          curLbl + '">' + WORK_TYPE_LABEL[k] + ' <b style="font-family:var(--mono);margin-left:3px">' + wt[k] + '</b></span>'
+      ).join('');
+    }
 
     /* Heyət */
     const list = w.list || [];
@@ -5216,6 +5236,11 @@ const STATS_IC = {
   warn: '<path d="M12 9v5M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>',
 };
 const STATS_ACTION_LABEL = { contact: 'əlaqə', akt: 'akt', tehvil: 'təhvil', object_photo: 'şəkil' };
+// İş NÖVÜ (Fuad-ın tələbi, 2026-09-10): Teams-də obyekt seçilən kanaldan —
+// "texniki işlər"/"clopos quraşdırılma"/"gəncə brendləri". `unknown` — bu
+// sahə əlavə OLUNMAZDAN ƏVVƏLKİ (köhnə) ziyarətlər, geriyə doldurula bilməz.
+const WORK_TYPE_LABEL = { texniki: 'Texniki iş', qurasdirma: 'Quraşdırma', gence: 'Gəncə brendləri', unknown: 'Naməlum' };
+const WORK_TYPE_TONE = { texniki: 'brand', qurasdirma: 'ok', gence: 'violet', unknown: '' };
 document.querySelectorAll('#pg-stats .segtab').forEach(btn => btn.addEventListener('click', () => {
   document.querySelectorAll('#pg-stats .segtab').forEach(b => b.classList.toggle('on', b === btn));
   const showVisits = btn.dataset.stab === 'visits';
@@ -5240,6 +5265,20 @@ function renderStats(r){
     card('orange', STATS_IC.route, 'Məsafə', (r.distanceKm || 0) + ' km', (r.gpsPointCount || 0) + ' GPS nöqtəsi') +
     card(flagCount ? 'red' : 'green', STATS_IC.warn, 'Diqqət tələb edən',
       flagCount, flagCount ? 'uzun/bağlanmamış növbə — bax aşağı' : 'növbələr qaydasındadır');
+
+  // İş növü üzrə (texniki/quraşdırma/gəncə) — Fuad-ın tələbi, 2026-09-10.
+  // `unknown` sıfırdırsa göstərilmir (bu sahə tam işlədikdən sonra normal hal).
+  const wt = r.workTypeCounts || {};
+  const wtEl = document.getElementById('statsWorkType');
+  if (wtEl) {
+    const order = ['texniki', 'qurasdirma', 'gence', 'unknown'];
+    const rows = order.filter(k => wt[k] > 0);
+    wtEl.hidden = !rows.length;
+    wtEl.innerHTML = rows.map(k =>
+      '<span class="tag ' + WORK_TYPE_TONE[k] + '" style="font-size:12px;padding:5px 10px">' +
+        WORK_TYPE_LABEL[k] + ' <b style="font-family:var(--mono);margin-left:3px">' + wt[k] + '</b></span>'
+    ).join('');
+  }
 
   document.getElementById('statsHint').innerHTML =
     'Məsafə yalnız <b>19 avqust 2026</b>-dan etibarən dəqiqdir (davamlı GPS izləmə o tarixdən işləyir) — ' +
@@ -5282,8 +5321,12 @@ function renderStats(r){
     const actionTags = (v.actions && v.actions.length)
       ? v.actions.map(a => '<span class="tag ok">' + (STATS_ACTION_LABEL[a] || a) + '</span>').join(' ')
       : '<span class="tag bad">sənədsiz</span>';
+    // İş növü (Fuad-ın tələbi, 2026-09-10) — köhnə ziyarətlərdə (workType
+    // yoxdursa) HEÇ göstərilmir, "Naməlum" yazıb bütün köhnə sətirləri
+    // doldurmasın.
+    const workTypeTag = v.workType ? ' <span class="tag ' + WORK_TYPE_TONE[v.workType] + '">' + WORK_TYPE_LABEL[v.workType] + '</span>' : '';
     return '<tr><td>' + dayLabel(v.enter) + '</td>' +
-      '<td class="ell" title="' + esc(v.name) + '">' + esc(v.name) + repeatTag +
+      '<td class="ell" title="' + esc(v.name) + '">' + esc(v.name) + repeatTag + workTypeTag +
         '<div style="margin-top:5px;display:flex;gap:5px;flex-wrap:wrap">' + actionTags + '</div></td>' +
       '<td style="text-align:right">' + hm(v.enter) + ' → ' +
         (v.exit ? hm(v.exit) + ' <span class="dash">· ' + fmtMin(v.minutes) + '</span>'
@@ -7755,6 +7798,9 @@ async function openBrandDetail(name){
       ? rows.map(h =>
           '<div class="bd-r">' +
             '<span class="tag ' + evTone(h.type) + '">' + esc(evName(h.type)) + '</span>' +
+            // İş növü (Fuad-ın tələbi, 2026-09-10) — "bu brenddən akt göndərdi,
+            // tagı ora qoyaq" — obyektin tarixçəsində hər sətirdə görünür.
+            (h.workType ? '<span class="tag ' + WORK_TYPE_TONE[h.workType] + '">' + WORK_TYPE_LABEL[h.workType] + '</span>' : '') +
             '<b>' + esc(h.workerName || '—') + '</b>' +
             '<span class="bd-t">' + dt(h.time) + '</span>' +
           '</div>').join('')
