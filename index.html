@@ -1473,6 +1473,10 @@ tr:hover .ratedcell .rchg,.ratedcell .rchg:focus-visible{opacity:1}
 #logTable{table-layout:fixed;width:100%}
 #logTable thead th{position:sticky;top:0;z-index:3;
   background:var(--surf-2);box-shadow:0 1px 0 var(--line)}
+/* Növbələr cədvəli (Statistika) — uzun siyahı səhifəni sonsuz uzatmasın deyə
+   məhdud hündürlükdə sürüşür (Fuad-ın tələbi, 2026-09-10). */
+#statsShiftsWrap thead th{position:sticky;top:0;z-index:3;
+  background:var(--surf-2);box-shadow:0 1px 0 var(--line)}
 #logTable .daysep td{position:sticky;top:37px;z-index:2;box-shadow:0 1px 0 var(--line)}
 #pg-log .pager{flex:0 0 auto;border-radius:0 0 var(--r-lg) var(--r-lg)}
 @media(max-width:1180px){
@@ -2196,7 +2200,7 @@ tbody tr:hover .rowacts,tr:focus-within .rowacts{opacity:1}
               <th class="sortable" data-lk="worker" style="width:14%">İşçi</th>
               <th class="sortable" data-lk="type" style="width:148px">Hadisə</th>
               <th class="sortable" data-lk="brand" style="width:16%">Obyekt</th>
-              <th style="width:110px" title="Obyekt seçilən Teams kanalı">İş növü</th>
+              <th style="width:140px" title="Obyekt seçilən Teams kanalı">İş növü</th>
               <th style="width:24%">Ünvan</th>
               <th>Qeyd</th>
             </tr></thead>
@@ -2309,7 +2313,7 @@ tbody tr:hover .rowacts,tr:focus-within .rowacts{opacity:1}
 
           <div class="panel" style="margin-bottom:16px">
             <div class="panel-h"><h3>Növbələr</h3></div>
-            <div id="statsShiftsWrap"><table>
+            <div id="statsShiftsWrap" style="max-height:440px;overflow-y:auto"><table>
               <thead><tr>
                 <th>Açılış</th>
                 <th>Bağlanış</th>
