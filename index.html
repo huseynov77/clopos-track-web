@@ -1909,7 +1909,7 @@ tbody tr:hover .rowacts,tr:focus-within .rowacts{opacity:1}
       <svg viewBox="0 0 24 24"><path d="M12 2v4"/><path d="m6.3 6.3 2.8 2.8"/><path d="M2 12h4"/>
         <path d="m6.3 17.7 2.8-2.8"/><path d="M12 18v4"/><path d="m17.7 17.7-2.8-2.8"/>
         <path d="M18 12h4"/><path d="m17.7 6.3-2.8 2.8"/></svg>
-      Satışlar <span class="count" id="cSales"></span></a>
+      Lead-lər <span class="count" id="cSales"></span></a>
     <a class="nav" data-page="sales-worker">
       <svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
       Statistika</a>
@@ -2730,7 +2730,7 @@ const PAGES = {
   log:     ['Tarixçə','Bütün hadisələr'],
   places:  ['Obyektlər','Brendlər və məkanlar'],
   stats:   ['Statistika','İşçi üzrə obyekt, vaxt və məsafə'],
-  sales:   ['Satışlar','Satış əməkdaşlarının əlavə etdiyi lead-lər'],
+  sales:   ['Lead-lər','Satış əməkdaşlarının əlavə etdiyi lead-lər'],
   'sales-stats': ['İcmal','Satış komandasının bugünkü vəziyyəti'],
   'sales-worker': ['Statistika','Əməkdaş üzrə lead statistikası'],
   'sales-history': ['Tarixçə','Lead-lərin yaradılma və silinmə qeydləri'],
@@ -5393,7 +5393,7 @@ async function loadSales(){
     salesSel.clear();
     renderSales();
     renderSalesStats();
-  } catch (e) { toast('Satışlar yüklənmədi: ' + e.message, 'bad'); }
+  } catch (e) { toast('Lead-lər yüklənmədi: ' + e.message, 'bad'); }
 }
 function renderSales(){
   const q = (document.getElementById('slQ').value || '').toLowerCase();
