@@ -7185,7 +7185,7 @@ document.getElementById('bAutoLink').addEventListener('click', async () => {
         const r = await api('/api/v2/admin/brands/clopos', { method: 'POST',
           body: JSON.stringify({ canonical: b.name, brandId: res.hit.id,
             brandSlug: res.hit.name, brandTitle: res.hit.title,
-            sellerId: res.hit.seller_id, sellerName: res.hit.seller_name }) });
+            sellerId: res.hit.seller_id, sellerName: res.hit.seller_name, cloposStatus: res.hit.status }) });
         if (r && r.ok === false) throw new Error(r.error || 'alınmadı');
         b.cloposId = res.hit.id; b.cloposSlug = res.hit.name;
         ok++;
@@ -7214,7 +7214,7 @@ document.getElementById('bAutoLink').addEventListener('click', async () => {
         const r = await api('/api/v2/admin/brands/clopos', { method: 'POST',
           body: JSON.stringify({ canonical: b.name, brandId: b.cloposId,
             brandSlug: b.cloposSlug, brandTitle: hit.title,
-            sellerId: hit.seller_id, sellerName: hit.seller_name }) });
+            sellerId: hit.seller_id, sellerName: hit.seller_name, cloposStatus: hit.status }) });
         if (r && r.ok === false) throw new Error(r.error || 'alınmadı');
         b.cloposTitle = hit.title;
         filled++;
@@ -7536,7 +7536,7 @@ async function ncOne(groups, i){
           await api('/api/v2/admin/brands/clopos', { method: 'POST',
             body: JSON.stringify({ canonical: b.name, brandId: hit.id,
               brandSlug: hit.name, brandTitle: hit.title,
-              sellerId: hit.seller_id, sellerName: hit.seller_name }) });
+              sellerId: hit.seller_id, sellerName: hit.seller_name, cloposStatus: hit.status }) });
           b.cloposId = hit.id; b.cloposSlug = hit.name;
         } catch (_) {}
       }
@@ -7663,7 +7663,7 @@ function bindNc(groups){
             body: JSON.stringify({ canonical: newName,
               brandId: ncHit[i].id, brandSlug: ncHit[i].name,
               brandTitle: ncHit[i].title,
-              sellerId: ncHit[i].seller_id, sellerName: ncHit[i].seller_name }) });
+              sellerId: ncHit[i].seller_id, sellerName: ncHit[i].seller_name, cloposStatus: ncHit[i].status }) });
         } catch (_) {}
       }
       ncState[i] = 'done';
@@ -8017,7 +8017,7 @@ function renamePlace(b, onDone){
         await api('/api/v2/admin/brands/clopos', { method: 'POST',
           body: JSON.stringify({ canonical: target, brandId: picked.id,
             brandSlug: picked.name, brandTitle: picked.title,
-            sellerId: picked.seller_id, sellerName: picked.seller_name }) });
+            sellerId: picked.seller_id, sellerName: picked.seller_name, cloposStatus: picked.status }) });
       }
       toast(nameChanged ? 'Ad və brend bağlantısı yazıldı' : 'Brend bağlantısı yazıldı', 'ok');
       await loadPlaces(true);
