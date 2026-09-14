@@ -808,6 +808,15 @@ tbody tr:hover{background:var(--surf-2)}
 .bpin svg path{fill:#E8481A;stroke:#fff;stroke-width:1.6}
 .bpin svg circle{fill:#fff}
 .bpin:hover svg{filter:drop-shadow(0 3px 6px rgba(0,0,0,.4))}
+/* Clopos abunə statusu (2026-09-14, Fuad-ın tələbi) — pinin rəngi statusu
+   göstərir: satıcı xəritəyə baxanda yaxınlıqdakı «bitmək üzrə» brendi
+   görsün. `inactive` AYRICA rəng almır — Fuad-ın qərarı ilə `expired`
+   ilə eyni sayılır (ikisi də bizim üçün risk). Bağlı olmayan / hələ
+   yenilənməmiş obyekt BOZDUR — «bilmirik» ilə «güzəşt» qarışmasın deyə. */
+.bpin.st-active  svg path{fill:var(--ok)}
+.bpin.st-grace   svg path{fill:var(--warn)}
+.bpin.st-expired svg path{fill:var(--bad)}
+.bpin.st-none    svg path{fill:#8A8F98}
 
 /* Obyekt qrupu — yaxın pinlər bir dairədə */
 /* Obyekt qrupu — İŞÇİ nişanından formaca fərqlənir: işçi dairə, obyekt
@@ -1701,6 +1710,10 @@ tbody tr:hover .rowacts,tr:focus-within .rowacts{opacity:1}
 .lpin{width:9px;height:12px;flex:0 0 auto;display:inline-block;
   border-radius:50% 50% 50% 50%/60% 60% 40% 40%;
   background:#E8481A;border:1.5px solid #fff;box-shadow:0 0 0 1px var(--line-2)}
+.lpin.st-active{background:var(--ok)}
+.lpin.st-grace{background:var(--warn)}
+.lpin.st-expired{background:var(--bad)}
+.lpin.st-none{background:#8A8F98}
 .lclus{width:15px;height:15px;flex:0 0 auto;display:inline-grid;place-items:center;
   border-radius:5px;background:#3F4A5A;color:#fff;font-family:var(--mono);
   font-size:8.5px;font-weight:600;font-style:normal}
@@ -2118,8 +2131,12 @@ tbody tr:hover .rowacts,tr:focus-within .rowacts{opacity:1}
               <span class="tag ok">növbədə</span>
               <span class="tag brand">obyektdə</span>
               <span class="msep"></span>
-              <span><i class="lpin"></i>obyekt</span>
               <span><i class="lclus">7</i>qrup</span>
+              <span class="msep"></span>
+              <span title="Clopos abunəsi qüvvədədir"><i class="lpin st-active"></i>aktiv</span>
+              <span title="Abunə bitib, brend hələ deaktiv edilməyib — danışmaq üçün ən uyğun an"><i class="lpin st-grace"></i>güzəşt</span>
+              <span title="Abunə bitib / brend deaktivdir"><i class="lpin st-expired"></i>bitib</span>
+              <span title="Clopos-a bağlı deyil — status bilinmir"><i class="lpin st-none"></i>bilinmir</span>
             </div>
             <div class="msearch">
               <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
@@ -2252,6 +2269,13 @@ tbody tr:hover .rowacts,tr:focus-within .rowacts{opacity:1}
             <option value="">Filial — hamısı</option>
             <option value="multi">Bir neçə filial</option>
           </select>
+          <select id="bStatus" class="sel sm" title="Clopos abunə statusu — hər gün 09:00-da yenilənir">
+            <option value="">Abunə — hamısı</option>
+            <option value="active">Aktiv</option>
+            <option value="grace">Güzəşt müddəti</option>
+            <option value="expired">Bitib / deaktiv</option>
+            <option value="none">Status bilinmir</option>
+          </select>
           <span class="hitn" id="bCount"></span>
         </div>
 
@@ -2284,6 +2308,7 @@ tbody tr:hover .rowacts,tr:focus-within .rowacts{opacity:1}
               <th style="width:74px" title="Clopos brend id-si — Clopos-a bağlananda dolur">ID</th>
               <th class="sortable" data-pk="name">Obyekt</th>
               <th style="width:130px" title="Clopos-dakı satıcı — brend bağlantısından gəlir">Satıcı</th>
+              <th style="width:92px" title="Clopos abunə statusu — hər gün səhər 09:00-da avtomatik yenilənir">Abunə</th>
               <th class="sortable desc" data-pk="visits" style="width:88px;text-align:right">Ziyarət</th>
               <th class="sortable" data-pk="last" style="width:110px">Son ziyarət</th>
               <th>Ünvan</th>
@@ -3835,6 +3860,10 @@ function brandCard(x){
     '<div class="bc-b">' +
       '<span>' + (x.visits || 0) + ' ziyarət</span>' +
       (x.lastSeen ? '<span>son: ' + ago(x.lastSeen) + '</span>' : '') +
+      (cstOf(x) !== 'none'
+        ? '<span class="tag ' + CST_TONE[cstOf(x)] + '" title="' + esc(CST_TITLE[cstOf(x)]) + '">' +
+          CST_LBL[cstOf(x)] + '</span>'
+        : '') +
     '</div>' +
     '<div class="bc-f">' +
       '<button type="button" class="btn btn-ghost btn-sm" data-pop-brand="' + esc(x.name) + '">Ətraflı</button>' +
@@ -3869,6 +3898,20 @@ async function loadMapBrands(){
 /* 648 pini birdən çəkmək xəritəni dondururdu. Ekran pikselləri üzrə
    şəbəkəyə bölünür: yaxın obyektlər bir dairədə saylı görünür,
    yaxınlaşdıqca öz-özünə açılır. Yeni kitabxana əlavə olunmur. */
+/* Clopos abunə statusu (2026-09-14). `inactive` AYRICA göstərilmir — Fuad-ın
+   qərarı: bizim üçün ikisi də risqdir, ona görə `expired` ilə birləşir.
+   `null` = Clopos-a bağlı deyil VƏ YA hələ bir dəfə də yenilənməyib. */
+const CST = { active:'active', grace:'grace', expired:'expired', inactive:'expired' };
+const cstOf = (b) => CST[b && b.cloposStatus] || 'none';
+const CST_LBL = { active:'aktiv', grace:'güzəşt', expired:'bitib', none:'' };
+const CST_TONE = { active:'ok', grace:'warn', expired:'bad', none:'' };
+const CST_TITLE = {
+  active:'Clopos abunəsi qüvvədədir',
+  grace:'Abunə bitib, brend hələ deaktiv edilməyib — danışmaq üçün ən uyğun an',
+  expired:'Abunə bitib və ya brend deaktivdir',
+  none:'Clopos-a bağlı deyil — status bilinmir',
+};
+
 function drawBrandPins(){
   if (!map || !mBrandLayer) return;
   mBrandLayer.clearLayers();
@@ -3888,7 +3931,7 @@ function drawBrandPins(){
       L.marker([x.lat, x.lng], {
         icon: L.divIcon({ className: '', iconSize: [24, 31], iconAnchor: [12, 31],
           popupAnchor: [0, -27],
-          html: '<div class="bpin"><svg viewBox="0 0 24 31">' +
+          html: '<div class="bpin st-' + cstOf(x) + '"><svg viewBox="0 0 24 31">' +
             '<path d="M12 30.2C12 30.2 22 19.6 22 11.6A10 10 0 1 0 2 11.6c0 8 10 18.6 10 18.6z"/>' +
             '<circle cx="12" cy="11.4" r="3.6"/></svg></div>' }),
       }).bindPopup(brandCard(x), { minWidth: 210, maxWidth: 268 })
@@ -6179,7 +6222,7 @@ const selRows = () => places.filter(b => placeSel.has(rowKey(b)));
 async function loadPlaces(force){
   if (places.length && !force) { renderPlaces(); return; }
   document.getElementById('placesBody').innerHTML =
-    '<tr><td colspan="9"><div class="empty">Yüklənir…</div></td></tr>';
+    '<tr><td colspan="10"><div class="empty">Yüklənir…</div></td></tr>';
   try {
     const [d] = await Promise.all([
       api('/api/v2/admin/brands'),
@@ -6190,7 +6233,7 @@ async function loadPlaces(force){
     renderPlaces();
   } catch (e) {
     document.getElementById('placesBody').innerHTML =
-      `<tr><td colspan="9"><div class="empty">Yüklənmədi: ${esc(e.message)}</div></td></tr>`;
+      `<tr><td colspan="10"><div class="empty">Yüklənmədi: ${esc(e.message)}</div></td></tr>`;
   }
 }
 /* Bənzər adları tapır — bu səhifənin əsas işi məhz təkrarları görməkdir.
@@ -6387,6 +6430,7 @@ function renderPlaces(){
     if (bLinked === 'linked' && b.cloposId == null) return false;
     if (bLinked === 'unlinked' && b.cloposId != null) return false;
     if (bBranch === 'multi' && (nameCount.get(b.name) || 0) < 2) return false;
+    if (bStatus && cstOf(b) !== bStatus) return false;
     return true;
   });
 
@@ -6530,6 +6574,9 @@ function renderPlaces(){
       <td style="font-size:12px" title="${b.sellerId!=null?'Satıcı id: '+esc(String(b.sellerId)):''}">${b.sellerName
         ? esc(b.sellerName)
         : (b.cloposId ? '<span class="dash">—</span>' : '')}</td>
+      <td>${cstOf(b) !== 'none'
+        ? `<span class="tag ${CST_TONE[cstOf(b)]}" title="${esc(CST_TITLE[cstOf(b)])}">${CST_LBL[cstOf(b)]}</span>`
+        : `<span class="dash" title="${esc(CST_TITLE.none)}">—</span>`}</td>
       <td class="num" style="text-align:right">
         <b style="font-weight:600">${b.visits||0}</b>
         ${b.exits ? `<i class="exn ${b.exits > (b.visits||0) ? 'odd' : ''}"
@@ -6569,7 +6616,7 @@ function renderPlaces(){
             <path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"/>
             <path d="M9 7V4h6v3"/></svg></button>`:''}
       </div></td></tr>`;
-  }).join('') : `<tr><td colspan="9">${
+  }).join('') : `<tr><td colspan="10">${
       q ? emptyBox('&#128269;', 'Tapılmadı', '&quot;' + esc(q) + '&quot; üzrə obyekt yoxdur.')
       : scope === 'dup' ? emptyBox('&#9989;', 'Təkrar tapılmadı', 'Oxşar adlı obyekt yoxdur — siyahı təmizdir.')
       : scope === 'merged' ? emptyBox('&#128279;', 'Birləşdirilmiş obyekt yoxdur', 'Hələ heç bir obyekt birləşdirilməyib.')
@@ -6714,10 +6761,11 @@ document.addEventListener('click', (e) => {
 });
 /* Yeni filtrlər (Fuad-ın tələbi 2026-09-09: "satış işçisinə görə filter,
    qalanlarını sən qoy") — Satıcı, Clopos bağlantısı, Filial sayı. */
-let bSeller = '', bLinked = '', bBranch = '';
+let bSeller = '', bLinked = '', bBranch = '', bStatus = '';
 document.getElementById('bSeller').addEventListener('change', (e) => { bSeller = e.target.value; placePage = 0; renderPlaces(); });
 document.getElementById('bLinked').addEventListener('change', (e) => { bLinked = e.target.value; placePage = 0; renderPlaces(); });
 document.getElementById('bBranch').addEventListener('change', (e) => { bBranch = e.target.value; placePage = 0; renderPlaces(); });
+document.getElementById('bStatus').addEventListener('change', (e) => { bStatus = e.target.value; placePage = 0; renderPlaces(); });
 /* Ayrıca "Yenilə" düyməsi silindi — yuxarıdakı qlobal yeniləmə düyməsi
    açıq səhifəni onsuz da yeniləyir, ikisi təkrar idi. */
 document.getElementById('bClear').addEventListener('click', () => { placeSel.clear(); renderPlaces(); });
