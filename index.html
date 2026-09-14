@@ -6478,8 +6478,15 @@ function renderPlaces(){
       card('dup', 'warn', 'Təkrar ola bilər',
         places.filter(b => dups.has(b.name)).length,
         'oxşar ad, ya da eyni ad çox məkanda — bax, lazım olmayanı iqnor et' +
-        (dupCardSkip.size ? ' · <span class="linklike" data-dupcard-reset title="' +
-          dupCardSkip.size + ' qrup gizlədilib">' + dupCardSkip.size + ' gizli, sıfırla</span>' : '')) +
+        /* Sayı hamı görür, SIFIRLAMA yalnız owner-də (Fuad-ın tələbi,
+           2026-09-14) — geri dönüşü yoxdur. Server tərəfdə də qapı var. */
+        (dupCardSkip.size
+          ? (isOwner()
+              ? ' · <span class="linklike" data-dupcard-reset title="' +
+                dupCardSkip.size + ' qrup gizlədilib">' + dupCardSkip.size + ' gizli, sıfırla</span>'
+              : ' · <span title="Sıfırlamaq yalnız əsas admin (owner) səlahiyyətindədir">' +
+                dupCardSkip.size + ' gizli</span>')
+          : '')) +
       card('merged', 'green', 'Birləşdirilmiş', places.filter(b => (b.aliases||[]).length > 1).length, 'çox yazılışı olan') +
       card('novisit', 'blue', 'Giriş qeydi yox',
         places.filter(b => !(b.visits > 0)).length, 'çıxış var, giriş yoxdur — GPS hazır olmayıb') +
@@ -6976,10 +6983,10 @@ document.getElementById('bDupSug').addEventListener('click', () => {
         : 'Eyni brendə bağlı və bir-birinə yaxın obyekt tapılmadı.') + '</p>' +
       '<button type="button" class="mclose" onclick="closeModal()">&times;</button></div>' +
       '<div class="mfoot">' +
-        (hidden ? '<button type="button" class="btn btn-ghost btn-sm" id="dsUnskip">' +
+        (hidden && isOwner() ? '<button type="button" class="btn btn-ghost btn-sm" id="dsUnskip">' +
           hidden + ' gizlədilmiş göstər</button>' : '') +
         '<button type="button" class="btn btn-primary" onclick="closeModal()">Bağla</button></div>');
-    if (hidden) document.getElementById('dsUnskip').onclick = unskipAll;
+    if (hidden && isOwner()) document.getElementById('dsUnskip').onclick = unskipAll;
     return;
   }
   dsState = {};
@@ -6996,10 +7003,10 @@ document.getElementById('bDupSug').addEventListener('click', () => {
     '</div>' +
     '<div class="mfoot"><span class="fh" style="margin:0;flex:1">Tarixçə silinmir — ' +
       'ziyarətlər toplanır. İstənilən vaxt «Ayır» ilə geri qaytarmaq olar.</span>' +
-      (hidden ? '<button type="button" class="btn btn-ghost btn-sm" id="dsUnskip">' +
+      (hidden && isOwner() ? '<button type="button" class="btn btn-ghost btn-sm" id="dsUnskip">' +
         hidden + ' gizlədilmiş göstər</button>' : '') +
       '<button type="button" class="btn btn-primary" onclick="closeModal()">Bitir</button></div>');
-  if (hidden) document.getElementById('dsUnskip').onclick = unskipAll;
+  if (hidden && isOwner()) document.getElementById('dsUnskip').onclick = unskipAll;
 
   document.getElementById('dsList').innerHTML = list.map((x, i) => {
     // Standart seçim: ən çox ziyarəti olan sətir — adı da, məkanı da ondan
