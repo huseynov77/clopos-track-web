@@ -6500,6 +6500,13 @@ function renderPlaces(){
     const rst = st.querySelector('[data-dupcard-reset]');
     if (rst) rst.onclick = (ev) => {
       ev.stopPropagation();   // kartın öz filtr keçidini tetiklməsin
+      /* TƏSDİQ MƏCBURİDİR: bu link aylarla yığılmış «bu təkrar deyil»
+         qərarlarını bir kliklə silir və geri qaytarmaq yolu yoxdur.
+         2026-09-14-də səhvən basılıb, 24 qərar itib. */
+      const n = dupCardSkip.size;
+      if (!confirm(n + ' gizlədilmiş «təkrar deyil» qərarı silinsin?\n\n' +
+        'Həmin qruplar yenidən «təkrar ola bilər» kimi görünəcək.\n' +
+        'Bu geri qaytarıla bilməz.')) return;
       resetDupCard();
       renderPlaces();
     };
@@ -6953,6 +6960,10 @@ document.getElementById('bDupSug').addEventListener('click', () => {
   const list = all.filter(x => !skip.has(x.sig));
 
   const unskipAll = () => {
+    // «Təkrar ola bilər» kartındakı sıfırlama ilə EYNİ risk — təsdiqsiz
+    // bir kliklə bütün gizlətmə qərarları itir (bax renderPlaces).
+    if (hidden && !confirm(hidden + ' gizlədilmiş təklif yenidən göstərilsin?\n\n' +
+      'Bu geri qaytarıla bilməz.')) return;
     resetDupSug();
     closeModal();
     document.getElementById('bDupSug').click();
