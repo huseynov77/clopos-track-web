@@ -2899,8 +2899,16 @@ function applyPanelMode(){
   // o, icazəsiz `loadStaff()` işə salır, server 401 qaytarır, bu da
   // logout()+reload tətikləyir, YENİDƏN eyni şərtlə qarşılaşıb sonsuz
   // dövrə düşürdü (login ekranı açılmırdı). 2026-09-09 tapılıb düzəldi.
-  if (localStorage.getItem(LS.tok) && sales && !SALES_VISIBLE_PAGES.has(page)) {
-    try { go('staff'); } catch (e) { console.error('applyPanelMode redirect:', e); }
+  /* Yoxlama HƏR İKİ istiqamətdə işləməlidir. Əvvəl yalnız `sales &&` şərti
+     var idi: Satışa keçəndə yararsız səhifə düzəlirdi, TEXNİKİYƏ keçəndə isə
+     heç bir yoxlama yox idi. Nəticədə satışın "İcmal"ı (sales-stats) texniki
+     rejimdə ekranda DONUB qalırdı — sol menyu texnikiyə keçir, məzmun isə
+     satışın boş kartları olaraq qalır; istifadəçi əl ilə "İcmal"a basmalı
+     olurdu (Fuad-ın tapdığı, 2026-09-15). */
+  const seheIfeYararsiz = sales ? !SALES_VISIBLE_PAGES.has(page) : SALES_ONLY_PAGES.has(page);
+  if (localStorage.getItem(LS.tok) && seheIfeYararsiz) {
+    // Satışda «İşçilər», texnikidə «İcmal» — hər rejimin öz başlanğıcı
+    try { go(sales ? 'staff' : 'home'); } catch (e) { console.error('applyPanelMode redirect:', e); }
   }
 }
 document.querySelectorAll('#panelModeSwitch [data-pmode]').forEach(b => b.addEventListener('click', () => {
@@ -2914,7 +2922,9 @@ document.querySelectorAll('#panelModeSwitch [data-pmode]').forEach(b => b.addEve
   const nextSales = next === 'sales';
   const validNow = nextSales ? SALES_VISIBLE_PAGES.has(page) : !SALES_ONLY_PAGES.has(page);
   try { localStorage.setItem('ct_panel_mode', next); } catch (_) {}
-  try { localStorage.setItem(LS.pg, validNow ? page : 'staff'); } catch (_) {}
+  // Yararsızdırsa hər rejim öz başlanğıcına düşür (yuxarıdakı yönləndirmə
+  // ilə eyni qayda): satış → İşçilər, texniki → İcmal.
+  try { localStorage.setItem(LS.pg, validNow ? page : (nextSales ? 'staff' : 'home')); } catch (_) {}
   location.reload();
 }));
 /* Adminin panel girişi (both/technical/sales) — owner Tənzimləmələr →
