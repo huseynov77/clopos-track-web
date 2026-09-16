@@ -3298,8 +3298,11 @@ async function loadHome(){
         <span class="sv${v?'':' zero'}">${v}</span>${dl}</div>`;
     }).join('');
 
-    /* Heyət */
-    const list = w.list || [];
+    /* Heyət — YALNIZ cari rejimin işçiləri (Fuad-ın tapdığı, 2026-09-16:
+       texniki paneldə satış işçiləri də görünürdü). Server indi hər sətrə
+       `staffType` qatır; köhnə cavabda sahə yoxdursa 'technical' sayılır,
+       yəni texniki rejim köhnə server ilə də düzgün işləyir. */
+    const list = (w.list || []).filter(x => (x.staffType || 'technical') === panelMode);
     document.getElementById('staffTag').textContent = (w.onShift ?? 0) + ' işdə';
     document.getElementById('liveStaff').innerHTML = list.length ? list.map(p => {
       const on = p.shiftOpen;
@@ -3744,7 +3747,9 @@ function drawMap(){
     document.getElementById('mapList').innerHTML = '<div class="empty">Yüklənir…</div>';
     return;
   }
-  const all = (summary.workers && summary.workers.list) || [];
+  // Xəritə də rejimə görə süzülür — İcmal ilə eyni qayda (bax loadHome).
+  const all = ((summary.workers && summary.workers.list) || [])
+    .filter(x => (x.staffType || 'technical') === panelMode);
   const hideOff = document.getElementById('mHideOff').checked;
   const q = (document.getElementById('mQ').value || '').toLowerCase();
   const list = all.filter(p => (!hideOff || isLiveW(p)) &&
