@@ -791,32 +791,37 @@ tbody tr:hover{background:var(--surf-2)}
 .maplay > .panel > .panel-h{flex:0 0 auto}
 #map{flex:1 1 auto;min-height:0}
 @media(max-width:1180px){.maplay{height:auto}#map{height:56vh;min-height:340px}}
-/* ── Xəritə ──
-   Nişan rəngi vəziyyəti bildirir; izahı yan paneldədir. */
-.wmark{width:32px;height:32px;border-radius:50%;background:var(--wc);
-  border:2.5px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.32);
-  display:grid;place-items:center;color:#fff;
-  font:600 10.5px/1 'Instrument Sans',sans-serif;letter-spacing:.02em}
-.wmark.sel{box-shadow:0 0 0 4px color-mix(in srgb,var(--wc) 35%,transparent),0 3px 10px rgba(0,0,0,.35);
-  transform:scale(1.12)}
-/* Satış xəritəsindəki onlayn işçi nişanı — lead pin-lərdən (32px) fərqli,
-   kiçik, ki iki tip pin qarışdırılmasın. */
-.wmark.sm{width:26px;height:26px;font-size:9px}
-/* Tək obyekt — kiçik dairə yerinə normal xəritə pini */
-.bpin svg{width:24px;height:31px;display:block;
-  filter:drop-shadow(0 2px 3px rgba(0,0,0,.3))}
-.bpin svg path{fill:#E8481A;stroke:#fff;stroke-width:1.6}
-.bpin svg circle{fill:#fff}
-.bpin:hover svg{filter:drop-shadow(0 3px 6px rgba(0,0,0,.4))}
-/* Clopos abunə statusu (2026-09-14, Fuad-ın tələbi) — pinin rəngi statusu
+/* ── Xəritə nişanları: TELEFON İLƏ EYNİ DİL (Fuad, 2026-09-17) ──
+   Mobil app-da (`live_map.dart`, `sales_home_screen.dart`) hər üç tip
+   ağ dairədir: 2px kənar + içində Lucide ikonu. Panel əvvəl damla-pin və
+   baş hərflər işlədirdi — eyni xəritəyə fərqli iki dil. İndi eynidir:
+     obyekt → mağaza ikonu, rəng = abunə statusu
+     lead   → bayraq ikonu, narıncı
+     işçi   → adam ikonu, yaşıl (onlayn) / qırmızı (oflayn)
+   Ölçülər telefondakından 2px böyükdür — masaüstündə kursorla seçilir. */
+.mpin{width:28px;height:28px;border-radius:50%;background:#fff;
+  border:2px solid var(--pc,#8A8F98);box-shadow:0 2px 5px rgba(0,0,0,.28);
+  display:grid;place-items:center;cursor:pointer;
+  transition:transform .12s ease, box-shadow .12s ease}
+.mpin svg{width:14px;height:14px;display:block;fill:none;stroke:var(--pc,#8A8F98);
+  stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.mpin:hover{transform:scale(1.12);box-shadow:0 3px 9px rgba(0,0,0,.36)}
+/* Clopos abunə statusu (2026-09-14, Fuad-ın tələbi) — nişanın rəngi statusu
    göstərir: satıcı xəritəyə baxanda yaxınlıqdakı «bitmək üzrə» brendi
    görsün. `inactive` AYRICA rəng almır — Fuad-ın qərarı ilə `expired`
    ilə eyni sayılır (ikisi də bizim üçün risk). Bağlı olmayan / hələ
    yenilənməmiş obyekt BOZDUR — «bilmirik» ilə «güzəşt» qarışmasın deyə. */
-.bpin.st-active  svg path{fill:var(--ok)}
-.bpin.st-grace   svg path{fill:var(--warn)}
-.bpin.st-expired svg path{fill:var(--bad)}
-.bpin.st-none    svg path{fill:#8A8F98}
+.mpin.st-active {--pc:var(--ok)}
+.mpin.st-grace  {--pc:var(--warn)}
+.mpin.st-expired{--pc:var(--bad)}
+.mpin.st-none   {--pc:#8A8F98}
+/* Lead — telefonda narıncı bayraq. */
+.mpin.lead{--pc:var(--brand)}
+/* İşçi — rəngi `--pc` ilə kənardan verilir (onlayn/oflayn).
+   Seçili (`sel`) və köhnə-mövqe (`stale`) vəziyyətləri aşağıdadır. */
+.mpin.sel{box-shadow:0 0 0 4px color-mix(in srgb,var(--pc) 35%,transparent),0 3px 10px rgba(0,0,0,.35);
+  transform:scale(1.12)}
+.mpin.stale{opacity:.45;border-style:dashed}
 
 /* Obyekt qrupu — yaxın pinlər bir dairədə */
 /* Obyekt qrupu — İŞÇİ nişanından formaca fərqlənir: işçi dairə, obyekt
@@ -824,7 +829,11 @@ tbody tr:hover{background:var(--surf-2)}
 .bclus{border-radius:9px;display:flex;align-items:center;justify-content:center;gap:2px;
   cursor:pointer;background:#3F4A5A;border:2px solid #fff;color:#fff;
   box-shadow:0 2px 10px rgba(0,0,0,.3)}
-.bclus svg{width:11px;height:11px;fill:currentColor;stroke:none;opacity:.75;flex:0 0 auto}
+/* Klasterin içindəki qlif də tək nişanlarla EYNİ Lucide ikonudur (obyekt →
+   mağaza, lead → bayraq) — əvvəl damla formasında idi, tək nişanlar dairəyə
+   keçəndən sonra uyğunsuz qalmışdı. Kontur ilə çəkilir. */
+.bclus svg{width:11px;height:11px;fill:none;stroke:currentColor;stroke-width:2;
+  stroke-linecap:round;stroke-linejoin:round;opacity:.8;flex:0 0 auto}
 .bclus b{font:600 11.5px/1 'JetBrains Mono',monospace;letter-spacing:-.04em}
 
 .mlegend{display:flex;flex-wrap:wrap;gap:4px 14px;padding:10px 18px;
@@ -1699,9 +1708,6 @@ tbody tr:hover .rowacts,tr:focus-within .rowacts{opacity:1}
 .upd.old{color:var(--warn)}
 @media(max-width:900px){.upd{display:none}}
 
-/* Köhnə mövqe — 12 saatdan çox siqnal yoxdursa */
-.wmark.stale{opacity:.45;border-style:dashed}
-
 /* Koordinat kopyalama */
 .copyc{display:inline-flex;align-items:center;gap:5px;cursor:pointer;
   padding:1px 5px;margin:-1px -5px;border-radius:5px;transition:background .12s}
@@ -2088,7 +2094,9 @@ tbody tr:hover .rowacts,tr:focus-within .rowacts{opacity:1}
                 </div>
                 <select id="smWorker" class="sel sm"><option value="">Bütün əməkdaşlar</option></select>
                 <select id="smStatus" class="sel sm"><option value="">Bütün statuslar</option></select>
-                <label class="chk"><input type="checkbox" id="smShowWorkers" checked> İşçilər (onlayn)</label>
+                <!-- Default SÖNÜLÜ (Fuad, 2026-09-17): xəritə lead-lər üçündür,
+                     işçi nişanları onları örtürdü. Lazım olanda işarələnir. -->
+                <label class="chk"><input type="checkbox" id="smShowWorkers"> İşçilər (onlayn)</label>
                 <button type="button" class="btn btn-ghost btn-sm" id="smFit">Hamısını göstər</button>
                 <span class="tag" id="salesMapCount"></span>
               </div>
@@ -3521,6 +3529,35 @@ const MTONE = {
   on:  { c:'#0E8F63', t:'onlayn' },
   off: { c:'#D02642', t:'oflayn' },
 };
+
+/* Xəritə nişanlarının ikonları — MOBİL APP-DAKI EYNİ Lucide qlifləri
+   (`store`, `flag`, `user`), 24×24 grid, kontur ilə çəkilir (rəngi CSS-dəki
+   `--pc` verir). Fuad-ın tələbi (2026-09-17): "obyektləri telefondakı
+   ikonlardan et, lead-ə uyğun ikon, işçiyə uyğun ikon". */
+const MPIN_ICONS = {
+  store:
+    '<path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/>' +
+    '<path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>' +
+    '<path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"/>' +
+    '<path d="M2 7h20"/>' +
+    '<path d="M22 7v3a2 2 0 0 1-2 2 2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 16 12' +
+    'a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 12 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0' +
+    'A2.7 2.7 0 0 1 8 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 4 12a2 2 0 0 1-2-2V7"/>',
+  flag:
+    '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/>' +
+    '<path d="M4 22v-7"/>',
+  user:
+    '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>' +
+    '<circle cx="12" cy="7" r="4"/>',
+};
+/** Nişanın HTML-i. `cls` — əlavə klaslar (st-*, lead, sel, stale…),
+ *  `style` — inline dəyişən (işçi rəngi üçün `--pc`). */
+function mpinHtml(kind, cls, style, title){
+  return '<div class="mpin' + (cls ? ' ' + cls : '') + '"' +
+    (style ? ' style="' + style + '"' : '') +
+    (title ? ' title="' + esc(title) + '"' : '') +
+    '><svg viewBox="0 0 24 24">' + (MPIN_ICONS[kind] || '') + '</svg></div>';
+}
 const isLiveW = p => !!(p.lastSeen && Date.now() - p.lastSeen < 5*60*1000);
 /* DONMUŞ MÖVQE — telefon serverlə danışır, amma GPS təzə nöqtə vermir.
    Server `lastMove` göndərir: mövqenin son dəfə dəyişdiyi an. Siqnal təzə,
@@ -3808,14 +3845,15 @@ function drawMap(){
     // 9) Mövqe köhnədirsə (12 saatdan çox) nişan solğun görünür
     const staleH = p.lastSeen ? (Date.now() - p.lastSeen) / 3600000 : 999;
     const stale = staleH > 12;
-    const html = '<div class="wmark' + (sel ? ' sel' : '') + (stale ? ' stale' : '') +
-      '" style="--wc:' + col + '" title="' + (stale ? 'köhnə mövqe' : '') + '">' +
-      esc(initials(p.name)) + '</div>';
+    /* İşçi — telefondakı kimi dairə nişan, içində ADAM ikonu (əvvəl baş
+       hərflər idi). Ad tooltip-də tam görünür, yəni oxunaqlılıq artır. */
+    const html = mpinHtml('user', (sel ? 'sel ' : '') + (stale ? 'stale' : ''),
+      '--pc:' + col, stale ? p.name + ' · köhnə mövqe' : p.name);
     /* Aralama ikonun çəkilmə nöqtəsindədir, koordinatda deyil — nişan
        yerindən oynayır, işçinin mövqeyi isə dəqiq qalır. */
     const off = spread.get(p.id);
-    const icon = L.divIcon({ html, className:'', iconSize:[32,32],
-      iconAnchor: off ? [16 - off[0], 16 - off[1]] : [16, 16] });
+    const icon = L.divIcon({ html, className:'', iconSize:[28,28],
+      iconAnchor: off ? [14 - off[0], 14 - off[1]] : [14, 14] });
     const pos = [p.lat, p.lng];
 
     if (mMarkers[p.id]) mMarkers[p.id].setLatLng(pos).setIcon(icon);
@@ -3878,9 +3916,9 @@ function drawMap(){
 
   const brandRows = hits.map(x =>
     '<div class="mrow brow" data-bid="' + esc(x.name) + '">' +
-      '<div class="bico"><svg viewBox="0 0 24 24">' +
-        '<path d="M12 21s7-6.4 7-11a7 7 0 1 0-14 0c0 4.6 7 11 7 11z"/>' +
-        '<circle cx="12" cy="10" r="2.4"/></svg></div>' +
+      // Yan siyahıdakı obyekt sətri də xəritə nişanı ilə EYNİ mağaza ikonunu
+      // işlədir (mobil app-ın siyahı sətirlərində də belədir).
+      '<div class="bico"><svg viewBox="0 0 24 24">' + MPIN_ICONS.store + '</svg></div>' +
       '<div class="pmain">' +
         '<div class="pname"><span class="pn">' + esc(brandLabel(x.name)) + '</span></div>' +
         '<div class="pmeta">' + esc(x.address || 'ünvan yoxdur') + '</div>' +
@@ -4011,13 +4049,11 @@ function drawBrandPins(){
     if (group.length === 1) {
       const x = group[0];
       L.marker([x.lat, x.lng], {
-        icon: L.divIcon({ className: '', iconSize: [24, 31], iconAnchor: [12, 31],
-          popupAnchor: [0, -27],
-          html: '<div class="bpin st-' + cstOf(x) + '"><svg viewBox="0 0 24 31">' +
-            '<path d="M12 30.2C12 30.2 22 19.6 22 11.6A10 10 0 1 0 2 11.6c0 8 10 18.6 10 18.6z"/>' +
-            '<circle cx="12" cy="11.4" r="3.6"/></svg></div>' }),
+        icon: L.divIcon({ className: '', iconSize: [28, 28], iconAnchor: [14, 14],
+          popupAnchor: [0, -14],
+          html: mpinHtml('store', 'st-' + cstOf(x)) }),
       }).bindPopup(brandCard(x), { minWidth: 210, maxWidth: 268 })
-        .bindTooltip(brandLabel(x.name), { direction: 'top', offset: [0, -28] })
+        .bindTooltip(brandLabel(x.name), { direction: 'top', offset: [0, -16] })
         .addTo(mBrandLayer);
     } else {
       const lat = group.reduce((s, x) => s + x.lat, 0) / group.length;
@@ -4029,7 +4065,7 @@ function drawBrandPins(){
       L.marker([lat, lng], {
         icon: L.divIcon({ className: '',
           html: '<div class="bclus" style="width:' + size + 'px;height:' + size + 'px">' +
-            '<svg viewBox="0 0 24 24"><path d="M12 21s7-6.4 7-11a7 7 0 1 0-14 0c0 4.6 7 11 7 11z"/></svg>' +
+            '<svg viewBox="0 0 24 24">' + MPIN_ICONS.store + '</svg>' +
             '<b>' + n + '</b></div>',
           iconSize: [size, size], iconAnchor: [size/2, size/2] }),
       /* Klik: yaxınlaşdırmaq kömək edirsə yaxınlaşdırır, etmirsə SİYAHI açır.
@@ -6098,10 +6134,14 @@ function drawSalesLeadPins(){
   for (const group of cells.values()) {
     if (group.length === 1) {
       const l = group[0];
-      const html = '<div class="wmark" style="--wc:var(--brand)">' + esc(initials(l.brandName)) + '</div>';
-      const icon = L.divIcon({ html, className:'', iconSize:[32,32], iconAnchor:[16,16] });
+      /* Lead — telefondakı kimi narıncı BAYRAQ nişanı. Əvvəl brend adının
+         baş hərfləri yazılırdı; ad indi tooltip-dədir, yəni MƏLUMAT İTMİR,
+         üstəlik tam ad görünür (baş hərflərdən daha aydın). */
+      const icon = L.divIcon({ html: mpinHtml('flag', 'lead'), className: '',
+        iconSize: [28, 28], iconAnchor: [14, 14], popupAnchor: [0, -14] });
       L.marker([l.lat, l.lng], { icon })
         .bindPopup(salesLeadCard(l), { minWidth: 272, maxWidth: 320, autoPan: true, keepInView: true, autoPanPadding: L.point(24, 24) })
+        .bindTooltip(esc(l.brandName || ''), { direction: 'top', offset: [0, -16] })
         .addTo(salesLeadLayer);
     } else {
       const lat = group.reduce((s, l) => s + l.lat, 0) / group.length;
@@ -6111,7 +6151,7 @@ function drawSalesLeadPins(){
       L.marker([lat, lng], {
         icon: L.divIcon({ className: '',
           html: '<div class="bclus" style="width:' + size + 'px;height:' + size + 'px">' +
-            '<svg viewBox="0 0 24 24"><path d="M12 21s7-6.4 7-11a7 7 0 1 0-14 0c0 4.6 7 11 7 11z"/></svg>' +
+            '<svg viewBox="0 0 24 24">' + MPIN_ICONS.flag + '</svg>' +
             '<b>' + n + '</b></div>',
           iconSize: [size, size], iconAnchor: [size/2, size/2] }),
       }).on('click', () => {
@@ -6152,9 +6192,9 @@ function drawSalesWorkerPins(){
   }
   salesMapWorkers.forEach(p => {
     const off = spread.get(p.id);
-    const html = '<div class="wmark sm" style="--wc:' + MTONE.on.c + '">' + esc(initials(p.name)) + '</div>';
-    const icon = L.divIcon({ html, className: '', iconSize: [26, 26],
-      iconAnchor: off ? [13 - off[0], 13 - off[1]] : [13, 13] });
+    const html = mpinHtml('user', '', '--pc:' + MTONE.on.c, p.name);
+    const icon = L.divIcon({ html, className: '', iconSize: [28, 28],
+      iconAnchor: off ? [14 - off[0], 14 - off[1]] : [14, 14] });
     L.marker([p.lat, p.lng], { icon, zIndexOffset: 1000 })
       .bindPopup(salesWorkerCard(p), { minWidth: 240, maxWidth: 300, autoPan: true, keepInView: true, autoPanPadding: L.point(24, 24) })
       .addTo(salesWorkerLayer);
