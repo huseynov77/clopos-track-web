@@ -6224,7 +6224,14 @@ async function drawSalesMap(){
   if (!salesLeads.length) { try { await loadSales(); } catch (_) {} }
   fillSalesMapFilters();
   const q = smQ.toLowerCase();
-  const rows = salesLeads.filter(l => (l.lat != null && l.lng != null) && (!q ||
+  /* BAĞLANMIŞ lead-lər XƏRİTƏDƏ görünmür (Fuad, 2026-09-17) — uğurlu artıq
+     OBYEKTDİR (obyekt qatında onsuz da var), uğursuz isə ölüdür; ikisi də
+     xəritəni doldurub canlı işi gizlədirdi. Telefondakı davranışın eynisi.
+     DİQQƏT: yalnız XƏRİTƏ süzülür — «Satışlar» cədvəlində hamısı qalır.
+     `odooClosed` serverdən gəlir (`is_won`/`fold`/`active`, ada görə YOX).
+     Odoo əlçatmaz olanda server `false` qaytarır → heç nə gizlənmir. */
+  const rows = salesLeads.filter(l => !l.odooClosed &&
+    (l.lat != null && l.lng != null) && (!q ||
     (l.brandName||'').toLowerCase().includes(q) ||
     (l.workerName||'').toLowerCase().includes(q) ||
     (l.address||'').toLowerCase().includes(q)) &&
@@ -6263,8 +6270,14 @@ async function drawSalesMap(){
     if (layers.length === 1) layers[0].openPopup();
   }
 
+  /* Say AÇIQ lead-lərlə müqayisə olunur, ümumi sayla yox — bağlananlar
+     xəritədə heç vaxt görünmür, onları məxrəcə qoymaq "40 / 300" kimi
+     yanıldıcı olardı. Neçəsinin gizləndiyi ayrıca yazılır. */
+  const baglanan = salesLeads.filter(l => l.odooClosed).length;
+  const acik = salesLeads.length - baglanan;
   document.getElementById('salesMapCount').textContent =
-    rows.length + (rows.length !== salesLeads.length ? ' / ' + salesLeads.length : '') + ' lead' +
+    rows.length + (rows.length !== acik ? ' / ' + acik : '') + ' lead' +
+    (baglanan ? ' · ' + baglanan + ' bağlanmış gizli' : '') +
     (showWorkers ? ' · ' + onlineWorkers.length + ' onlayn işçi' : '');
 }
 document.getElementById('smShowWorkers').addEventListener('change', drawSalesMap);
