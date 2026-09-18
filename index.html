@@ -15,6 +15,71 @@
 <meta name="theme-color" content="#0D0B0A" media="(prefers-color-scheme: dark)">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- ══ Sentry (xəta izləmə) ══
+     Panel indiyə qədər Sentry-siz idi: JS xətasından xəbərimiz OLMURDU,
+     yalnız Fuad ekranda görüb deyəndə bilirdik (2026-09-18-də iki buq
+     məhz belə tapıldı). App və server çoxdan qoşulub — bu, sonuncu
+     kor nöqtə idi.
+
+     MÜTLƏQ ŞƏRT: CDN yüklənməsə panel YENƏ İŞLƏMƏLİDİR. Ona görə
+     aşağıdakı hər istifadə `window.Sentry` yoxlaması ilə mühafizə olunub —
+     skript gəlməsə sadəcə izləmə olmur, panelə heç bir təsiri yoxdur.
+
+     DSN gizli deyil (app-ın kodunda da açıqdır) — o, yalnız "hara göndər"
+     ünvanıdır, oxumaq hüququ vermir. Layihə: clopos_track (id 38),
+     `app` tag-ı ilə trackv2 / server / panel ayrılır. -->
+<script src="https://browser.sentry-cdn.com/8.55.0/bundle.min.js" crossorigin="anonymous"></script>
+<script>
+(function () {
+  if (!window.Sentry) return;   // CDN gəlmədi — susuruq
+  try {
+    Sentry.init({
+      dsn: 'https://99ad6f3d82ee5ce17d36944b7c28c236@sentry.clopos.com/38',
+      environment: 'production',
+      /* Panelin öz versiya nömrəsi yoxdur (tək fayl, build addımı yoxdur).
+         Bu sətir ƏL İLƏ yenilənir — nəzərəçarpan dəyişiklikdən sonra
+         tarixi dəyiş ki, Sentry-də hansı buraxılışda olduğu bilinsin. */
+      release: 'panel@2026-09-18',
+      tracesSampleRate: 0,          // yalnız xəta; performans izləməsi YOX
+      /* Aşağıdakılar ƏSL BUQ DEYİL — göndərilsə Sentry dolur və əsl
+         xətalar itir (app tərəfdə məhz bu baş vermişdi: 16 issue-nun
+         ~70%-i şəbəkə səs-küyü idi). */
+      ignoreErrors: [
+        'Sessiya bitdi',                  // bizim öz normal logout axınımız
+        'ResizeObserver loop',            // brauzerin zərərsiz xəbərdarlığı
+        'Script error.',                  // cross-origin, məlumatsız
+        'Failed to fetch',                // internet kəsildi
+        'NetworkError',
+        'Load failed',
+        'AbortError',
+        'The operation was aborted',
+      ],
+      denyUrls: [
+        /extensions\//i, /^chrome-extension:\/\//i, /^moz-extension:\/\//i,
+        /tile\.openstreetmap\.org/i,      // xəritə plitəsi — app-da 287 hadisə vermişdi
+        /fonts\.gstatic\.com/i,
+      ],
+    });
+    Sentry.setTag('app', 'panel');
+    // Kim görür — xəta hansı adminin ekranında baş verib
+    try {
+      var u = localStorage.getItem('ct_admin_user');
+      if (u) Sentry.setUser({ username: u });
+    } catch (_) {}
+  } catch (_) { /* izləmə qurula bilmədi — panel işləməyə davam edir */ }
+})();
+/* Panelin hər yerindən çağırıla bilən mühafizəli köməkçilər.
+   `window.Sentry` yoxdursa hər ikisi səssizcə heç nə etmir. */
+function sentryUser(ad) {
+  try { if (window.Sentry) Sentry.setUser(ad ? { username: ad } : null); } catch (_) {}
+}
+function sentryXeta(err, hara) {
+  try {
+    if (!window.Sentry) return;
+    Sentry.withScope(function (sc) { if (hara) sc.setTag('hara', hara); Sentry.captureException(err); });
+  } catch (_) {}
+}
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <!-- Leaflet CSS BİZİM stildən ƏVVƏL yüklənir: sonra yüklənəndə onun
      `.leaflet-popup-content-wrapper{background:#fff}` qaydası bizimkini
@@ -2965,7 +3030,8 @@ function applyPanelMode(yonlendir){
   const seheIfeYararsiz = sales ? !SALES_VISIBLE_PAGES.has(page) : SALES_ONLY_PAGES.has(page);
   if (yonlendir && localStorage.getItem(LS.tok) && seheIfeYararsiz) {
     // Satışda «İşçilər», texnikidə «İcmal» — hər rejimin öz başlanğıcı
-    try { go(sales ? 'staff' : 'home'); } catch (e) { console.error('applyPanelMode redirect:', e); }
+    try { go(sales ? 'staff' : 'home'); }
+    catch (e) { console.error('applyPanelMode redirect:', e); sentryXeta(e, 'applyPanelMode'); }
   }
 }
 document.querySelectorAll('#panelModeSwitch [data-pmode]').forEach(b => b.addEventListener('click', () => {
@@ -9812,6 +9878,7 @@ function enter(){
   if (lg) lg.remove();
   document.getElementById('app').classList.add('on');
   document.getElementById('meName').textContent = localStorage.getItem(LS.usr) || 'admin';
+  sentryUser(localStorage.getItem(LS.usr));   // xəta kimin ekranında baş verib
   applyRole();   // yaddaşdakı rol dərhal tətbiq olunur, server cavabı sonra dəqiqləşdirir
   // Ünvandakı səhifə üstündür, yoxdursa sonuncu açıq səhifə
   const fromHash = (location.hash || '').replace(/^#\/?/, '');
