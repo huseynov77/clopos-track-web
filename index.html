@@ -785,6 +785,26 @@ tbody tr:hover{background:var(--surf-2)}
    üçün ayrıca yapışdırmağa ehtiyac yoxdur. */
 .pager .sp{margin-left:auto;display:flex;gap:6px}
 
+/* İki görünüş arasında keçid düymələri (Satışlar: "Bizim app" / "Odoo").
+   Mövcud `.btn` üslubu ilə uyğun, amma bitişik seqment kimi. */
+.segbtns{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.segb{appearance:none;border:0;background:transparent;cursor:pointer;
+  padding:7px 14px;font:600 12.5px/1 'Instrument Sans',sans-serif;color:var(--muted)}
+.segb + .segb{border-left:1px solid var(--line)}
+.segb:hover{color:var(--text);background:var(--surf-2)}
+.segb.on{background:var(--brand);color:#fff}
+/* Səhifə düymələri */
+.pgb{appearance:none;cursor:pointer;background:var(--surf-2);border:1px solid var(--line);
+  border-radius:8px;padding:5px 10px;font:600 12px/1 var(--mono);color:var(--text)}
+.pgb:hover:not(:disabled){border-color:var(--brand);color:var(--brand)}
+.pgb:disabled{opacity:.4;cursor:default}
+.pgb.on{background:var(--brand);border-color:var(--brand);color:#fff}
+/* "Mənşə" sütunu — bizim app / Odoo */
+.orig{display:inline-block;padding:2px 7px;border-radius:999px;
+  font:600 10px/1.6 'Instrument Sans',sans-serif;white-space:nowrap}
+.orig.app{background:color-mix(in srgb,var(--brand) 16%,transparent);color:var(--brand)}
+.orig.odoo{background:var(--surf-2);color:var(--muted)}
+
 .maplay{display:grid;grid-template-columns:1fr 344px;gap:18px;align-items:stretch;
   height:calc(100vh - 132px);min-height:460px}
 .maplay > .panel{display:flex;flex-direction:column;min-height:0}
@@ -2400,6 +2420,19 @@ tbody tr:hover .rowacts,tr:focus-within .rowacts{opacity:1}
 
       <!-- SATIŞLAR (yalnız Satış rejimində) -->
       <section class="page" id="pg-sales">
+        <!-- İKİ GÖRÜNÜŞ (Fuad, 2026-09-17): köhnə cədvəl OLDUĞU KİMİ qalır
+             (bizim app-dan yaradılanlar — seçmə, silmə, şəkil, təkrar
+             yoxlaması burada işləyir), yanına Odoo-nun BÜTÜN lead-ləri
+             əlavə olundu. Əvəz etmədim ki, mövcud əməliyyatlar itməsin. -->
+        <div class="bar" style="margin-bottom:10px">
+          <div class="segbtns">
+            <button type="button" class="segb on" data-sview="our">Bizim app</button>
+            <button type="button" class="segb" data-sview="odoo">Odoo — hamısı</button>
+          </div>
+          <span class="hitn" id="slViewHint">App-dan yaradılan, xəritədə koordinatı olan lead-lər</span>
+        </div>
+
+        <div id="ourSalesView">
         <div class="bar">
           <div class="search">
             <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
@@ -2431,6 +2464,47 @@ tbody tr:hover .rowacts,tr:focus-within .rowacts{opacity:1}
             </tr></thead>
             <tbody id="salesBody"></tbody>
           </table></div>
+        </div>
+        </div><!-- /ourSalesView -->
+
+        <!-- ODOO — BÜTÜN LEAD-LƏR (2026-09-17). Serverdən SƏHİFƏ-SƏHİFƏ
+             gəlir: 6800+ sətir var, hamısını birdən çəkmək olmaz.
+             Süzgəclər də Odoo tərəfdə tətbiq olunur ki, "cəmi N" rəqəmi
+             süzülmüş nəticəyə uyğun gəlsin. -->
+        <div id="odooSalesView" hidden>
+          <div class="bar">
+            <div class="search">
+              <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+              <input id="olQ" placeholder="Ad, kontakt şəxs, nömrə…" spellcheck="false" autocomplete="off">
+              <button type="button" class="clr" id="olClr" title="Təmizlə" hidden>&times;</button>
+            </div>
+            <select id="olStage" class="sel"><option value="">Bütün mərhələlər</option></select>
+            <select id="olSeller" class="sel"><option value="">Bütün satıcılar</option></select>
+            <select id="olSource" class="sel"><option value="">Bütün mənbələr</option></select>
+            <select id="olApp" class="sel">
+              <option value="">Hamısı</option>
+              <option value="1">Yalnız bizim app</option>
+              <option value="0">Yalnız Odoo</option>
+            </select>
+            <span class="hitn" id="olCount"></span>
+          </div>
+          <div class="panel">
+            <div id="odooSalesWrap"><table id="odooSalesTable">
+              <thead><tr>
+                <th>Lead</th>
+                <th style="width:130px">Mərhələ</th>
+                <th style="width:130px">Satıcı</th>
+                <th style="width:120px">Mənbə</th>
+                <th>Kontakt</th>
+                <th style="width:110px">Nömrə</th>
+                <th style="width:100px">Şəhər</th>
+                <th style="width:100px">Tarix</th>
+                <th style="width:78px;text-align:center">Mənşə</th>
+              </tr></thead>
+              <tbody id="odooSalesBody"></tbody>
+            </table></div>
+            <div class="pager" id="olPager"></div>
+          </div>
         </div>
       </section>
 
@@ -5559,6 +5633,184 @@ async function loadSales(){
     renderSalesStats();
   } catch (e) { toast('Lead-lər yüklənmədi: ' + e.message, 'bad'); }
 }
+
+/* ═══ ODOO — BÜTÜN LEAD-LƏR (Fuad, 2026-09-17) ═══
+   Bizim bazadakı siyahıdan (`salesLeads`) TAMAMİLƏ AYRIDIR: orada yalnız
+   app-dan yaradılanlar var (6 ədəd), burada isə Odoo-nun hamısı (6800+).
+   Hamısını birdən çəkmək olmaz — SERVER tərəfdə səhifələnir və süzülür,
+   ona görə hər filtr dəyişikliyi yeni sorğudur.
+   Köhnə görünüşə (ourSalesView) HEÇ TƏSİRİ YOXDUR. */
+let olPage = 1, olTotal = 0, olPages = 1, olLoading = false, olFiltersLoaded = false;
+let olReqId = 0;   // yarış qarşısı: gec gələn köhnə cavab yenini əvəz etməsin
+
+function olParams(){
+  const p = new URLSearchParams();
+  p.set('page', String(olPage));
+  p.set('limit', '50');
+  const q = (document.getElementById('olQ').value || '').trim();
+  if (q) p.set('q', q);
+  const st = document.getElementById('olStage').value;
+  const se = document.getElementById('olSeller').value;
+  const so = document.getElementById('olSource').value;
+  const ap = document.getElementById('olApp').value;
+  if (st) p.set('stageId', st);
+  if (se) p.set('sellerId', se);
+  if (so) p.set('sourceId', so);
+  if (ap) p.set('app', ap);
+  return p.toString();
+}
+
+async function loadOdooLeadFilters(){
+  if (olFiltersLoaded) return;
+  try {
+    const r = await api('/api/v2/admin/odoo-lead-filters');
+    const fill = (id, items, hamisi) => {
+      const sel = document.getElementById(id);
+      const cur = sel.value;
+      sel.innerHTML = `<option value="">${hamisi}</option>` +
+        (items || []).map(x => `<option value="${x.id}">${esc(x.name)}</option>`).join('');
+      sel.value = cur;
+    };
+    fill('olStage', r.stages, 'Bütün mərhələlər');
+    fill('olSeller', r.sellers, 'Bütün satıcılar');
+    fill('olSource', r.sources, 'Bütün mənbələr');
+    olFiltersLoaded = true;
+  } catch (_) {
+    // Süzgəclər gəlməsə siyahı yenə işləyir — sadəcə süzmək olmur
+  }
+}
+
+async function loadOdooLeads(){
+  if (olLoading) return;
+  olLoading = true;
+  const myReq = ++olReqId;
+  const body = document.getElementById('odooSalesBody');
+  body.innerHTML = '<tr><td colspan="9" class="dash" style="text-align:center;padding:22px">Yüklənir…</td></tr>';
+  try {
+    const r = await api('/api/v2/admin/odoo-leads?' + olParams());
+    if (myReq !== olReqId) return;   // daha yeni sorğu var — bunu at
+    olTotal = Number(r.total) || 0;
+    olPages = Number(r.pages) || 1;
+    renderOdooLeads(Array.isArray(r.leads) ? r.leads : []);
+  } catch (e) {
+    if (myReq !== olReqId) return;
+    body.innerHTML = `<tr><td colspan="9" class="dash" style="text-align:center;padding:22px">Alınmadı: ${esc(e.message)}</td></tr>`;
+    document.getElementById('olPager').innerHTML = '';
+    document.getElementById('olCount').textContent = '';
+  } finally {
+    olLoading = false;
+  }
+}
+
+function renderOdooLeads(leads){
+  const body = document.getElementById('odooSalesBody');
+  if (!leads.length) {
+    body.innerHTML = '<tr><td colspan="9" class="dash" style="text-align:center;padding:22px">Nəticə yoxdur</td></tr>';
+  } else {
+    body.innerHTML = leads.map(l => {
+      const kontakt = [l.contactName, l.contactRole].filter(Boolean).join(' · ');
+      const unvan = l.street || l.street2 || '';
+      return '<tr>' +
+        '<td><b>' + esc(l.name || '—') + '</b>' +
+          (unvan ? '<div class="dash" style="font-size:11px;margin-top:2px">' + esc(unvan) + '</div>' : '') +
+          (l.software || l.saleType
+            ? '<div class="dash" style="font-size:11px;margin-top:2px">' +
+              esc([l.saleType, l.software].filter(Boolean).join(' · ')) + '</div>'
+            : '') + '</td>' +
+        '<td>' + (l.stage ? '<span class="tag">' + esc(l.stage) + '</span>' : '<span class="dash">—</span>') + '</td>' +
+        '<td>' + (l.seller ? esc(l.seller) : '<span class="dash">—</span>') + '</td>' +
+        '<td>' + (l.source ? esc(l.source) : '<span class="dash">—</span>') + '</td>' +
+        '<td>' + (kontakt ? esc(kontakt) : '<span class="dash">—</span>') + '</td>' +
+        '<td>' + (l.mobile ? esc(l.mobile) : '<span class="dash">—</span>') + '</td>' +
+        '<td>' + (l.city ? esc(l.city) : '<span class="dash">—</span>') + '</td>' +
+        '<td>' + esc(odooTarix(l.createdAt)) + '</td>' +
+        '<td style="text-align:center">' +
+          (l.fromApp ? '<span class="orig app" title="Bizim mobil app-dan yaradılıb">app</span>'
+                     : '<span class="orig odoo" title="Odoo-da yaradılıb">Odoo</span>') +
+        '</td>' +
+      '</tr>';
+    }).join('');
+  }
+  document.getElementById('olCount').textContent =
+    olTotal ? `${olTotal.toLocaleString('az-AZ')} lead · səhifə ${olPage}/${olPages}` : '';
+  renderOlPager();
+}
+
+/** Odoo "YYYY-MM-DD HH:mm:ss" (UTC) → "18.09.2026" (Bakı) */
+function odooTarix(s){
+  if (!s) return '—';
+  const t = Date.parse(String(s).replace(' ', 'T') + 'Z');
+  if (!Number.isFinite(t)) return '—';
+  return new Date(t).toLocaleDateString('az-AZ',
+    { timeZone: 'Asia/Baku', day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+function renderOlPager(){
+  const el = document.getElementById('olPager');
+  if (olPages <= 1) { el.innerHTML = ''; return; }
+  // Cari səhifənin ətrafında 2 nömrə — 137 səhifədə hamısını yazmaq olmaz
+  const nums = [];
+  const push = (n) => { if (n >= 1 && n <= olPages && !nums.includes(n)) nums.push(n); };
+  push(1);
+  for (let i = olPage - 2; i <= olPage + 2; i++) push(i);
+  push(olPages);
+  nums.sort((a, b) => a - b);
+  let html = `<button type="button" class="pgb" data-olp="${olPage - 1}" ${olPage <= 1 ? 'disabled' : ''}>‹</button>`;
+  let prev = 0;
+  for (const n of nums) {
+    if (prev && n - prev > 1) html += '<span style="padding:0 2px">…</span>';
+    html += `<button type="button" class="pgb${n === olPage ? ' on' : ''}" data-olp="${n}">${n}</button>`;
+    prev = n;
+  }
+  html += `<button type="button" class="pgb" data-olp="${olPage + 1}" ${olPage >= olPages ? 'disabled' : ''}>›</button>`;
+  el.innerHTML = html;
+}
+
+document.getElementById('olPager').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-olp]');
+  if (!b || b.disabled) return;
+  const n = parseInt(b.dataset.olp, 10);
+  if (!Number.isFinite(n) || n < 1 || n > olPages || n === olPage) return;
+  olPage = n;
+  loadOdooLeads();
+});
+
+/* Axtarışda hər hərfə sorğu getməsin — 400 ms gözləyir. Süzgəc
+   dəyişikliyi isə dərhal işləyir və səhifəni 1-ə qaytarır. */
+let _olTimer = null;
+document.getElementById('olQ').addEventListener('input', (e) => {
+  document.getElementById('olClr').hidden = !e.target.value;
+  clearTimeout(_olTimer);
+  _olTimer = setTimeout(() => { olPage = 1; loadOdooLeads(); }, 400);
+});
+document.getElementById('olClr').addEventListener('click', () => {
+  document.getElementById('olQ').value = '';
+  document.getElementById('olClr').hidden = true;
+  olPage = 1; loadOdooLeads();
+});
+for (const id of ['olStage', 'olSeller', 'olSource', 'olApp']) {
+  document.getElementById(id).addEventListener('change', () => { olPage = 1; loadOdooLeads(); });
+}
+
+/* İki görünüş arasında keçid. Odoo görünüşü İLK DƏFƏ açılanda yüklənir —
+   səhifə açılan kimi 6800 sətirlik sorğu getməsin deyə. */
+let olEverLoaded = false;
+document.querySelectorAll('[data-sview]').forEach(b => {
+  b.addEventListener('click', () => {
+    const v = b.dataset.sview;
+    document.querySelectorAll('[data-sview]').forEach(x => x.classList.toggle('on', x === b));
+    const odoo = v === 'odoo';
+    document.getElementById('ourSalesView').hidden = odoo;
+    document.getElementById('odooSalesView').hidden = !odoo;
+    document.getElementById('slViewHint').textContent = odoo
+      ? 'Odoo CRM-dəki bütün lead-lər — zəng, referans, sayt və s. daxil'
+      : 'App-dan yaradılan, xəritədə koordinatı olan lead-lər';
+    if (odoo && !olEverLoaded) {
+      olEverLoaded = true;
+      loadOdooLeadFilters().then(loadOdooLeads);
+    }
+  });
+});
 function renderSales(){
   const q = (document.getElementById('slQ').value || '').toLowerCase();
   document.getElementById('slClr').hidden = !q;
@@ -6067,6 +6319,11 @@ function salesLeadCard(l){
     '<div class="wc-a">' + esc(l.address || 'ünvan yoxdur') + '</div>' +
     '<div class="wc-b">' +
       row('Tarix', dayLabel(l.createdAt) + ' · ' + hm(l.createdAt)) +
+      /* Lead-in NÖVÜ (2026-09-17): "Səyyar" — işçi obyektin qarşısında idi
+         (şəkil və 100 m məhdudiyyəti ilə), "Digər" — zəng/referans satışı,
+         məkanı əl ilə və ya xəritədən seçilib. Köhnə sətirlərdə `kind`
+         yoxdur, onlar səyyar sayılır. */
+      row('Növ', (l.kind === 'diger' ? 'Digər' : 'Səyyar')) +
       row('Şəkil', l.photoUrl ? 'var' : 'yoxdur') +
       row('Odoo status', l.odooStage ? esc(l.odooStage) : '—') +
       row('Koordinat', l.lat != null
