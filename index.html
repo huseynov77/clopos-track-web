@@ -2919,7 +2919,10 @@ try { panelMode = localStorage.getItem('ct_panel_mode') || 'technical'; } catch 
 // YA satış-only sayılır (SALES_ONLY_PAGES).
 const SALES_VISIBLE_PAGES = new Set(['staff', 'settings', 'alerts', 'sales', 'sales-stats', 'sales-worker', 'sales-history', 'map']);
 const SALES_ONLY_PAGES = new Set(['sales', 'sales-stats', 'sales-worker', 'sales-history']);   // texniki rejimdə HEÇ görünmür
-function applyPanelMode(){
+/* `yonlendir` — səhifə yararsızdırsa başlanğıc səhifəyə atsınmı.
+   Skript yüklənəndəki İLK çağırışda MÜTLƏQ `false` olmalıdır, səbəbi
+   aşağıdakı redirect blokunda izah olunub. */
+function applyPanelMode(yonlendir){
   const sales = panelMode === 'sales';
   document.querySelectorAll('#panelModeSwitch [data-pmode]').forEach(b =>
     b.classList.toggle('on', b.dataset.pmode === panelMode));
@@ -2949,8 +2952,18 @@ function applyPanelMode(){
      rejimdə ekranda DONUB qalırdı — sol menyu texnikiyə keçir, məzmun isə
      satışın boş kartları olaraq qalır; istifadəçi əl ilə "İcmal"a basmalı
      olurdu (Fuad-ın tapdığı, 2026-09-15). */
+  /* BU BLOK YALNIZ `yonlendir === true` olanda işləyir (yəni `enter()`
+     içindən, `go(...)` hazırkı səhifəni təyin edəndən SONRA).
+     Skript yüklənəndəki ilk çağırışda `page` hələ default 'home'-dur;
+     satış rejimində 'home' yararsız sayılıb `go('staff')` işə düşürdü,
+     o da `LS.pg`-ni VƏ ünvan sətrini '#/staff' ilə ƏVƏZ EDİRDİ. Sonra
+     `enter()` məhz həmin pozulmuş hash/LS.pg-ni oxuyurdu — nəticədə
+     satışda HANSI səhifədə olursan ol, refresh səni «İşçilər»ə atırdı
+     (Fuad tapdı, 2026-09-18). Əvvəlki düzəliş cəhdi `applyPanelMode()`-u
+     go()-dan sonra BİR DƏ çağırmaq idi, amma bu, kök səbəbi — ilk
+     çağırışın yaddaşı korlamasını — aradan qaldırmırdı. */
   const seheIfeYararsiz = sales ? !SALES_VISIBLE_PAGES.has(page) : SALES_ONLY_PAGES.has(page);
-  if (localStorage.getItem(LS.tok) && seheIfeYararsiz) {
+  if (yonlendir && localStorage.getItem(LS.tok) && seheIfeYararsiz) {
     // Satışda «İşçilər», texnikidə «İcmal» — hər rejimin öz başlanğıcı
     try { go(sales ? 'staff' : 'home'); } catch (e) { console.error('applyPanelMode redirect:', e); }
   }
@@ -2988,7 +3001,7 @@ function applyPanelAccess(){
   }
 }
 applyPanelAccess();
-applyPanelMode();
+applyPanelMode(false);   // yalnız menyunu düz;  yönləndirmə enter()-dədir
 
 /* ── Hadisə adları ── */
 /* Rəng KATEQORİYAya bağlıdır, hadisəyə yox — İcmaldakı legend ilə eyni sistem.
@@ -9804,14 +9817,11 @@ function enter(){
   const fromHash = (location.hash || '').replace(/^#\/?/, '');
   const last = (() => { try { return localStorage.getItem(LS.pg); } catch (_) { return null; } })();
   go(PAGES[fromHash] ? fromHash : (PAGES[last] ? last : 'home'));
-  /* KRİTİK: bootstrap-da (skript yüklənəndə) `applyPanelMode()` artıq BİR
-     DƏFƏ çağırılıb, amma o zaman `page` hələ default `'home'` idi (yuxarıdakı
-     `go(...)` hələ işləməmişdi) — Satış rejimində 'home' həmişə etibarsız
-     sayılıb hər dəfə "staff"-a atırdı, bu da `LS.pg`-ni "staff" ilə əvəz
-     edib problemi GİLƏYƏ ÇEVİRİRDİ (hər refresh-də təkrarlanırdı, səbəbi
-     tapmaq çətin idi). İndi `page` DÜZGÜN təyin olunandan SONRA yenidən
-     çağırılır ki, redirect-yoxlaması əsl açıq səhifəyə görə işləsin. */
-  applyPanelMode();
+  /* Yönləndirmə YALNIZ burada olur — `go(...)` yuxarıda əsl açıq səhifəni
+     təyin edəndən sonra. Skript yüklənəndəki çağırış `applyPanelMode(false)`
+     ilə gedir (menyunu düzür, yönləndirmir), çünki orada `page` hələ
+     default 'home' olur və yönləndirsə yaddaşdakı səhifəni korlayır. */
+  applyPanelMode(true);
   /* Panel Xəritə tabında açılırsa, go() drawMap()-i `summary` hələ gəlməmiş
      çağırır və siyahı boş qalırdı — növbəti 30 saniyəlik yeniləməyə qədər.
      Ona görə məlumat gələn kimi açıq səhifə yenidən çəkilir. */
