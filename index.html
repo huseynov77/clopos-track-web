@@ -3766,7 +3766,11 @@ document.addEventListener('click', (ev) => {
     return;
   }
   const n = ev.target.closest('[data-pop-notify]');
-  if (n) { map && map.closePopup(); urgentTo({ id: n.dataset.popNotify, name: n.dataset.nm }); return; }
+  if (n) {
+    map.closePopup();
+    urgentTo({ id: n.dataset.popNotify, name: n.dataset.nm });
+    return;
+  }
   /* Klaster siyahısındakı sətir → həmin obyektin kartı */
   const cb = ev.target.closest('[data-cb]');
   if (cb) {
@@ -4701,9 +4705,9 @@ function renderStaff(){
                <svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg></button>`
           : `<button type="button" class="pnotify" data-act="edit" data-id="${esc(w.id)}" title="Redaktə et">
                <svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14 6l4 4"/></svg></button>
-             ${panelMode === 'sales' ? '' : `<button type="button" class="pnotify" data-act="urgent" data-id="${esc(w.id)}" title="Təcili bildiriş">
+             <button type="button" class="pnotify" data-act="urgent" data-id="${esc(w.id)}" title="Təcili bildiriş">
                <svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"/>
-                 <path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></button>`}`}
+                 <path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></button>`}
       </div></td></tr>`;
   }).join('') : `<tr><td colspan="9">${q
       ? emptyBox('&#128269;', 'Tapılmadı', '&quot;' + esc(q) + '&quot; üzrə uyğun işçi yoxdur.')
@@ -5786,8 +5790,8 @@ function renderSales(){
   document.getElementById('slSelBar').hidden = salesSel.size < 1;
   document.getElementById('slSelN').textContent = salesSel.size + ' se\u00e7ilib';
   const allEl = document.getElementById('slSelAll');
-  allEl.checked = secilebilen.length > 0 && secilebilen.every(r => salesSel.has(r.ours.id));
-  allEl.indeterminate = !allEl.checked && secilebilen.some(r => salesSel.has(r.ours.id));
+  allEl.checked = secilebilen.length > 0 && secilebilen.every(r => salesSel.has(String(r.ours.id)));
+  allEl.indeterminate = !allEl.checked && secilebilen.some(r => salesSel.has(String(r.ours.id)));
 
   const body = document.getElementById('salesBody');
   if (!rows.length) {
@@ -5819,7 +5823,7 @@ function renderSales(){
 
       return '<tr' + (dupTitle ? ' title="' + esc(dupTitle) + '"' : '') + '>' +
         '<td>' + (l ? '<input type="checkbox" data-slsel="' + l.id + '"' +
-                      (salesSel.has(l.id) ? ' checked' : '') + '>' : '') + '</td>' +
+                      (salesSel.has(String(l.id)) ? ' checked' : '') + '>' : '') + '</td>' +
         '<td>' + (r.fromApp
           ? '<span class="orig app" title="Mobil app-dan yarad\u0131l\u0131b">Clopos Track</span>'
           : '<span class="orig odoo" title="Odoo-da yarad\u0131l\u0131b">Odoo</span>') + '</td>' +
@@ -5857,8 +5861,12 @@ function renderSales(){
     ev.stopPropagation();
     askDeleteSalesLead(+btn.dataset.slid);
   });
+  /* ID MƏTN KİMİ saxlanılır (2026-09-18). Server `sales_leads.id`-ni
+     BIGINT olduğu üçün MƏTN kimi göndərir ("77"), bura isə `+` ilə RƏQƏMƏ
+     çevrilirdi (77). `Set` tipə həssasdır: `has("77")` → false, ona görə
+     quş qoyulsa da sətir HEÇ VAXT seçilmiş görünmürdü (Fuad tapdı). */
   document.querySelectorAll('#salesBody [data-slsel]').forEach(cb => cb.onchange = () => {
-    const id = +cb.dataset.slsel;
+    const id = cb.dataset.slsel;
     if (cb.checked) salesSel.add(id); else salesSel.delete(id);
     renderSales();
   });
@@ -6155,7 +6163,7 @@ document.getElementById('shClr').addEventListener('click', () => {
    görünməyən lead-i seçmək təhlükəlidir (toplu silmə düyməsi var). */
 document.getElementById('slSelAll').addEventListener('change', (e) => {
   const ids = [...document.querySelectorAll('#salesBody [data-slsel]')]
-    .map(cb => +cb.dataset.slsel);
+    .map(cb => cb.dataset.slsel);   // MƏTN — yuxarıdakı izaha bax
   if (e.target.checked) ids.forEach(id => salesSel.add(id));
   else ids.forEach(id => salesSel.delete(id));
   renderSales();
@@ -6305,7 +6313,8 @@ function salesWorkerCard(p){
           '" title="Kopyala">' + p.lat.toFixed(5) + ', ' + p.lng.toFixed(5) +
           '<svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/>' +
           '<path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></span>' : '') +
-    '</div></div>';
+    '</div>' +
+  '</div>';
 }
 // Eyni/yaxın koordinatda bir neçə pin üst-üstə düşüb basılmaz olurdu (Fuad-ın
 // tapdığı bug, 2026-09-09, screenshot: iki test lead eyni ünvanda) — Fuad
