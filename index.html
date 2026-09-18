@@ -6216,7 +6216,14 @@ document.getElementById('swGo').addEventListener('click', async () => {
         '<td>' + dayLabel(l.createdAt) + ' · ' + hm(l.createdAt) + '</td>' +
         '<td>' + esc(l.brandName) + '</td>' +
         '<td class="ell" title="' + esc(l.address||'') + '">' + coord + (l.address ? esc(l.address) : '<span class="dash">—</span>') + '</td>' +
-        '<td>' + (l.odooStage ? '<span class="tag">' + esc(l.odooStage) + '</span>' : '<span class="dash">—</span>') + '</td>' +
+        /* Mərhələ + "İtirildi" — Satışlar cədvəlindəki ilə EYNİ qayda.
+           Odoo "İtirildi"də mərhələyə toxunmur, nişan olmasa sətir "Yeni"
+           yazır (Fuad bu cədvəldə tutdu, 2026-09-18). */
+        '<td>' + (l.odooLost ? '<span class="tag bad">İtirildi</span>' : '') +
+          (l.odooStage
+            ? '<span class="tag"' + (l.odooLost ? ' style="opacity:.55;margin-left:4px"' : '') + '>' +
+              esc(l.odooStage) + '</span>'
+            : (l.odooLost ? '' : '<span class="dash">—</span>')) + '</td>' +
         '<td style="text-align:center">' + (l.photoUrl ? '<span class="tag ok">var</span>' : '<span class="tag">yoxdur</span>') + '</td>' +
         '<td style="text-align:right">' + (l.odooLeadId
           ? '<a class="wlink" href="https://odoo.clopos.com/web#id=' + l.odooLeadId + '&model=crm.lead&view_type=form" target="_blank" rel="noopener" title="Odoo-da aç (yeni tab)">#' + l.odooLeadId + '</a>'
