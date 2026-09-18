@@ -785,14 +785,16 @@ tbody tr:hover{background:var(--surf-2)}
    üçün ayrıca yapışdırmağa ehtiyac yoxdur. */
 .pager .sp{margin-left:auto;display:flex;gap:6px}
 
-/* İki görünüş arasında keçid düymələri (Satışlar: "Bizim app" / "Odoo").
-   Mövcud `.btn` üslubu ilə uyğun, amma bitişik seqment kimi. */
-.segbtns{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
-.segb{appearance:none;border:0;background:transparent;cursor:pointer;
-  padding:7px 14px;font:600 12.5px/1 'Instrument Sans',sans-serif;color:var(--muted)}
-.segb + .segb{border-left:1px solid var(--line)}
-.segb:hover{color:var(--text);background:var(--surf-2)}
-.segb.on{background:var(--brand);color:#fff}
+/* SATIŞLAR paneli — səhifə nömrələri SABİT qalır (Fuad, 2026-09-18:
+   "aşağıdakı page nömrələri static elə, scrola salma").
+   Panel tam hündürlüyü tutur, YALNIZ cədvəl sürüşür, pager altda yapışıq
+   qalır. `#pg-stars`/`#pg-log`-dakı ilə eyni naxış. */
+#pg-sales .salespanel{display:flex;flex-direction:column;
+  height:calc(100vh - 210px);min-height:380px}
+#pg-sales #salesWrap{flex:1 1 auto;min-height:0;overflow:auto}
+#pg-sales .pager{flex:0 0 auto;border-radius:0 0 var(--r-lg) var(--r-lg)}
+/* Cədvəl başlığı sürüşəndə yuxarıda qalsın */
+#pg-sales #salesTable thead th{position:sticky;top:0;z-index:3;background:var(--surf-2)}
 /* Səhifə düymələri */
 .pgb{appearance:none;cursor:pointer;background:var(--surf-2);border:1px solid var(--line);
   border-radius:8px;padding:5px 10px;font:600 12px/1 var(--mono);color:var(--text)}
@@ -2418,29 +2420,28 @@ tbody tr:hover .rowacts,tr:focus-within .rowacts{opacity:1}
         </div>
       </section>
 
-      <!-- SATIŞLAR (yalnız Satış rejimində) -->
+      <!-- SATIŞLAR (yalnız Satış rejimində)
+           TƏK CƏDVƏL (Fuad, 2026-09-18: "iki ayrı tab eləmə, 1 tab olacaq,
+           içəridə əlavə sütun qoy, orda Clopos Track yoxsa Odoo olduğunu
+           göstər"). Siyahı Odoo-dan SƏHİFƏ-SƏHİFƏ gəlir (6800+ lead),
+           bizim app-dan yaradılanlar "Mənşə" sütununda ayrılır və onlarda
+           şəkil/silmə/koordinat kimi ƏVVƏLKİ əməliyyatlar işləməyə davam
+           edir. Sıralama: ƏN SON yaradılan ƏN BAŞDA. -->
       <section class="page" id="pg-sales">
-        <!-- İKİ GÖRÜNÜŞ (Fuad, 2026-09-17): köhnə cədvəl OLDUĞU KİMİ qalır
-             (bizim app-dan yaradılanlar — seçmə, silmə, şəkil, təkrar
-             yoxlaması burada işləyir), yanına Odoo-nun BÜTÜN lead-ləri
-             əlavə olundu. Əvəz etmədim ki, mövcud əməliyyatlar itməsin. -->
-        <div class="bar" style="margin-bottom:10px">
-          <div class="segbtns">
-            <button type="button" class="segb on" data-sview="our">Bizim app</button>
-            <button type="button" class="segb" data-sview="odoo">Odoo — hamısı</button>
-          </div>
-          <span class="hitn" id="slViewHint">App-dan yaradılan, xəritədə koordinatı olan lead-lər</span>
-        </div>
-
-        <div id="ourSalesView">
         <div class="bar">
           <div class="search">
             <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-            <input id="slQ" placeholder="Obyekt, əməkdaş, ünvan axtar…" spellcheck="false" autocomplete="off">
+            <input id="slQ" placeholder="Lead, kontakt şəxs, nömrə axtar…" spellcheck="false" autocomplete="off">
             <button type="button" class="clr" id="slClr" title="Təmizlə" hidden>&times;</button>
           </div>
-          <select id="slWorker" class="sel"><option value="">Bütün əməkdaşlar</option></select>
-          <select id="slStatus" class="sel"><option value="">Bütün statuslar</option></select>
+          <select id="olSeller" class="sel"><option value="">Bütün satıcılar</option></select>
+          <select id="olStage" class="sel"><option value="">Bütün mərhələlər</option></select>
+          <select id="olSource" class="sel"><option value="">Bütün mənbələr</option></select>
+          <select id="olApp" class="sel">
+            <option value="">Mənşə: hamısı</option>
+            <option value="1">Yalnız Clopos Track</option>
+            <option value="0">Yalnız Odoo</option>
+          </select>
           <label class="chk"><input type="checkbox" id="slDupOnly"> Yalnız təkrar şübhəliləri (<span id="slDupCount">0</span>)</label>
           <span class="hitn" id="slCount"></span>
         </div>
@@ -2449,62 +2450,23 @@ tbody tr:hover .rowacts,tr:focus-within .rowacts{opacity:1}
           <button type="button" class="btn btn-primary btn-sm" id="slSelDel" style="background:var(--bad);border-color:var(--bad)">Seçilənləri sil</button>
           <button type="button" class="btn btn-ghost btn-sm" id="slSelClear">Ləğv</button>
         </div>
-        <div class="panel">
+        <div class="panel salespanel">
           <div id="salesWrap"><table id="salesTable">
             <thead><tr>
               <th style="width:34px"><input type="checkbox" id="slSelAll"></th>
-              <th class="sortable" data-slk="brand">Obyekt</th>
-              <th class="sortable" data-slk="worker">Əməkdaş</th>
-              <th class="sortable desc" data-slk="time" style="width:120px">Tarix</th>
-              <th>Ünvan</th>
-              <th style="width:90px;text-align:center">Şəkil</th>
-              <th class="sortable" data-slk="status" style="width:120px">Status</th>
-              <th style="width:110px;text-align:right">Odoo</th>
-              <th style="width:56px"></th>
+              <th style="width:104px">Mənşə</th>
+              <th>Lead</th>
+              <th style="width:128px">Satıcı</th>
+              <th style="width:116px">Tarix</th>
+              <th>Ünvan / kontakt</th>
+              <th style="width:74px;text-align:center">Şəkil</th>
+              <th style="width:130px">Mərhələ</th>
+              <th style="width:104px;text-align:right">Odoo</th>
+              <th style="width:52px"></th>
             </tr></thead>
             <tbody id="salesBody"></tbody>
           </table></div>
-        </div>
-        </div><!-- /ourSalesView -->
-
-        <!-- ODOO — BÜTÜN LEAD-LƏR (2026-09-17). Serverdən SƏHİFƏ-SƏHİFƏ
-             gəlir: 6800+ sətir var, hamısını birdən çəkmək olmaz.
-             Süzgəclər də Odoo tərəfdə tətbiq olunur ki, "cəmi N" rəqəmi
-             süzülmüş nəticəyə uyğun gəlsin. -->
-        <div id="odooSalesView" hidden>
-          <div class="bar">
-            <div class="search">
-              <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-              <input id="olQ" placeholder="Ad, kontakt şəxs, nömrə…" spellcheck="false" autocomplete="off">
-              <button type="button" class="clr" id="olClr" title="Təmizlə" hidden>&times;</button>
-            </div>
-            <select id="olStage" class="sel"><option value="">Bütün mərhələlər</option></select>
-            <select id="olSeller" class="sel"><option value="">Bütün satıcılar</option></select>
-            <select id="olSource" class="sel"><option value="">Bütün mənbələr</option></select>
-            <select id="olApp" class="sel">
-              <option value="">Hamısı</option>
-              <option value="1">Yalnız bizim app</option>
-              <option value="0">Yalnız Odoo</option>
-            </select>
-            <span class="hitn" id="olCount"></span>
-          </div>
-          <div class="panel">
-            <div id="odooSalesWrap"><table id="odooSalesTable">
-              <thead><tr>
-                <th>Lead</th>
-                <th style="width:130px">Mərhələ</th>
-                <th style="width:130px">Satıcı</th>
-                <th style="width:120px">Mənbə</th>
-                <th>Kontakt</th>
-                <th style="width:110px">Nömrə</th>
-                <th style="width:100px">Şəhər</th>
-                <th style="width:100px">Tarix</th>
-                <th style="width:78px;text-align:center">Mənşə</th>
-              </tr></thead>
-              <tbody id="odooSalesBody"></tbody>
-            </table></div>
-            <div class="pager" id="olPager"></div>
-          </div>
+          <div class="pager" id="olPager"></div>
         </div>
       </section>
 
@@ -5572,7 +5534,6 @@ let salesSel = new Set();
 // yalnız YÜKLƏNMİŞ lead-lərdə görünən statuslarla məhdud olmasın deyə,
 // ayrıca yüklənir. Nadir dəyişdiyi üçün bir dəfə yüklənib saxlanılır.
 let salesStages = [], salesStagesLoaded = false;
-let slSortKey = 'time', slSortAsc = false;
 // GPS mövqeyi ilə işçinin əl ilə düzəltdiyi son mövqe arasındakı məsafə (m) —
 // backend-dəki eyni funksiyanın JS ekvivalenti, admin panel özü "düzəliş
 // olub" işarəsini göstərsin deyə (serverin göndərdiyi orig_lat/orig_lng-dən).
@@ -5629,8 +5590,12 @@ async function loadSales(){
       salesStagesLoaded = true;
     }
     salesSel.clear();
-    renderSales();
     renderSalesStats();
+    /* Cədvəlin ÖZÜ Odoo-dan gəlir (tək cədvəl, 2026-09-18) — `salesLeads`
+       yalnız zənginləşdirmə (şəkil, koordinat, silmə) və statistika üçündür.
+       Süzgəc siyahıları bir dəfə yüklənir, sonra sətirlər. */
+    await loadOdooLeadFilters();
+    await loadOdooLeads();
   } catch (e) { toast('Lead-lər yüklənmədi: ' + e.message, 'bad'); }
 }
 
@@ -5647,7 +5612,7 @@ function olParams(){
   const p = new URLSearchParams();
   p.set('page', String(olPage));
   p.set('limit', '50');
-  const q = (document.getElementById('olQ').value || '').trim();
+  const q = (document.getElementById('slQ').value || '').trim();
   if (q) p.set('q', q);
   const st = document.getElementById('olStage').value;
   const se = document.getElementById('olSeller').value;
@@ -5684,56 +5649,24 @@ async function loadOdooLeads(){
   if (olLoading) return;
   olLoading = true;
   const myReq = ++olReqId;
-  const body = document.getElementById('odooSalesBody');
-  body.innerHTML = '<tr><td colspan="9" class="dash" style="text-align:center;padding:22px">Yüklənir…</td></tr>';
+  const body = document.getElementById('salesBody');
+  body.innerHTML = '<tr><td colspan="10" class="dash" style="text-align:center;padding:22px">Yüklənir…</td></tr>';
   try {
     const r = await api('/api/v2/admin/odoo-leads?' + olParams());
-    if (myReq !== olReqId) return;   // daha yeni sorğu var — bunu at
+    if (myReq !== olReqId) return;   // daha yeni sorgu var - bunu at
     olTotal = Number(r.total) || 0;
     olPages = Number(r.pages) || 1;
-    renderOdooLeads(Array.isArray(r.leads) ? r.leads : []);
+    odooRows = Array.isArray(r.leads) ? r.leads : [];
+    renderSales();
   } catch (e) {
     if (myReq !== olReqId) return;
-    body.innerHTML = `<tr><td colspan="9" class="dash" style="text-align:center;padding:22px">Alınmadı: ${esc(e.message)}</td></tr>`;
+    odooRows = [];
+    body.innerHTML = '<tr><td colspan="10" class="dash" style="text-align:center;padding:22px">Alınmadı: ' + esc(e.message) + '</td></tr>';
     document.getElementById('olPager').innerHTML = '';
     document.getElementById('olCount').textContent = '';
   } finally {
     olLoading = false;
   }
-}
-
-function renderOdooLeads(leads){
-  const body = document.getElementById('odooSalesBody');
-  if (!leads.length) {
-    body.innerHTML = '<tr><td colspan="9" class="dash" style="text-align:center;padding:22px">Nəticə yoxdur</td></tr>';
-  } else {
-    body.innerHTML = leads.map(l => {
-      const kontakt = [l.contactName, l.contactRole].filter(Boolean).join(' · ');
-      const unvan = l.street || l.street2 || '';
-      return '<tr>' +
-        '<td><b>' + esc(l.name || '—') + '</b>' +
-          (unvan ? '<div class="dash" style="font-size:11px;margin-top:2px">' + esc(unvan) + '</div>' : '') +
-          (l.software || l.saleType
-            ? '<div class="dash" style="font-size:11px;margin-top:2px">' +
-              esc([l.saleType, l.software].filter(Boolean).join(' · ')) + '</div>'
-            : '') + '</td>' +
-        '<td>' + (l.stage ? '<span class="tag">' + esc(l.stage) + '</span>' : '<span class="dash">—</span>') + '</td>' +
-        '<td>' + (l.seller ? esc(l.seller) : '<span class="dash">—</span>') + '</td>' +
-        '<td>' + (l.source ? esc(l.source) : '<span class="dash">—</span>') + '</td>' +
-        '<td>' + (kontakt ? esc(kontakt) : '<span class="dash">—</span>') + '</td>' +
-        '<td>' + (l.mobile ? esc(l.mobile) : '<span class="dash">—</span>') + '</td>' +
-        '<td>' + (l.city ? esc(l.city) : '<span class="dash">—</span>') + '</td>' +
-        '<td>' + esc(odooTarix(l.createdAt)) + '</td>' +
-        '<td style="text-align:center">' +
-          (l.fromApp ? '<span class="orig app" title="Bizim mobil app-dan yaradılıb">app</span>'
-                     : '<span class="orig odoo" title="Odoo-da yaradılıb">Odoo</span>') +
-        '</td>' +
-      '</tr>';
-    }).join('');
-  }
-  document.getElementById('olCount').textContent =
-    olTotal ? `${olTotal.toLocaleString('az-AZ')} lead · səhifə ${olPage}/${olPages}` : '';
-  renderOlPager();
 }
 
 /** Odoo "YYYY-MM-DD HH:mm:ss" (UTC) → "18.09.2026" (Bakı) */
@@ -5778,138 +5711,148 @@ document.getElementById('olPager').addEventListener('click', (e) => {
 /* Axtarışda hər hərfə sorğu getməsin — 400 ms gözləyir. Süzgəc
    dəyişikliyi isə dərhal işləyir və səhifəni 1-ə qaytarır. */
 let _olTimer = null;
-document.getElementById('olQ').addEventListener('input', (e) => {
-  document.getElementById('olClr').hidden = !e.target.value;
+document.getElementById('slQ').addEventListener('input', (e) => {
+  document.getElementById('slClr').hidden = !e.target.value;
   clearTimeout(_olTimer);
+  // "Təkrar" rejimi client-dədir — serverə getmək lazım deyil
+  if (slDupMode()) { renderSales(); return; }
   _olTimer = setTimeout(() => { olPage = 1; loadOdooLeads(); }, 400);
-});
-document.getElementById('olClr').addEventListener('click', () => {
-  document.getElementById('olQ').value = '';
-  document.getElementById('olClr').hidden = true;
-  olPage = 1; loadOdooLeads();
 });
 for (const id of ['olStage', 'olSeller', 'olSource', 'olApp']) {
   document.getElementById(id).addEventListener('change', () => { olPage = 1; loadOdooLeads(); });
 }
-
-/* İki görünüş arasında keçid. Odoo görünüşü İLK DƏFƏ açılanda yüklənir —
-   səhifə açılan kimi 6800 sətirlik sorğu getməsin deyə. */
-let olEverLoaded = false;
-document.querySelectorAll('[data-sview]').forEach(b => {
-  b.addEventListener('click', () => {
-    const v = b.dataset.sview;
-    document.querySelectorAll('[data-sview]').forEach(x => x.classList.toggle('on', x === b));
-    const odoo = v === 'odoo';
-    document.getElementById('ourSalesView').hidden = odoo;
-    document.getElementById('odooSalesView').hidden = !odoo;
-    document.getElementById('slViewHint').textContent = odoo
-      ? 'Odoo CRM-dəki bütün lead-lər — zəng, referans, sayt və s. daxil'
-      : 'App-dan yaradılan, xəritədə koordinatı olan lead-lər';
-    if (odoo && !olEverLoaded) {
-      olEverLoaded = true;
-      loadOdooLeadFilters().then(loadOdooLeads);
-    }
-  });
+/* "Yalnız təkrar şübhəliləri" — client rejimi. İşarə götürüləndə serverdən
+   yenidən yüklənir (o an cədvəldə öz lead-lərimiz qalmışdı). */
+document.getElementById('slDupOnly').addEventListener('change', () => {
+  if (slDupMode()) renderSales(); else { olPage = 1; loadOdooLeads(); }
 });
+
+/* === SATISLAR - TEK CEDVEL (Fuad, 2026-09-18) ===
+   Menbe Odoo-dur (6800+ lead, server terefde sehifelenir ve suzulur).
+   Bizim app-dan yaradilanlar `salesLeads` (oz bazamiz) ile ZENGINLESDIRILIR:
+   unvan, koordinat, sekil, pin duzelisi ve SILME duymesi yalniz onlarda
+   olur - kohne cedvelin butun emeliyyatlari belece saxlanilib.
+   Siralama serverdedir: `create_date desc` -> EN SON yaradilan EN BASDA. */
+let odooRows = [];        // cari sehifedeki Odoo setirleri
+
+/** "Yalniz tekrar subheliler" iserelenende siyahi OZ BAZAMIZDAN qurulur
+ *  (tekrar yoxlamasi butun leadleri muqayise edir, sehife-sehife islemir).
+ *  Onda sehifeleme gizlenir. */
+function slDupMode(){ return !!document.getElementById('slDupOnly').checked; }
+
 function renderSales(){
-  const q = (document.getElementById('slQ').value || '').toLowerCase();
+  const q = (document.getElementById('slQ').value || '').trim();
   document.getElementById('slClr').hidden = !q;
-  // Əməkdaş filtri — BÜTÜN satış işçilərinin siyahısı (staffAll/staffInactive,
-  // "İşçilər" səhifəsi ilə eyni mənbə), yalnız lead-i olanlar yox — əks halda
-  // hələ lead daxil etməmiş və ya işdən çıxmış işçilər filtrdə görünmürdü.
-  // Status filtri — Odoo CRM-də mövcud olan BÜTÜN mərhələlər (`salesStages`),
-  // yalnız yüklənmiş lead-lərdə rast gəlinənlər yox.
-  const wSel = document.getElementById('slWorker'), stSel = document.getElementById('slStatus');
-  const curW = wSel.value, curSt = stSel.value;
-  const workers = [...new Set(
-    [...staffAll, ...staffInactive]
-      .filter(w => (w.staffType || 'technical') === 'sales')
-      .map(w => w.name).filter(Boolean)
-  )].sort();
-  const statuses = salesStages.length
-    ? salesStages
-    : [...new Set(salesLeads.map(l => l.odooStage).filter(Boolean))].sort();
-  wSel.innerHTML = '<option value="">Bütün əməkdaşlar</option>' +
-    workers.map(w => `<option value="${esc(w)}">${esc(w)}</option>`).join('');
-  stSel.innerHTML = '<option value="">Bütün statuslar</option>' +
-    statuses.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
-  wSel.value = workers.includes(curW) ? curW : '';
-  stSel.value = statuses.includes(curSt) ? curSt : '';
-  // BÜTÜN lead-lər üzərində hesablanır (filtrlənmiş `rows` yox) — cütün o biri
-  // üzvü axtarış/filtrlə gizlənsə belə say düzgün qalsın. Cədvəldə HƏR SƏTRDƏ
-  // nişan yerinə (Fuad-ın tələbi 2026-09-09: "bunları götür, filter ver")
-  // ayrıca "Yalnız təkrar şübhəliləri" checkbox-u var.
+
   const dupMap = findSalesDuplicates(salesLeads);
   document.getElementById('slDupCount').textContent = dupMap.size;
-  const dupOnly = document.getElementById('slDupOnly').checked;
-  const rows = salesLeads.filter(l => (!q ||
-    (l.brandName||'').toLowerCase().includes(q) ||
-    (l.workerName||'').toLowerCase().includes(q) ||
-    (l.address||'').toLowerCase().includes(q)) &&
-    (!wSel.value || l.workerName === wSel.value) &&
-    (!stSel.value || l.odooStage === stSel.value) &&
-    (!dupOnly || dupMap.has(l.id)));
-
-  // Sıralama — digər cədvəllərlə (Loglar, Qiymətləndirmə) eyni qayda.
-  const SLK = {
-    brand:  l => (l.brandName || '').toLowerCase(),
-    worker: l => (l.workerName || '').toLowerCase(),
-    time:   l => new Date(l.createdAt).getTime() || 0,
-    status: l => (l.odooStage || '').toLowerCase(),
-  };
-  const slkf = SLK[slSortKey] || SLK.time;
-  rows.sort((a, b) => {
-    const x = slkf(a), y = slkf(b);
-    const c = x < y ? -1 : x > y ? 1 : 0;
-    return slSortAsc ? c : -c;
-  });
-  document.querySelectorAll('#salesTable th.sortable').forEach(x => x.classList.remove('asc','desc'));
-  const slSth = document.querySelector('#salesTable th[data-slk="' + slSortKey + '"]');
-  if (slSth) slSth.classList.add(slSortAsc ? 'asc' : 'desc');
-
-  document.getElementById('slCount').innerHTML =
-    '<b>' + rows.length + '</b> ' + (q ? 'nəticə' : 'lead');
   const cEl = document.getElementById('cSales');
   if (cEl) cEl.textContent = salesLeads.length || '';
 
-  document.getElementById('slSelBar').hidden = salesSel.size < 1;
-  document.getElementById('slSelN').textContent = salesSel.size + ' seçilib';
-  const allEl = document.getElementById('slSelAll');
-  allEl.checked = rows.length > 0 && rows.every(l => salesSel.has(l.id));
-  allEl.indeterminate = !allEl.checked && rows.some(l => salesSel.has(l.id));
+  // Oz bazamizdaki setirler Odoo ID-ye gore - zenginlesdirme ucun
+  const oursByOdoo = new Map();
+  for (const l of salesLeads) if (l.odooLeadId) oursByOdoo.set(Number(l.odooLeadId), l);
 
-  document.getElementById('salesBody').innerHTML = rows.length ? rows.map(l => {
-    const coord = (l.lat != null && l.lng != null)
-      ? `<a class="pinlink" href="https://www.google.com/maps?q=${l.lat},${l.lng}" target="_blank" rel="noopener"
-           title="${l.lat}, ${l.lng}"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.4 7-11a7 7 0 1 0-14 0c0 4.6 7 11 7 11z"/>
-           <circle cx="12" cy="10" r="2.4"/></svg></a>` : '';
-    // Pin əl ilə düzəldilibsə (serverdən orig_lat/orig_lng gəlibsə və əsl
-    // mövqedən 15m-dən çox fərqlənirsə) admin görsün — fırıldaq izi.
-    const moved = (l.origLat != null && l.origLng != null && l.lat != null && l.lng != null)
-      ? metersBetween(l.origLat, l.origLng, l.lat, l.lng) >= 15 : false;
-    const movedBadge = moved ? ' <span class="tag warn" title="Əl ilə düzəldilib">düzəliş</span>' : '';
-    // Nişan cədvəldə HƏR SƏTRDƏ göstərilmir (əvvəl belə idi, Fuad "götür,
-    // filter ver" dedi) — yalnız "Yalnız təkrar şübhəliləri" işarələnəndə
-    // sətrin üstünə gələndə hansı lead(lər)ə bənzədiyi görünür.
-    const dups = dupMap.get(l.id);
-    const dupTitle = dups ? 'Ola bilər təkrar: ' + dups.map(d =>
-      (d.brandName || '—') + ' — ' + (d.workerName || '—') + (d.distanceM != null ? ' (' + d.distanceM + 'm)' : '')
-    ).join('; ') : '';
-    return '<tr' + (dupTitle ? ' title="' + esc(dupTitle) + '"' : '') + '>' +
-      '<td><input type="checkbox" data-slsel="' + l.id + '"' + (salesSel.has(l.id) ? ' checked' : '') + '></td>' +
-      '<td>' + esc(l.brandName) + '</td>' +
-      '<td>' + esc(l.workerName || '—') + '</td>' +
-      '<td>' + dayLabel(l.createdAt) + ' · ' + hm(l.createdAt) + '</td>' +
-      '<td class="ell addrcol" title="' + esc(l.address||'') + '">' + coord + (l.address ? esc(l.address) : '<span class="dash">—</span>') + movedBadge + '</td>' +
-      '<td style="text-align:center">' + (l.photoUrl ? '<span class="tag ok">var</span>' : '<span class="tag">yoxdur</span>') + '</td>' +
-      '<td>' + (l.odooStage ? '<span class="tag">' + esc(l.odooStage) + '</span>' : '<span class="dash">—</span>') + '</td>' +
-      '<td style="text-align:right">' + (l.odooLeadId
-        ? '<a class="wlink" href="https://odoo.clopos.com/web#id=' + l.odooLeadId + '&model=crm.lead&view_type=form" target="_blank" rel="noopener" title="Odoo-da aç (yeni tab)">#' + l.odooLeadId + '</a>'
-        : '<span class="dash">—</span>') + '</td>' +
-      '<td style="text-align:right"><button type="button" class="pnotify dngr" data-slid="' + l.id + '" title="Sil">' +
-        '<svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg></button></td>' +
+  let rows;
+  const dupMode = slDupMode();
+  if (dupMode) {
+    // Tekrar rejimi: yalniz oz leadlerimiz, client-de suzulur.
+    const ql = q.toLowerCase();
+    rows = salesLeads
+      .filter(l => dupMap.has(l.id))
+      .filter(l => !ql || (l.brandName||'').toLowerCase().includes(ql) ||
+                          (l.workerName||'').toLowerCase().includes(ql) ||
+                          (l.address||'').toLowerCase().includes(ql))
+      .sort((a,b) => (new Date(b.createdAt).getTime()||0) - (new Date(a.createdAt).getTime()||0))
+      .map(l => ({
+        odooLeadId: l.odooLeadId, name: l.brandName, stage: l.odooStage,
+        seller: l.workerName, source: null, mobile: '', contactName: '',
+        contactRole: '', city: null, street: '', street2: '', saleType: null,
+        software: null, createdAtMs: l.createdAt, fromApp: true, ours: l,
+      }));
+  } else {
+    rows = odooRows.map(r => Object.assign({}, r, {
+      ours: oursByOdoo.get(Number(r.odooLeadId)) || null,
+      createdAtMs: null,
+    }));
+  }
+
+  document.getElementById('slCount').innerHTML = dupMode
+    ? '<b>' + rows.length + '</b> tekrar subheli'
+    : (olTotal ? '<b>' + olTotal.toLocaleString('az-AZ') + '</b> lead \u00b7 s\u0259hif\u0259 ' + olPage + '/' + olPages : '');
+
+  // Secme/silme YALNIZ oz leadlerimizde mumkundur (Odoo setrini sile bilmerik)
+  const secilebilen = rows.filter(r => r.ours);
+  document.getElementById('slSelBar').hidden = salesSel.size < 1;
+  document.getElementById('slSelN').textContent = salesSel.size + ' se\u00e7ilib';
+  const allEl = document.getElementById('slSelAll');
+  allEl.checked = secilebilen.length > 0 && secilebilen.every(r => salesSel.has(r.ours.id));
+  allEl.indeterminate = !allEl.checked && secilebilen.some(r => salesSel.has(r.ours.id));
+
+  const body = document.getElementById('salesBody');
+  if (!rows.length) {
+    body.innerHTML = '<tr><td colspan="10">' +
+      emptyBox('&#128188;', dupMode ? 'T\u0259krar \u015f\u00fcbh\u0259li yoxdur' : 'Lead yoxdur',
+               dupMode ? 'Ox\u015far adda lead tap\u0131lmad\u0131.' : 'Bu s\u00fczg\u0259cl\u0259r\u0259 uy\u011fun n\u0259tic\u0259 yoxdur.') +
+      '</td></tr>';
+  } else {
+    body.innerHTML = rows.map(r => {
+      const l = r.ours;
+      const coord = (l && l.lat != null && l.lng != null)
+        ? '<a class="pinlink" href="https://www.google.com/maps?q=' + l.lat + ',' + l.lng +
+          '" target="_blank" rel="noopener" title="' + l.lat + ', ' + l.lng + '">' +
+          '<svg viewBox="0 0 24 24">' + MPIN_ICONS.store + '</svg></a>' : '';
+      // Pin el ile duzeldilibse (15m-den cox) admin gorsun - firildaq izi
+      const moved = (l && l.origLat != null && l.origLng != null && l.lat != null && l.lng != null)
+        ? metersBetween(l.origLat, l.origLng, l.lat, l.lng) >= 15 : false;
+      const dups = l ? dupMap.get(l.id) : null;
+      const dupTitle = dups ? 'Ola bil\u0259r t\u0259krar: ' + dups.map(d =>
+        (d.brandName || '\u2014') + ' \u2014 ' + (d.workerName || '\u2014') +
+        (d.distanceM != null ? ' (' + d.distanceM + 'm)' : '')).join('; ') : '';
+
+      const unvan = (l && l.address) ? l.address : (r.street || r.street2 || '');
+      const kontakt = [r.contactName, r.contactRole].filter(Boolean).join(' \u00b7 ');
+      const altSetir = [kontakt, r.mobile, r.city].filter(Boolean).join(' \u00b7 ');
+      const tarix = r.createdAtMs != null
+        ? (dayLabel(r.createdAtMs) + ' \u00b7 ' + hm(r.createdAtMs))
+        : odooTarix(r.createdAt);
+
+      return '<tr' + (dupTitle ? ' title="' + esc(dupTitle) + '"' : '') + '>' +
+        '<td>' + (l ? '<input type="checkbox" data-slsel="' + l.id + '"' +
+                      (salesSel.has(l.id) ? ' checked' : '') + '>' : '') + '</td>' +
+        '<td>' + (r.fromApp
+          ? '<span class="orig app" title="Mobil app-dan yarad\u0131l\u0131b">Clopos Track</span>'
+          : '<span class="orig odoo" title="Odoo-da yarad\u0131l\u0131b">Odoo</span>') + '</td>' +
+        '<td><b>' + esc(r.name || '\u2014') + '</b>' +
+          ((r.saleType || r.software)
+            ? '<div class="dash" style="font-size:11px;margin-top:2px">' +
+              esc([r.saleType, r.software].filter(Boolean).join(' \u00b7 ')) + '</div>' : '') +
+          (r.source ? '<div class="dash" style="font-size:11px">' + esc(r.source) + '</div>' : '') +
+        '</td>' +
+        '<td>' + (r.seller ? esc(r.seller) : '<span class="dash">\u2014</span>') + '</td>' +
+        '<td>' + tarix + '</td>' +
+        '<td class="ell addrcol" title="' + esc(unvan) + '">' + coord +
+          (unvan ? esc(unvan) : '<span class="dash">\u2014</span>') +
+          (moved ? ' <span class="tag warn" title="\u018fl il\u0259 d\u00fcz\u0259ldilib">d\u00fcz\u0259li\u015f</span>' : '') +
+          (altSetir ? '<div class="dash" style="font-size:11px;margin-top:2px">' + esc(altSetir) + '</div>' : '') +
+        '</td>' +
+        '<td style="text-align:center">' + (l
+          ? (l.photoUrl ? '<span class="tag ok">var</span>' : '<span class="tag">yoxdur</span>')
+          : '<span class="dash">\u2014</span>') + '</td>' +
+        '<td>' + (r.stage ? '<span class="tag">' + esc(r.stage) + '</span>' : '<span class="dash">\u2014</span>') + '</td>' +
+        '<td style="text-align:right">' + (r.odooLeadId
+          ? '<a class="wlink" href="https://odoo.clopos.com/web#id=' + r.odooLeadId +
+            '&model=crm.lead&view_type=form" target="_blank" rel="noopener" title="Odoo-da a\u00e7 (yeni tab)">#' +
+            r.odooLeadId + '</a>'
+          : '<span class="dash">\u2014</span>') + '</td>' +
+        '<td style="text-align:right">' + (l
+          ? '<button type="button" class="pnotify dngr" data-slid="' + l.id + '" title="Sil">' +
+            '<svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg></button>'
+          : '') + '</td>' +
       '</tr>';
-  }).join('') : '<tr><td colspan="9">' + emptyBox('&#128188;', 'Lead yoxdur', 'Satış əməkdaşları hələ obyekt əlavə etməyib.') + '</td></tr>';
+    }).join('');
+  }
+
   document.querySelectorAll('#salesBody [data-slid]').forEach(btn => btn.onclick = (ev) => {
     ev.stopPropagation();
     askDeleteSalesLead(+btn.dataset.slid);
@@ -5919,6 +5862,10 @@ function renderSales(){
     if (cb.checked) salesSel.add(id); else salesSel.delete(id);
     renderSales();
   });
+
+  // Tekrar rejiminde sehifeleme menasizdir - gizledilir
+  document.getElementById('olPager').innerHTML = '';
+  if (!dupMode) renderOlPager();
 }
 
 /* ── Satış statistikası (dashboard) ──
@@ -6203,14 +6150,14 @@ document.getElementById('shClr').addEventListener('click', () => {
   renderSalesHistory();
 });
 
+/* "Hamısını seç" — YALNIZ EKRANDAKI sətirlərdən bizim olanları seçir.
+   Əvvəl bütün `salesLeads`-i seçirdi; indi cədvəl səhifə-səhifədir və
+   görünməyən lead-i seçmək təhlükəlidir (toplu silmə düyməsi var). */
 document.getElementById('slSelAll').addEventListener('change', (e) => {
-  const q = (document.getElementById('slQ').value || '').toLowerCase();
-  const rows = salesLeads.filter(l => !q ||
-    (l.brandName||'').toLowerCase().includes(q) ||
-    (l.workerName||'').toLowerCase().includes(q) ||
-    (l.address||'').toLowerCase().includes(q));
-  if (e.target.checked) rows.forEach(l => salesSel.add(l.id));
-  else rows.forEach(l => salesSel.delete(l.id));
+  const ids = [...document.querySelectorAll('#salesBody [data-slsel]')]
+    .map(cb => +cb.dataset.slsel);
+  if (e.target.checked) ids.forEach(id => salesSel.add(id));
+  else ids.forEach(id => salesSel.delete(id));
   renderSales();
 });
 document.getElementById('slSelClear').addEventListener('click', () => { salesSel.clear(); renderSales(); });
@@ -6270,19 +6217,19 @@ function askDeleteSalesLead(id){
     } catch (e) { toast('Silinmədi: ' + e.message, 'bad'); }
   };
 }
-document.getElementById('slQ').addEventListener('input', renderSales);
-document.getElementById('slWorker').addEventListener('change', renderSales);
-document.getElementById('slStatus').addEventListener('change', renderSales);
-document.getElementById('slDupOnly').addEventListener('change', renderSales);
-document.querySelectorAll('#salesTable th.sortable').forEach(th => th.addEventListener('click', () => {
-  const k = th.dataset.slk;
-  if (slSortKey === k) slSortAsc = !slSortAsc;
-  else { slSortKey = k; slSortAsc = k === 'brand' || k === 'worker' || k === 'status'; }
-  renderSales();
-}));
+/* KÖHNƏ DİNLƏYİCİLƏR SİLİNDİ (2026-09-18, tək cədvələ keçid):
+     `slWorker` / `slStatus` — bu iki select ARTIQ YOXDUR (yerini Odoo-nun
+       `olSeller`/`olStage` süzgəcləri tutdu). Onlara `addEventListener`
+       çağırmaq `null` üzərində xəta verib BÜTÜN SKRİPTİ sındırardı.
+     `slQ` / `slDupOnly` — yenisi yuxarıda (debounce + server sorğusu ilə).
+     Başlığa klik ilə sıralama — sıralama artıq SERVERDƏDİR
+       (`create_date desc`, ən son yaradılan ən başda), ona görə
+       `th.sortable` da qalmadı. */
 document.getElementById('slClr').addEventListener('click', () => {
   document.getElementById('slQ').value = '';
-  renderSales();
+  document.getElementById('slClr').hidden = true;
+  if (slDupMode()) { renderSales(); return; }
+  olPage = 1; loadOdooLeads();
 });
 
 /* ── Satış xəritəsi — texniki "Canlı xəritə"dən TAM AYRI Leaflet map,
