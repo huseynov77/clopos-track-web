@@ -2507,6 +2507,15 @@ tbody tr:hover .rowacts,tr:focus-within .rowacts{opacity:1}
             <option value="1">Yalnız Clopos Track</option>
             <option value="0">Yalnız Odoo</option>
           </select>
+          <!-- Tarix aralığı (Fuad, 2026-09-18): 5 500+ lead-i vərəqləmək
+               əvəzinə "bu ay nə yarandı" bir anda görünsün. Süzgəc SERVERDƏ
+               tətbiq olunur ki, say və səhifə sayı da düzgün olsun. -->
+          <label class="chk" style="gap:6px">Tarix:
+            <input type="date" id="olFrom" class="sel" style="width:auto" title="Tarixdən">
+            <span class="dash">—</span>
+            <input type="date" id="olTo" class="sel" style="width:auto" title="Tarixə">
+          </label>
+          <button type="button" class="btn btn-ghost btn-sm" id="olDateClr" hidden>Tarixi sıfırla</button>
           <label class="chk"><input type="checkbox" id="slDupOnly"> Yalnız təkrar şübhəliləri (<span id="slDupCount">0</span>)</label>
           <span class="hitn" id="slCount"></span>
         </div>
@@ -5705,6 +5714,10 @@ function olParams(){
   if (se) p.set('sellerId', se);
   if (so) p.set('sourceId', so);
   if (ap) p.set('app', ap);
+  const df = document.getElementById('olFrom').value;
+  const dt = document.getElementById('olTo').value;
+  if (df) p.set('dateFrom', df);
+  if (dt) p.set('dateTo', dt);
   return p.toString();
 }
 
@@ -5801,9 +5814,26 @@ document.getElementById('slQ').addEventListener('input', (e) => {
   if (slDupMode()) { renderSales(); return; }
   _olTimer = setTimeout(() => { olPage = 1; loadOdooLeads(); }, 400);
 });
-for (const id of ['olStage', 'olSeller', 'olSource', 'olApp']) {
-  document.getElementById(id).addEventListener('change', () => { olPage = 1; loadOdooLeads(); });
+for (const id of ['olStage', 'olSeller', 'olSource', 'olApp', 'olFrom', 'olTo']) {
+  document.getElementById(id).addEventListener('change', () => {
+    olPage = 1;
+    olTarixDuymesi();
+    loadOdooLeads();
+  });
 }
+/* "Tarixi sıfırla" yalnız aralıq seçiləndə görünür — boş düymə yer tutmasın */
+function olTarixDuymesi(){
+  const f = document.getElementById('olFrom').value;
+  const t = document.getElementById('olTo').value;
+  document.getElementById('olDateClr').hidden = !f && !t;
+}
+document.getElementById('olDateClr').addEventListener('click', () => {
+  document.getElementById('olFrom').value = '';
+  document.getElementById('olTo').value = '';
+  olTarixDuymesi();
+  olPage = 1;
+  loadOdooLeads();
+});
 /* "Yalnız təkrar şübhəliləri" — client rejimi. İşarə götürüləndə serverdən
    yenidən yüklənir (o an cədvəldə öz lead-lərimiz qalmışdı). */
 document.getElementById('slDupOnly').addEventListener('change', () => {
@@ -5922,7 +5952,14 @@ function renderSales(){
         '<td style="text-align:center">' + (l
           ? (l.photoUrl ? '<span class="tag ok">var</span>' : '<span class="tag">yoxdur</span>')
           : '<span class="dash">\u2014</span>') + '</td>' +
-        '<td>' + (r.stage ? '<span class="tag">' + esc(r.stage) + '</span>' : '<span class="dash">\u2014</span>') + '</td>' +
+        /* M\u0259rh\u0259l\u0259 + "\u0130tirildi". Odoo-nun "\u0130tirildi" d\u00fcym\u0259si lead-i ARX\u0130VL\u018fY\u0130R,
+           M\u018fRH\u018fL\u018fN\u0130 D\u018fY\u0130\u015eM\u0130R \u2014 ona g\u00f6r\u0259 ni\u015fan olmasa itirilmi\u015f lead s\u0259tird\u0259
+           "Yeni" yaz\u0131r v\u0259 yan\u0131ld\u0131r (Fuad 10733-d\u0259 tutdu, 2026-09-18). */
+        '<td>' + (r.lost ? '<span class="tag bad">\u0130tirildi</span>' : '') +
+          (r.stage
+            ? '<span class="tag"' + (r.lost ? ' style="opacity:.55;margin-left:4px"' : '') + '>' +
+              esc(r.stage) + '</span>'
+            : (r.lost ? '' : '<span class="dash">\u2014</span>')) + '</td>' +
         '<td style="text-align:right">' + (r.odooLeadId
           ? '<a class="wlink" href="https://odoo.clopos.com/web#id=' + r.odooLeadId +
             '&model=crm.lead&view_type=form" target="_blank" rel="noopener" title="Odoo-da a\u00e7 (yeni tab)">#' +
@@ -6053,9 +6090,19 @@ function renderSalesStats(){
 
   // Mərhələ üzrə (Odoo status funnel) — seçilmiş dövr üzrə, Odoo-dakı ardıcıllıqla
   const stageOrder = salesStages.length ? salesStages : [...new Set(inPeriod.map(l => l.odooStage).filter(Boolean))];
+  /* SAY DƏYİŞMİR — lead yarandığı dövrdə sayılmağa davam edir (Fuad:
+     "ay sonu işçinin neçə lead-i olduğunu görməliyik"). Dəyişən YALNIZ
+     hansı sütunda durmasıdır: Odoo-nun "İtirildi" düyməsi mərhələyə
+     toxunmadığı üçün itirilmiş lead köhnə mərhələsində (məs. "Yeni")
+     oturub yanıldırdı. `odooLost` serverdən gəlir — YALNIZ arxivləmə,
+     uğurluları ƏHATƏ ETMİR (onlar öz "Uğurlu" mərhələsində qalır). */
   const stageCounts = {};
-  inPeriod.forEach(l => { const k = l.odooStage || '__none'; stageCounts[k] = (stageCounts[k]||0) + 1; });
+  inPeriod.forEach(l => {
+    const k = l.odooLost ? '__lost' : (l.odooStage || '__none');
+    stageCounts[k] = (stageCounts[k] || 0) + 1;
+  });
   const stageRows = stageOrder.filter(s => stageCounts[s]).map(s => ({ label: s, count: stageCounts[s] }));
+  if (stageCounts.__lost) stageRows.push({ label: 'İtirildi', count: stageCounts.__lost });
   if (stageCounts.__none) stageRows.push({ label: 'Sinxronlaşmayıb', count: stageCounts.__none });
   document.getElementById('ssStageTag').textContent = inPeriod.length + ' lead';
   document.getElementById('ssStages').innerHTML = stageRows.length ? stageRows.map(r => `
@@ -6359,7 +6406,9 @@ function salesLeadCard(l){
          yoxdur, onlar səyyar sayılır. */
       row('Növ', (l.kind === 'diger' ? 'Digər' : 'Səyyar')) +
       row('Şəkil', l.photoUrl ? 'var' : 'yoxdur') +
-      row('Odoo status', l.odooStage ? esc(l.odooStage) : '—') +
+      // İtirilmiş lead-də mərhələ köhnə qalır — nişan olmasa yanıldır
+      row('Odoo status', (l.odooLost ? '<span class="tag bad">İtirildi</span> ' : '') +
+        (l.odooStage ? esc(l.odooStage) : (l.odooLost ? '' : '—'))) +
       row('Koordinat', l.lat != null
         ? '<span class="copyc" data-copy="' + l.lat.toFixed(6) + ', ' + l.lng.toFixed(6) +
           '" title="Kopyala">' + l.lat.toFixed(5) + ', ' + l.lng.toFixed(5) +
