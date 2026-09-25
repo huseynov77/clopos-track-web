@@ -854,6 +854,14 @@ tbody tr:hover{background:var(--surf-2)}
 .combo.acig .combo-btn{border-color:var(--brand)}
 .combo.acig .combo-btn svg{transform:rotate(180deg)}
 .combo-lbl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Süzgəci BİR KLİKLƏ silmək (Fuad, 2026-09-25: "seçilən filtri silə bilmirəm").
+   Siyahını açıb "Bütün …" seçmək də işləyir, amma gözlə görünən "sil"
+   düyməsi olmayanda istifadəçi ilişir. Yalnız seçim varkən görünür. */
+.combo-x{flex:0 0 auto;margin-left:auto;width:17px;height:17px;border-radius:50%;
+  display:grid;place-items:center;font-size:15px;line-height:1;
+  background:color-mix(in srgb,var(--brand) 18%,transparent);opacity:.75}
+.combo-x:hover{opacity:1;background:var(--brand);color:#fff}
+.combo-btn svg{margin-left:0}
 /* Seçim edilibsə düymə brend rəngi ilə işarələnir — hansı süzgəcin aktiv
    olduğu bir baxışda görünsün (adi `select`-də bu yox idi). */
 .combo.secili .combo-btn{border-color:var(--brand);background:var(--brand-soft);
@@ -1378,6 +1386,7 @@ tr:hover .ratedcell .rchg,.ratedcell .rchg:focus-visible{opacity:1}
   border-left:3px solid var(--brand);
   animation:slide .3s cubic-bezier(.16,1,.3,1) both}
 .toast.ok{border-left-color:var(--ok)} .toast.bad{border-left-color:var(--bad)}
+.toast.warn{border-left-color:var(--warn)}
 @keyframes slide{from{opacity:0;transform:translateX(18px)}to{opacity:1;transform:none}}
 
 /* ── Ad təmizləmə ekranı ── */
@@ -1679,8 +1688,11 @@ tr:hover .chkico svg{stroke:var(--brand)}
   overflow:hidden;text-overflow:ellipsis}
 .ell{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .addrcol{color:var(--muted)}
+/* `<a>` və `<button>` — ikisi də işlədilir (lead cədvəlindəki pin bizim
+   xəritəni açdığı üçün düymədir), ona görə düymənin defolt fonu/sərhədi
+   sıfırlanır. */
 .pinlink{display:inline-grid;place-items:center;width:16px;height:16px;
-  vertical-align:-3px;margin-right:5px}
+  vertical-align:-3px;margin-right:5px;background:none;border:0;padding:0;cursor:pointer}
 .pinlink svg{width:13px;height:13px;fill:none;stroke:var(--faint);stroke-width:1.9;
   stroke-linecap:round;stroke-linejoin:round}
 .pinlink:hover svg{stroke:var(--brand)}
@@ -2539,6 +2551,7 @@ tbody tr:hover .rowacts,tr:focus-within .rowacts{opacity:1}
           <div class="combo" data-combo="olSeller">
             <input type="hidden" id="olSeller">
             <button type="button" class="sel combo-btn"><span class="combo-lbl">Bütün satıcılar</span>
+              <span class="combo-x" title="Süzgəci sil" hidden>&times;</span>
               <svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
             <div class="combo-pop" hidden>
               <input type="text" class="combo-q" placeholder="Axtar…" autocomplete="off" spellcheck="false">
@@ -2548,6 +2561,7 @@ tbody tr:hover .rowacts,tr:focus-within .rowacts{opacity:1}
           <div class="combo" data-combo="olStage">
             <input type="hidden" id="olStage">
             <button type="button" class="sel combo-btn"><span class="combo-lbl">Bütün mərhələlər</span>
+              <span class="combo-x" title="Süzgəci sil" hidden>&times;</span>
               <svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
             <div class="combo-pop" hidden>
               <input type="text" class="combo-q" placeholder="Axtar…" autocomplete="off" spellcheck="false">
@@ -2557,6 +2571,7 @@ tbody tr:hover .rowacts,tr:focus-within .rowacts{opacity:1}
           <div class="combo" data-combo="olSource">
             <input type="hidden" id="olSource">
             <button type="button" class="sel combo-btn"><span class="combo-lbl">Bütün mənbələr</span>
+              <span class="combo-x" title="Süzgəci sil" hidden>&times;</span>
               <svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
             <div class="combo-pop" hidden>
               <input type="text" class="combo-q" placeholder="Axtar…" autocomplete="off" spellcheck="false">
@@ -5819,6 +5834,9 @@ function comboEtiket(key){
   const secilmis = d && val ? d.items.find(x => x.id === val) : null;
   kok.querySelector('.combo-lbl').textContent = secilmis ? secilmis.ad : (d ? d.hamisi : '');
   kok.classList.toggle('secili', !!secilmis);
+  // "Sil" düyməsi yalnız seçim varkən görünür
+  const x = kok.querySelector('.combo-x');
+  if (x) x.hidden = !secilmis;
 }
 
 function comboSiyahi(key, q){
@@ -5873,6 +5891,10 @@ document.querySelectorAll('.combo').forEach(kok => {
   const key = kok.dataset.combo;
   kok.querySelector('.combo-btn').addEventListener('click', (e) => {
     e.stopPropagation();
+    /* "×" basılıbsa siyahı AÇILMIR — sadəcə süzgəc silinir. Şərt düymənin
+       İÇİNDƏ yoxlanılır, çünki "×" `combo-btn`-in uşağıdır və klik ona da
+       çatır. */
+    if (e.target.closest('.combo-x')) { comboSec(key, ''); return; }
     kok.classList.contains('acig') ? comboBagla(key) : comboAc(key);
   });
   const q = kok.querySelector('.combo-q');
@@ -6092,10 +6114,12 @@ function renderSales(){
   } else {
     body.innerHTML = rows.map(r => {
       const l = r.ours;
+      /* Pin BİZİM xəritəni açır, Google Maps-ı yox (Fuad, 2026-09-25).
+         Koordinat `title`-da qalır — üstünə gələndə görünür. */
       const coord = (l && l.lat != null && l.lng != null)
-        ? '<a class="pinlink" href="https://www.google.com/maps?q=' + l.lat + ',' + l.lng +
-          '" target="_blank" rel="noopener" title="' + l.lat + ', ' + l.lng + '">' +
-          '<svg viewBox="0 0 24 24">' + MPIN_ICONS.store + '</svg></a>' : '';
+        ? '<button type="button" class="pinlink" data-lead-map="' + esc(String(l.id)) +
+          '" title="Xəritədə göstər — ' + l.lat + ', ' + l.lng + '">' +
+          '<svg viewBox="0 0 24 24">' + MPIN_ICONS.store + '</svg></button>' : '';
       // Pin el ile duzeldilibse (15m-den cox) admin gorsun - firildaq izi
       const moved = (l && l.origLat != null && l.origLng != null && l.lat != null && l.lng != null)
         ? metersBetween(l.origLat, l.origLng, l.lat, l.lng) >= 15 : false;
@@ -6159,6 +6183,10 @@ function renderSales(){
   document.querySelectorAll('#salesBody [data-slid]').forEach(btn => btn.onclick = (ev) => {
     ev.stopPropagation();
     askDeleteSalesLead(+btn.dataset.slid);
+  });
+  document.querySelectorAll('#salesBody [data-lead-map]').forEach(btn => btn.onclick = (ev) => {
+    ev.stopPropagation();
+    leadiXeritedeGoster(btn.dataset.leadMap);
   });
   /* ID MƏTN KİMİ saxlanılır (2026-09-18). Server `sales_leads.id`-ni
      BIGINT olduğu üçün MƏTN kimi göndərir ("77"), bura isə `+` ilə RƏQƏMƏ
@@ -6572,6 +6600,32 @@ function initSalesMap(){
   // `drawBrandPins`-in texniki xəritədəki EYNİ qaydası.
   salesMap.on('zoomend moveend', () => { drawSalesLeadPins(); drawSalesWorkerPins(); });
 }
+/* Lead-lər cədvəlindəki pin → SATIŞ XƏRİTƏSİ (Fuad, 2026-09-25).
+   DİQQƏT — bir incəlik var: xəritə BAĞLANMIŞ lead-ləri (uğurlu/uğursuz)
+   qəsdən gizlədir (bax `drawSalesMap`). Belə lead-in kartını aça bilmirik,
+   amma "heç nə olmadı" ən pis nəticədir — ona görə mövqeyə yaxınlaşırıq və
+   səbəbini yazırıq. Beləcə düymə HƏMİŞƏ nəsə edir. */
+async function leadiXeritedeGoster(leadId){
+  const l = salesLeads.find(x => String(x.id) === String(leadId));
+  if (!l || l.lat == null || l.lng == null) { toast('Bu lead-in koordinatı yoxdur', 'bad'); return; }
+  go('map');
+  // `go('map')` xəritəni qurub 60 ms sonra çəkir — oturmasını gözləyirik
+  await new Promise(r => setTimeout(r, 420));
+  if (!salesMap) return;
+  salesMap.setView([l.lat, l.lng], Math.max(salesMap.getZoom(), 17), { animate: true });
+  setTimeout(() => {
+    try {
+      salesMap.closePopup();
+      if (l.odooClosed) {
+        toast('Bu lead bağlanıb — xəritədə gizlidir, yalnız mövqe göstərildi', 'warn');
+        return;
+      }
+      L.popup({ minWidth: 272, maxWidth: 320 })
+        .setLatLng([l.lat, l.lng]).setContent(salesLeadCard(l)).openOn(salesMap);
+    } catch (_) {}
+  }, 340);
+}
+
 // Satış lead-inin ətraflı kartı — texniki işçi nişanının (`workerCard`)
 // EYNİ dizayn dili (`.wcard`/`.wc-*` klasları), Fuad-ın tələbi ilə.
 function salesLeadCard(l){
