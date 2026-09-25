@@ -841,6 +841,11 @@ tbody tr:hover{background:var(--surf-2)}
 .sel{padding:8px 11px;background:var(--surf);border:1px solid var(--line);border-radius:var(--r);
   outline:none;font-size:13px;color:var(--text);cursor:pointer}
 .sel:focus{border-color:var(--brand)}
+/* Yazıla bilən süzgəc (input + datalist) — `.sel` seçim üçün `cursor:pointer`
+   qoyur, mətn xanasında bu yanlışdır. Uyğun gəlməyən mətn yazılanda xana
+   qırmızılaşır ki, istifadəçi "süzdüm" deyə yanılmasın. */
+.selinput{cursor:text;width:168px}
+.selinput.yanlis{border-color:var(--bad);color:var(--bad)}
 .chk{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted);cursor:pointer;user-select:none}
 .chk input{accent-color:var(--brand);cursor:pointer}
 
@@ -2501,7 +2506,13 @@ tbody tr:hover .rowacts,tr:focus-within .rowacts{opacity:1}
           </div>
           <select id="olSeller" class="sel"><option value="">Bütün satıcılar</option></select>
           <select id="olStage" class="sel"><option value="">Bütün mərhələlər</option></select>
-          <select id="olSource" class="sel"><option value="">Bütün mənbələr</option></select>
+          <!-- Mənbə 43 dəyərdir — adi `select`-də yazmaq olmur, sürüşdürmək
+               əziyyətdir (Fuad, 2026-09-25). `input + datalist` brauzerin ÖZ
+               axtarışını verir: yazdıqca uyğunlar süzülür, siyahıdan da
+               seçmək olur. Əlavə kitabxana lazım deyil. -->
+          <input id="olSource" class="sel selinput" list="olSourceList"
+                 placeholder="Bütün mənbələr" autocomplete="off" spellcheck="false">
+          <datalist id="olSourceList"></datalist>
           <select id="olApp" class="sel">
             <option value="">Mənşə: hamısı</option>
             <option value="1">Yalnız Clopos Track</option>
@@ -5711,17 +5722,45 @@ function olParams(){
   if (q) p.set('q', q);
   const st = document.getElementById('olStage').value;
   const se = document.getElementById('olSeller').value;
-  const so = document.getElementById('olSource').value;
+  // Mənbə mətn xanasıdır — yazılandan id tapılır (bax `menbeSec`)
+  const mb = menbeSec();
+  document.getElementById('olSource').classList.toggle('yanlis', !mb.tapildi);
   const ap = document.getElementById('olApp').value;
   if (st) p.set('stageId', st);
   if (se) p.set('sellerId', se);
-  if (so) p.set('sourceId', so);
+  if (mb.id) p.set('sourceId', mb.id);
   if (ap) p.set('app', ap);
   const df = document.getElementById('olFrom').value;
   const dt = document.getElementById('olTo').value;
   if (df) p.set('dateFrom', df);
   if (dt) p.set('dateTo', dt);
   return p.toString();
+}
+
+/* ── Mənbə süzgəci (yazıla bilən) ──
+   Azərbaycan hərfləri: "Səyyar" yazanda "seyyar" da tapılsın deyə hərflər
+   sadələşdirilir. Eyni yanaşma app-da (`new_lead_modal._fold`) və serverdə
+   (`_azFold`) var — burada da eyni olsun deyə təkrarlanır. */
+let olSources = [];
+function azKicik(s){
+  return String(s || '').toLowerCase()
+    .replace(/ə/g, 'e').replace(/ı/g, 'i').replace(/ö/g, 'o').replace(/ü/g, 'u')
+    .replace(/ç/g, 'c').replace(/ş/g, 's').replace(/ğ/g, 'g')
+    .replace(/\s+/g, ' ').trim();
+}
+/* Yazılan mətndən mənbə id-si. Qayda:
+   · boş → süzgəc yoxdur
+   · tam uyğunluq → həmin mənbə
+   · YALNIZ BİR mənbə uyğun gəlirsə → o (məs. "insta" → WhatsApp [Instagram Ads])
+   · heç nə və ya bir neçəsi uyğundursa → null (süzmürük, xana qırmızılaşır) */
+function menbeSec(){
+  const q = azKicik(document.getElementById('olSource').value);
+  if (!q) return { id: '', tapildi: true };
+  const tam = olSources.find(x => x.kicik === q);
+  if (tam) return { id: tam.id, tapildi: true };
+  const uygun = olSources.filter(x => x.kicik.includes(q));
+  if (uygun.length === 1) return { id: uygun[0].id, tapildi: true };
+  return { id: '', tapildi: false };
 }
 
 async function loadOdooLeadFilters(){
@@ -5737,7 +5776,13 @@ async function loadOdooLeadFilters(){
     };
     fill('olStage', r.stages, 'Bütün mərhələlər');
     fill('olSeller', r.sellers, 'Bütün satıcılar');
-    fill('olSource', r.sources, 'Bütün mənbələr');
+    /* Mənbə `select` DEYİL — `input + datalist`dir (yuxarıdakı izaha bax).
+       Adlar yaddaşda saxlanılır ki, yazılan mətndən id tapa bilək. */
+    olSources = (r.sources || []).map(x => ({
+      id: String(x.id), ad: x.name || '', kicik: azKicik(x.name || ''),
+    })).filter(x => x.ad);
+    document.getElementById('olSourceList').innerHTML =
+      olSources.map(x => `<option value="${esc(x.ad)}"></option>`).join('');
     olFiltersLoaded = true;
   } catch (_) {
     // Süzgəclər gəlməsə siyahı yenə işləyir — sadəcə süzmək olmur
