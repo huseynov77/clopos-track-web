@@ -2531,6 +2531,9 @@ tbody tr:hover .rowacts,tr:focus-within .rowacts{opacity:1}
               <th style="width:104px">Mənşə</th>
               <th>Lead</th>
               <th style="width:128px">Satıcı</th>
+              <!-- Mənbə AYRICA sütundur (Fuad, 2026-09-25). Əvvəl lead adının
+                   altında xırda boz yazı idi, gözə dəymirdi. -->
+              <th style="width:132px">Mənbə</th>
               <th style="width:116px">Tarix</th>
               <th>Ünvan / kontakt</th>
               <th style="width:74px;text-align:center">Şəkil</th>
@@ -5746,7 +5749,7 @@ async function loadOdooLeads(){
   olLoading = true;
   const myReq = ++olReqId;
   const body = document.getElementById('salesBody');
-  body.innerHTML = '<tr><td colspan="10" class="dash" style="text-align:center;padding:22px">Yüklənir…</td></tr>';
+  body.innerHTML = '<tr><td colspan="11" class="dash" style="text-align:center;padding:22px">Yüklənir…</td></tr>';
   try {
     const r = await api('/api/v2/admin/odoo-leads?' + olParams());
     if (myReq !== olReqId) return;   // daha yeni sorgu var - bunu at
@@ -5757,7 +5760,7 @@ async function loadOdooLeads(){
   } catch (e) {
     if (myReq !== olReqId) return;
     odooRows = [];
-    body.innerHTML = '<tr><td colspan="10" class="dash" style="text-align:center;padding:22px">Alınmadı: ' + esc(e.message) + '</td></tr>';
+    body.innerHTML = '<tr><td colspan="11" class="dash" style="text-align:center;padding:22px">Alınmadı: ' + esc(e.message) + '</td></tr>';
     document.getElementById('olPager').innerHTML = '';
     document.getElementById('olCount').textContent = '';
   } finally {
@@ -5904,7 +5907,7 @@ function renderSales(){
 
   const body = document.getElementById('salesBody');
   if (!rows.length) {
-    body.innerHTML = '<tr><td colspan="10">' +
+    body.innerHTML = '<tr><td colspan="11">' +
       emptyBox('&#128188;', dupMode ? 'T\u0259krar \u015f\u00fcbh\u0259li yoxdur' : 'Lead yoxdur',
                dupMode ? 'Ox\u015far adda lead tap\u0131lmad\u0131.' : 'Bu s\u00fczg\u0259cl\u0259r\u0259 uy\u011fun n\u0259tic\u0259 yoxdur.') +
       '</td></tr>';
@@ -5940,9 +5943,11 @@ function renderSales(){
           ((r.saleType || r.software)
             ? '<div class="dash" style="font-size:11px;margin-top:2px">' +
               esc([r.saleType, r.software].filter(Boolean).join(' \u00b7 ')) + '</div>' : '') +
-          (r.source ? '<div class="dash" style="font-size:11px">' + esc(r.source) + '</div>' : '') +
         '</td>' +
         '<td>' + (r.seller ? esc(r.seller) : '<span class="dash">\u2014</span>') + '</td>' +
+        // M\u0259nb\u0259 \u2014 ad\u0131n alt\u0131ndak\u0131 boz s\u0259tird\u0259n \u00c7IXARILIB \u00f6z s\u00fctununa k\u00f6\u00e7\u00fcr\u00fcld\u00fc
+        '<td>' + (r.source ? '<span class="tag">' + esc(r.source) + '</span>'
+                           : '<span class="dash">\u2014</span>') + '</td>' +
         '<td>' + tarix + '</td>' +
         '<td class="ell addrcol" title="' + esc(unvan) + '">' + coord +
           (unvan ? esc(unvan) : '<span class="dash">\u2014</span>') +
@@ -8305,12 +8310,30 @@ async function openBrandDetail(name){
           al.map(a => '<i>' + esc(a) + '</i>').join('') + '</div></div>' : '') +
     '<div class="bd-log" id="bdLog"><div class="empty">Yüklənir…</div></div>' +
     '<div class="mfoot">' +
+      /* İKİ AYRI DÜYMƏ (Fuad, 2026-09-25): «Xəritədə aç» BİZİM xəritəni
+         açır (obyekti tapıb üstünə uçur), Google Maps isə AYRICA qalır —
+         yol tapmaq üçün lazım olur, ona görə silinmədi. */
       (b.lat != null
-        ? '<a class="btn btn-ghost btn-sm" target="_blank" rel="noopener" ' +
-          'href="https://maps.google.com/maps?q=' + b.lat + ',' + b.lng + '">Xəritədə aç</a>' : '') +
+        ? '<button type="button" class="btn btn-ghost btn-sm" id="bdMap">Xəritədə aç</button>' +
+          '<a class="btn btn-ghost btn-sm" target="_blank" rel="noopener" ' +
+          'href="https://maps.google.com/maps?q=' + b.lat + ',' + b.lng + '">Google Maps</a>' : '') +
       '<button type="button" class="btn btn-ghost btn-sm" id="bdAll">Tam tarixçə</button>' +
       '<button type="button" class="btn btn-primary btn-sm" onclick="closeModal()">Bağla</button>' +
     '</div>');
+
+  /* «Xəritədə aç» → panelin ÖZ xəritəsi. `flyToBrand()` hazır funksiyadır:
+     obyekti tapır, zoom 17-yə keçir, pinləri çəkir və kartını açır.
+     `loadMapBrands()` MƏCBURİDİR — istifadəçi Xəritə səhifəsini bu sessiyada
+     heç açmayıbsa `mBrands` boş olur və `flyToBrand` səssizcə heç nə etmir.
+     `go('map')` özü də yükləyə bilər, amma ardıcıllığa güvənmirik. */
+  const bdMap = document.getElementById('bdMap');
+  if (bdMap) bdMap.onclick = async () => {
+    closeModal();
+    go('map');
+    try { await loadMapBrands(); } catch (_) {}
+    // Xəritə DOM-da yeni görünür — ölçüsü oturandan sonra uçuruq
+    setTimeout(() => { try { flyToBrand(b.name); } catch (_) {} }, 260);
+  };
 
   document.getElementById('bdAll').onclick = () => {
     closeModal();
