@@ -1116,6 +1116,21 @@ body.satview .leaflet-control-attribution a{color:#bcd}
   width:100%;max-width:440px;max-height:88vh;overflow-y:auto;animation:rise .28s cubic-bezier(.16,1,.3,1) both}
 /* Cədvəlli pəncərələr — sahə nəticəsi kimi — 440px-də sıxılırdı */
 .mbox.wide{max-width:min(1080px,94vw)}
+/* Selahiyyet modali (partner qruplari) — uzun surusen siyahi evezine
+   iki sutun + yigcam qayda cedveli (Fuad: "dizayni sifirdi, normal
+   genis modal qur", 2026-10-12). */
+.acl2{display:grid;grid-template-columns:1fr 1fr;gap:0 20px}
+@media(max-width:760px){.acl2{grid-template-columns:1fr}}
+.aclsec{margin:16px 0 8px;font-size:12.5px;font-weight:600;color:var(--text)}
+.aclsec span{font-weight:400;color:var(--faint)}
+.aclmx{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:4px}
+.aclmx th,.aclmx td{padding:8px 6px;text-align:center;border-bottom:1px solid var(--line)}
+.aclmx tr:last-child td{border-bottom:0}
+.aclmx th:first-child,.aclmx td:first-child{text-align:left;color:var(--text);font-weight:500;padding-left:2px}
+.aclmx thead th{color:var(--muted);font-weight:600;font-size:11px;letter-spacing:.03em;text-transform:uppercase}
+.aclmx thead tr:first-child th{padding-bottom:2px}
+.aclmx .gsep{border-left:1px solid var(--line)}
+.aclmx input{accent-color:var(--brand);cursor:pointer;width:15px;height:15px}
 .mhead{padding:20px 22px 0;position:relative}
 .mhead h3{font-size:17px;font-weight:600;letter-spacing:-.025em}
 .mhead p{font-size:13px;color:var(--faint);margin-top:4px}
@@ -9720,7 +9735,7 @@ const AL_KANALLAR = [
   ['objTexniki',    'Obyekt — Texniki iş'],
   ['akt',           'Akt'],
   ['tehvil',        'Təhvil'],
-  ['sekil',         'Şəkil'],
+  ['sekil',         'Şəkil — kanal və ya çat adı'],
 ];
 const AL_SENEDLER = [['akt', 'Akt'], ['tehvil', 'Təhvil'], ['sekil', 'Şəkil']];
 let accessLevels = [];
@@ -9793,58 +9808,73 @@ function alModal(l){
   const yeni = !l;
   const k = (l && l.channels) || {};
   const r = (l && l.rules) || {};
-  /* İki səviyyə (Fuad, 2026-10-12): əvvəlcə düymə GÖRÜNÜRMÜ, sonra
-     görünənlərdən hansı MƏCBURİDİR. Gəncədə üçü də gizlidir — məhz bu
-     "görünən" siyahısı boş olduğu haldır. */
+  /* İki səviyyə: əvvəlcə düymə GÖRÜNÜRMÜ, sonra görünənlərdən hansı
+     MƏCBURİDİR. Gəncədə üçü də gizlidir — məhz "görünən" boş olduğu haldır. */
   const alQ = function (nov, tip, sen) {
     const v = r[nov];
     if (!v) return '';
     const list = Array.isArray(v) ? (tip === 'gorunen' ? ['akt', 'tehvil', 'sekil'] : v) : (v[tip] || []);
     return list.indexOf(sen) >= 0 ? ' checked' : '';
   };
-  modal(
+  const xana = function (a, ad, ipucu) {
+    return '<div class="field"><label>' + ad +
+      (ipucu ? ' <span style="color:var(--faint);font-weight:400">' + ipucu + '</span>' : '') +
+      '</label><input id="aclCh_' + a + '" autocomplete="off" value="' + esc(k[a] || '') + '"></div>';
+  };
+  /* QAYDA CƏDVƏLİ — sətirlər sənəd, sütunlar iş növü. Əvvəl 4 ayrı yığın
+     idi və modal uzun-uzadı sürüşürdü (Fuad: "dizaynı sıfırdır").
+     Sütun başlıqları obyekt kanallarının adı ilə EYNİDİR — işçi hansı
+     kanalı seçirsə, o sütunun qaydaları tətbiq olunur. */
+  const mxSetir = AL_SENEDLER.map(function (sp) {
+    return '<tr><td>' + sp[1] + '</td>' +
+      ['qurasdirma', 'texniki'].map(function (nov, i) {
+        return '<td' + (i ? ' class="gsep"' : '') + '>' +
+            '<input type="checkbox" data-al-gor="' + nov + ':' + sp[0] + '"' + alQ(nov, 'gorunen', sp[0]) + '></td>' +
+          '<td><input type="checkbox" data-al-mec="' + nov + ':' + sp[0] + '"' + alQ(nov, 'mecburi', sp[0]) + '></td>';
+      }).join('') +
+    '</tr>';
+  }).join('');
+
+  modalWide(
     '<div class="mhead"><h3>' + (yeni ? 'Yeni səlahiyyət' : esc(l.label)) + '</h3>' +
-      '<p>Teams partner qrupu və məcburi sənədlər</p></div>' +
+      '<p>Teams partner qrupu və sənəd qaydaları</p></div>' +
     '<div class="mbody">' +
-      '<div class="field"><label>Açar ' +
-        '<span style="color:var(--faint)">(latın hərfi/rəqəm, sonradan dəyişmir)</span></label>' +
-        '<input id="aclKey" autocomplete="off" placeholder="lenkeran"' +
-        (yeni ? '' : ' value="' + esc(l.key) + '" disabled') + '></div>' +
-      '<div class="field"><label>Ad</label>' +
-        '<input id="aclLabel" autocomplete="off" placeholder="Lənkəran Partner"' +
-        (yeni ? '' : ' value="' + esc(l.label) + '"') + '></div>' +
-      '<div style="margin:14px 0 6px;font-size:12.5px;color:var(--muted)">' +
-        '<b>Teams kanal adları</b> — boş buraxsanız köhnə sabit adlar işlənir</div>' +
-      AL_KANALLAR.map(function (p) {
-        return '<div class="field"><label>' + p[1] + '</label>' +
-          '<input id="aclCh_' + p[0] + '" autocomplete="off" value="' + esc(k[p[0]] || '') + '"></div>';
-      }).join('') +
-      '<div class="field"><label>Şəkil hara gedir</label><div class="selwrap">' +
-        '<select id="aclSekilTipi">' +
-          '<option value="chat"' + (k.sekilTipi === 'channel' ? '' : ' selected') +
-            '>Çata (Bakı: customer onboarding)</option>' +
-          '<option value="channel"' + (k.sekilTipi === 'channel' ? ' selected' : '') + '>Kanala</option>' +
-        '</select><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></div></div>' +
-      '<div style="margin:14px 0 6px;font-size:12.5px;color:var(--muted)">' +
-        '<b>Sənədlər</b> — əvvəlcə düymə görünürmü, sonra məcburidirmi</div>' +
-      ['qurasdirma', 'texniki'].map(function (nov) {
-        return '<div class="field"><label>' +
-          (nov === 'qurasdirma' ? 'Quraşdırma' : 'Texniki iş') + '</label>' +
-          '<div style="font-size:11.5px;color:var(--faint);margin:2px 0 5px">Görünsün</div>' +
-          '<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:8px">' +
-          AL_SENEDLER.map(function (sp) {
-            return '<label class="chk"><input type="checkbox" data-al-gor="' + nov + ':' + sp[0] + '"' +
-              alQ(nov, 'gorunen', sp[0]) + '> ' + sp[1] + '</label>';
-          }).join('') +
-          '</div>' +
-          '<div style="font-size:11.5px;color:var(--faint);margin:0 0 5px">Məcburi</div>' +
-          '<div style="display:flex;gap:14px;flex-wrap:wrap">' +
-          AL_SENEDLER.map(function (sp) {
-            return '<label class="chk"><input type="checkbox" data-al-mec="' + nov + ':' + sp[0] + '"' +
-              alQ(nov, 'mecburi', sp[0]) + '> ' + sp[1] + '</label>';
-          }).join('') +
-          '</div></div>';
-      }).join('') +
+      '<div class="acl2">' +
+        '<div class="field"><label>Açar ' +
+          '<span style="color:var(--faint);font-weight:400">(latın hərfi/rəqəm, sonradan dəyişmir)</span></label>' +
+          '<input id="aclKey" autocomplete="off" placeholder="lenkeran"' +
+          (yeni ? '' : ' value="' + esc(l.key) + '" disabled') + '></div>' +
+        '<div class="field"><label>Ad</label>' +
+          '<input id="aclLabel" autocomplete="off" placeholder="Lənkəran Partner"' +
+          (yeni ? '' : ' value="' + esc(l.label) + '"') + '></div>' +
+      '</div>' +
+
+      '<div class="aclsec">Teams kanalları ' +
+        '<span>— boş buraxsanız köhnə sabit adlar işlənir</span></div>' +
+      '<div class="acl2">' +
+        xana('objQurasdirma', 'Obyekt — Quraşdırma') +
+        xana('objTexniki', 'Obyekt — Texniki iş') +
+        xana('akt', 'Akt') +
+        xana('tehvil', 'Təhvil') +
+        xana('sekil', 'Şəkil', '— kanal və ya çat adı') +
+      '</div>' +
+
+      '<div class="aclsec">Sənəd qaydaları ' +
+        '<span>— işçi hansı obyekt kanalını seçirsə, o sütun tətbiq olunur</span></div>' +
+      '<table class="aclmx">' +
+        '<thead>' +
+          '<tr><th rowspan="2"></th>' +
+            '<th colspan="2">Quraşdırma</th>' +
+            '<th colspan="2" class="gsep">Texniki iş</th></tr>' +
+          '<tr><th>Görünsün</th><th>Məcburi</th>' +
+            '<th class="gsep">Görünsün</th><th>Məcburi</th></tr>' +
+        '</thead>' +
+        '<tbody>' + mxSetir + '</tbody>' +
+      '</table>' +
+      '<div style="margin-top:8px;font-size:11.5px;color:var(--faint);line-height:1.5">' +
+        'Görünsün — düymə obyektin içində göstərilir. ' +
+        'Məcburi — göndərilməyincə «Obyektdən çıx» işləmir. ' +
+        'Məcburi yalnız görünənlərdən seçilir.</div>' +
     '</div>' +
     '<div class="mfoot">' +
       '<button type="button" class="btn btn-ghost" onclick="closeModal()">Ləğv</button>' +
@@ -9858,7 +9888,7 @@ function alModal(l){
       toast('Açar: latın hərfi, rəqəm, tire — 2-30 simvol', 'bad'); return;
     }
     if (!label) { toast('Ad boş ola bilməz', 'bad'); return; }
-    const channels = { sekilTipi: document.getElementById('aclSekilTipi').value };
+    const channels = {};
     AL_KANALLAR.forEach(function (p) {
       const v = (document.getElementById('aclCh_' + p[0]).value || '').trim();
       if (v) channels[p[0]] = v;
