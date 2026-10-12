@@ -2809,13 +2809,14 @@ tbody tr:hover .rowacts,tr:focus-within .rowacts{opacity:1}
             <div class="panel">
               <div class="panel-h"><h3>Səlahiyyətlər (partner qrupları)</h3>
                 <div class="right">
-                  <button type="button" class="btn btn-primary btn-sm" id="alAdd">Yeni səlahiyyət</button>
+                  <button type="button" class="btn btn-primary btn-sm" id="aclAdd">Yeni səlahiyyət</button>
                 </div></div>
-              <div id="alList"><div class="empty">Yuklenir...</div></div>
+              <div id="aclList"><div class="empty">Yuklenir...</div></div>
               <div style="padding:0 18px 16px;font-size:12px;color:var(--faint);line-height:1.55">
-                Her selahiyyet bir Teams partner qrupuna uygundur. Kanal adlari
-                BOS buraxilsa app kohne sabit adlari isledir - yeni Baki ucun
-                hec ne doldurmaq lazim deyil.
+                Hər səlahiyyət bir Teams partner qrupuna uyğundur. Kanal adları BOŞ
+                buraxılsa app köhnə sabit adları işlədir — mövcud «Tam» və
+                «Regional» üçün heç nə doldurmaq lazım deyil, onlar indiki kimi
+                işləyəcək.
               </div>
             </div>
 
@@ -9718,7 +9719,7 @@ const AL_SENEDLER = [['akt', 'Akt'], ['tehvil', 'Təhvil'], ['sekil', 'Şəkil']
 let accessLevels = [];
 
 async function renderAccessLevels(){
-  const box = document.getElementById('alList');
+  const box = document.getElementById('aclList');
   if (!box) return;
   try {
     const r = await api('/api/v2/admin/access-levels');
@@ -9791,19 +9792,19 @@ function alModal(l){
     '<div class="mbody">' +
       '<div class="field"><label>Açar ' +
         '<span style="color:var(--faint)">(latın hərfi/rəqəm, sonradan dəyişmir)</span></label>' +
-        '<input id="alKey" autocomplete="off" placeholder="lenkeran"' +
+        '<input id="aclKey" autocomplete="off" placeholder="lenkeran"' +
         (yeni ? '' : ' value="' + esc(l.key) + '" disabled') + '></div>' +
       '<div class="field"><label>Ad</label>' +
-        '<input id="alLabel" autocomplete="off" placeholder="Lənkəran Partner"' +
+        '<input id="aclLabel" autocomplete="off" placeholder="Lənkəran Partner"' +
         (yeni ? '' : ' value="' + esc(l.label) + '"') + '></div>' +
       '<div style="margin:14px 0 6px;font-size:12.5px;color:var(--muted)">' +
         '<b>Teams kanal adları</b> — boş buraxsanız köhnə sabit adlar işlənir</div>' +
       AL_KANALLAR.map(function (p) {
         return '<div class="field"><label>' + p[1] + '</label>' +
-          '<input id="alCh_' + p[0] + '" autocomplete="off" value="' + esc(k[p[0]] || '') + '"></div>';
+          '<input id="aclCh_' + p[0] + '" autocomplete="off" value="' + esc(k[p[0]] || '') + '"></div>';
       }).join('') +
       '<div class="field"><label>Şəkil hara gedir</label><div class="selwrap">' +
-        '<select id="alSekilTipi">' +
+        '<select id="aclSekilTipi">' +
           '<option value="chat"' + (k.sekilTipi === 'channel' ? '' : ' selected') +
             '>Çata (Bakı: customer onboarding)</option>' +
           '<option value="channel"' + (k.sekilTipi === 'channel' ? ' selected' : '') + '>Kanala</option>' +
@@ -9822,19 +9823,19 @@ function alModal(l){
     '</div>' +
     '<div class="mfoot">' +
       '<button type="button" class="btn btn-ghost" onclick="closeModal()">Ləğv</button>' +
-      '<button type="button" class="btn btn-primary" id="alSave">Saxla</button>' +
+      '<button type="button" class="btn btn-primary" id="aclSave">Saxla</button>' +
     '</div>');
 
-  document.getElementById('alSave').onclick = async function () {
-    const key = (document.getElementById('alKey').value || '').trim().toLowerCase();
-    const label = (document.getElementById('alLabel').value || '').trim();
+  document.getElementById('aclSave').onclick = async function () {
+    const key = (document.getElementById('aclKey').value || '').trim().toLowerCase();
+    const label = (document.getElementById('aclLabel').value || '').trim();
     if (!/^[a-z0-9_-]{2,30}$/.test(key)) {
       toast('Açar: latın hərfi, rəqəm, tire — 2-30 simvol', 'bad'); return;
     }
     if (!label) { toast('Ad boş ola bilməz', 'bad'); return; }
-    const channels = { sekilTipi: document.getElementById('alSekilTipi').value };
+    const channels = { sekilTipi: document.getElementById('aclSekilTipi').value };
     AL_KANALLAR.forEach(function (p) {
-      const v = (document.getElementById('alCh_' + p[0]).value || '').trim();
+      const v = (document.getElementById('aclCh_' + p[0]).value || '').trim();
       if (v) channels[p[0]] = v;
     });
     const rules = { qurasdirma: [], texniki: [] };
@@ -9859,7 +9860,7 @@ function alModal(l){
   };
 }
 
-document.getElementById('alAdd').addEventListener('click', function () { alModal(null); });
+document.getElementById('aclAdd').addEventListener('click', function () { alModal(null); });
 
 /* Satış qaydaları (2026-09-15) — hazırda tək dəyər: lead neçə gündən sonra
    "sərbəst" sayılır. DİQQƏT: dəyər lead-lərdə saxlanmır, hər dəfə yenidən
