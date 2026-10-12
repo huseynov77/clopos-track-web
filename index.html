@@ -3373,6 +3373,13 @@ async function loadHome(){
   try {
     const d = await api('/api/v2/admin/summary?period=' + period0);
     summary = d;
+    /* Versiyalar bolmesi summary-den oxuyur, amma YALNIZ Tenzimlemeler
+       acilanda cizilirdi. Sehife birbasa Tenzimlemelerde acilsa (ve ya
+       summary gec gelse) bolme bos qalirdi ve BIR DAHA yenilenmirdi —
+       ustelik 60 saniyelik tezelik qaydasi tekrar cagirisi da kesirdi.
+       Indi melumat gelen kimi cizilir; funksiya element yoxdursa derhal
+       qayidir, yeni diger sehifelerde hec ne etmir (Fuad tapdi, 2026-10-12). */
+    try { renderVersions(); } catch (_) {}
     hideNetErr();
     lastUpd = Date.now();
     tickUpd();
@@ -9734,15 +9741,16 @@ async function renderAccessLevels(){
     const dolu = AL_KANALLAR.filter(function (p) { return k[p[0]]; }).length;
     let qayda = '';
     if (l.rules) {
-      qayda = ['qurasdirma', 'texniki']
-        .filter(function (n) { return (l.rules[n] || []).length; })
-        .map(function (n) {
-          const adlar = (l.rules[n] || []).map(function (x) {
-            const f = AL_SENEDLER.find(function (y) { return y[0] === x; });
-            return f ? f[1] : x;
-          });
-          return (n === 'qurasdirma' ? 'Quraşdırma' : 'Texniki') + ': ' + adlar.join('+');
-        }).join(' · ');
+      qayda = ['qurasdirma', 'texniki'].map(function (n) {
+        const v = l.rules[n];
+        if (!v) return null;
+        // Kohne format (sade massiv) da oxunur: hamisi gorunen sayilir
+        const g = Array.isArray(v) ? ['akt', 'tehvil', 'sekil'] : (v.gorunen || []);
+        const m = Array.isArray(v) ? v : (v.mecburi || []);
+        const ad = n === 'qurasdirma' ? 'Quraşdırma' : 'Texniki';
+        if (!g.length) return ad + ': sənədsiz';
+        return ad + ': ' + g.length + ' görünən' + (m.length ? ', ' + m.length + ' məcburi' : '');
+      }).filter(Boolean).join(' · ');
     }
     return '<div class="prow">' +
       '<div style="flex:1;min-width:0">' +
@@ -9785,7 +9793,15 @@ function alModal(l){
   const yeni = !l;
   const k = (l && l.channels) || {};
   const r = (l && l.rules) || {};
-  const mec = function (nov, sen) { return (r[nov] || []).indexOf(sen) >= 0 ? ' checked' : ''; };
+  /* İki səviyyə (Fuad, 2026-10-12): əvvəlcə düymə GÖRÜNÜRMÜ, sonra
+     görünənlərdən hansı MƏCBURİDİR. Gəncədə üçü də gizlidir — məhz bu
+     "görünən" siyahısı boş olduğu haldır. */
+  const alQ = function (nov, tip, sen) {
+    const v = r[nov];
+    if (!v) return '';
+    const list = Array.isArray(v) ? (tip === 'gorunen' ? ['akt', 'tehvil', 'sekil'] : v) : (v[tip] || []);
+    return list.indexOf(sen) >= 0 ? ' checked' : '';
+  };
   modal(
     '<div class="mhead"><h3>' + (yeni ? 'Yeni səlahiyyət' : esc(l.label)) + '</h3>' +
       '<p>Teams partner qrupu və məcburi sənədlər</p></div>' +
@@ -9809,14 +9825,23 @@ function alModal(l){
             '>Çata (Bakı: customer onboarding)</option>' +
           '<option value="channel"' + (k.sekilTipi === 'channel' ? ' selected' : '') + '>Kanala</option>' +
         '</select><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></div></div>' +
-      '<div style="margin:14px 0 6px;font-size:12.5px;color:var(--muted)"><b>Məcburi sənədlər</b></div>' +
+      '<div style="margin:14px 0 6px;font-size:12.5px;color:var(--muted)">' +
+        '<b>Sənədlər</b> — əvvəlcə düymə görünürmü, sonra məcburidirmi</div>' +
       ['qurasdirma', 'texniki'].map(function (nov) {
         return '<div class="field"><label>' +
           (nov === 'qurasdirma' ? 'Quraşdırma' : 'Texniki iş') + '</label>' +
+          '<div style="font-size:11.5px;color:var(--faint);margin:2px 0 5px">Görünsün</div>' +
+          '<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:8px">' +
+          AL_SENEDLER.map(function (sp) {
+            return '<label class="chk"><input type="checkbox" data-al-gor="' + nov + ':' + sp[0] + '"' +
+              alQ(nov, 'gorunen', sp[0]) + '> ' + sp[1] + '</label>';
+          }).join('') +
+          '</div>' +
+          '<div style="font-size:11.5px;color:var(--faint);margin:0 0 5px">Məcburi</div>' +
           '<div style="display:flex;gap:14px;flex-wrap:wrap">' +
           AL_SENEDLER.map(function (sp) {
-            return '<label class="chk"><input type="checkbox" data-al-rule="' + nov + ':' + sp[0] + '"' +
-              mec(nov, sp[0]) + '> ' + sp[1] + '</label>';
+            return '<label class="chk"><input type="checkbox" data-al-mec="' + nov + ':' + sp[0] + '"' +
+              alQ(nov, 'mecburi', sp[0]) + '> ' + sp[1] + '</label>';
           }).join('') +
           '</div></div>';
       }).join('') +
@@ -9838,11 +9863,18 @@ function alModal(l){
       const v = (document.getElementById('aclCh_' + p[0]).value || '').trim();
       if (v) channels[p[0]] = v;
     });
-    const rules = { qurasdirma: [], texniki: [] };
-    document.querySelectorAll('[data-al-rule]').forEach(function (cb) {
+    /* Gorunen ve mecburi AYRI yigilir. Server ayrica da kesir, amma
+       burada da kesirik ki, istifadeci derhal duzgun neticeni gorsun. */
+    const rules = { qurasdirma: { gorunen: [], mecburi: [] }, texniki: { gorunen: [], mecburi: [] } };
+    document.querySelectorAll('[data-al-gor]').forEach(function (cb) {
       if (!cb.checked) return;
-      const parts = cb.dataset.alRule.split(':');
-      rules[parts[0]].push(parts[1]);
+      const p = cb.dataset.alGor.split(':');
+      rules[p[0]].gorunen.push(p[1]);
+    });
+    document.querySelectorAll('[data-al-mec]').forEach(function (cb) {
+      if (!cb.checked) return;
+      const p = cb.dataset.alMec.split(':');
+      if (rules[p[0]].gorunen.indexOf(p[1]) >= 0) rules[p[0]].mecburi.push(p[1]);
     });
     try {
       await api('/api/v2/admin/access-levels', {
