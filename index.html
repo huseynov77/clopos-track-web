@@ -2056,6 +2056,31 @@ th[data-ovsort]:hover{color:var(--brand)}
 .ovperiod b{color:var(--text);font-weight:600}
 .ovwarn{color:var(--warn)}
 
+/* İşçi detalı — günlərə görə qruplaşmış siyahı */
+.gunler{padding:4px 0 8px}
+.gun{border-bottom:1px solid var(--line)}
+.gun:last-child{border-bottom:0}
+.gun.on .gun-h{background:color-mix(in srgb,var(--ok) 7%,transparent)}
+.gun-h{display:flex;align-items:baseline;gap:14px;padding:11px 18px;
+       background:var(--surf-2);flex-wrap:wrap}
+.gun-t{font-size:13.5px;font-weight:650;color:var(--text);letter-spacing:-.01em}
+.gun-m{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;
+       display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.gun-m .acıq{color:var(--ok);font-weight:600}
+.gun-v{display:grid;grid-template-columns:118px minmax(0,1fr) 78px auto;
+       gap:12px;align-items:center;padding:9px 18px;font-size:12.5px}
+.gun-v + .gun-v{border-top:1px solid color-mix(in srgb,var(--line) 55%,transparent)}
+.gun-v:hover{background:var(--surf-2)}
+.gun-v.bos{display:block;color:var(--faint);font-size:12px;padding:10px 18px}
+.gv-vaxt{color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.gv-ad{color:var(--text);font-weight:550;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gv-mud{color:var(--muted);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.gv-tag{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+@media (max-width:820px){
+  .gun-v{grid-template-columns:1fr auto;row-gap:6px}
+  .gv-tag{grid-column:1/-1;justify-content:flex-start}
+}
+
 </style>
 </head>
 <body>
@@ -2685,33 +2710,14 @@ th[data-ovsort]:hover{color:var(--brand)}
             <div class="statfoot" id="statsHint"></div>
           </div>
 
-          <div class="panel" style="margin-bottom:16px">
-            <div class="panel-h"><h3>Növbələr</h3></div>
-            <div id="statsShiftsWrap" style="max-height:440px;overflow-y:auto"><table>
-              <thead><tr>
-                <th>Açılış</th>
-                <th>Bağlanış</th>
-                <th style="width:160px;text-align:right">Müddət</th>
-              </tr></thead>
-              <tbody id="statsShiftsBody"></tbody>
-            </table></div>
-          </div>
-
           <div class="panel">
             <div class="panel-h">
               <div class="segtabs">
-                <button type="button" class="segtab on" data-stab="visits">Bütün ziyarətlər</button>
+                <button type="button" class="segtab on" data-stab="visits">Günlər</button>
                 <button type="button" class="segtab" data-stab="objects">Obyekt üzrə</button>
               </div>
             </div>
-            <div id="statsVisitsWrap"><table>
-              <thead><tr>
-                <th style="width:120px">Tarix</th>
-                <th>Obyekt</th>
-                <th style="width:230px;text-align:right">Vaxt</th>
-              </tr></thead>
-              <tbody id="statsVisitsBody"></tbody>
-            </table></div>
+            <div id="statsVisitsWrap" class="gunler"></div>
             <div id="statsWrap" style="display:none"><table id="statsTable">
               <thead><tr>
                 <th>Obyekt</th>
@@ -6176,6 +6182,74 @@ document.querySelectorAll('#pg-stats .segtab').forEach(btn => btn.addEventListen
   document.getElementById('statsVisitsWrap').style.display = showVisits ? '' : 'none';
   document.getElementById('statsWrap').style.display = showVisits ? 'none' : '';
 }));
+/* ——— İŞÇİ DETALI: GÜNLƏR ———
+   Əvvəl burada iki ayrı düz cədvəl var idi — «Növbələr» (açılış/bağlanış/
+   müddət) və «Bütün ziyarətlər» (uzun, sonsuz sətirlər). Baxan adam günü
+   tapmaq üçün iki cədvəli tutuşdurmalı olurdu (Fuad: "bərbaddır").
+
+   İndi hər gün BİR BLOKDUR: başlıqda növbə saatı və ziyarət sayı, altında
+   həmin günün ziyarətləri. Növbə məlumatı ayrıca cədvəl kimi təkrarlanmır. */
+function statsGunler(r){
+  const gunler = new Map();
+  const al = (ms) => {
+    const k = dayKey(new Date(ms));
+    if (!gunler.has(k)) gunler.set(k, { k, t: ms, shifts: [], visits: [] });
+    return gunler.get(k);
+  };
+  (r.shifts || []).forEach(s => al(s.start).shifts.push(s));
+  (r.visits || []).forEach(v => al(v.enter).visits.push(v));
+  if (!gunler.size) {
+    return emptyBox('&#128197;', 'Bu dövrdə iş yoxdur', 'Nə növbə açılıb, nə obyektə girilib.');
+  }
+
+  // Eyni obyektə eyni gündə təkrar — rəhbər üçün işarə
+  const tekrar = new Map();
+  (r.visits || []).forEach(v => {
+    const k = v.name + '|' + dayKey(new Date(v.enter));
+    tekrar.set(k, (tekrar.get(k) || 0) + 1);
+  });
+
+  return [...gunler.values()].sort((a, b) => b.t - a.t).map(g => {
+    const saat = g.shifts.reduce((a, s) => a + (s.hours || 0), 0);
+    const acilis = g.shifts.length ? Math.min(...g.shifts.map(s => s.start)) : null;
+    const bagl = g.shifts.length && g.shifts.every(s => s.end)
+      ? Math.max(...g.shifts.map(s => s.end)) : null;
+    const uzun = g.shifts.some(s => s.flag);
+    const acıq = g.shifts.some(s => !s.end);
+
+    const bas = '<div class="gun-h">' +
+      '<span class="gun-t">' + dayLabel(g.t) + '</span>' +
+      '<span class="gun-m">' +
+        (acilis
+          ? hm(acilis) + ' → ' + (bagl ? hm(bagl) : '<b class="acıq">hələ açıqdır</b>') +
+            (saat ? ' · ' + saat + ' saat' : '')
+          : '<span class="dash">növbə açılmayıb</span>') +
+        (uzun ? ' <span class="tag warn" title="16 saatdan uzun — bağlamaq unudulmuş ola bilər">uzun növbə</span>' : '') +
+        ' · ' + g.visits.length + ' ziyarət' +
+      '</span></div>';
+
+    const setirler = g.visits.sort((a, b) => a.enter - b.enter).map(v => {
+      const say = tekrar.get(v.name + '|' + g.k);
+      const tekrarTag = say > 1
+        ? '<span class="tag warn" title="Bu obyektə bu gün ' + say + ' dəfə gedilib">' + say + '×</span>' : '';
+      const novTag = v.workType
+        ? '<span class="tag ' + WORK_TYPE_TONE[v.workType] + '">' + WORK_TYPE_LABEL[v.workType] + '</span>' : '';
+      const sened = (v.actions && v.actions.length)
+        ? v.actions.map(a => '<span class="tag ok">' + (STATS_ACTION_LABEL[a] || a) + '</span>').join('')
+        : '<span class="tag bad">sənədsiz</span>';
+      return '<div class="gun-v">' +
+        '<span class="gv-vaxt">' + hm(v.enter) + (v.exit ? ' → ' + hm(v.exit) : '') + '</span>' +
+        '<span class="gv-ad" title="' + esc(v.name) + '">' + esc(v.name) + '</span>' +
+        '<span class="gv-mud">' + (v.minutes ? fmtMin(v.minutes) : '<span class="dash">—</span>') + '</span>' +
+        '<span class="gv-tag">' + tekrarTag + novTag + sened + '</span>' +
+      '</div>';
+    }).join('');
+
+    return '<div class="gun' + (acıq ? ' on' : '') + '">' + bas +
+      (setirler || '<div class="gun-v bos">Obyektə girilməyib</div>') + '</div>';
+  }).join('');
+}
+
 function renderStats(r){
   document.getElementById('statsEmpty').style.display = 'none';
   document.getElementById('statsResult').style.display = '';
@@ -6233,17 +6307,6 @@ function renderStats(r){
     hintEl.innerHTML = '';
   }
 
-  // Növbələr
-  const sBody = document.getElementById('statsShiftsBody');
-  sBody.innerHTML = (r.shifts && r.shifts.length) ? r.shifts.map(s =>
-    '<tr' + (s.flag ? ' style="background:var(--warn-soft)"' : '') + '>' +
-      '<td>' + dayLabel(s.start) + ' · ' + hm(s.start) + '</td>' +
-      '<td>' + (s.end ? dayLabel(s.end) + ' · ' + hm(s.end) : '<span class="dash">hələ açıqdır</span>') + '</td>' +
-      '<td style="text-align:right">' + (s.hours != null ? s.hours + ' saat' : '—') +
-        (s.flag ? ' <span class="tag warn" title="16 saatdan uzun — bağlamaq unudulmuş ola bilər">uzun</span>' : '') +
-      '</td></tr>'
-    ).join('') : '<tr><td colspan="3">' + emptyBox('&#128337;', 'Növbə yoxdur', 'Bu dövrdə növbə açılmayıb.') + '</td></tr>';
-
   // Obyekt üzrə (brend üzrə cəmlənmiş)
   const body = document.getElementById('statsBody');
   body.innerHTML = (r.objects && r.objects.length) ? r.objects.map(o => {
@@ -6254,34 +6317,8 @@ function renderStats(r){
       '<td style="text-align:right">' + fmtMin(avg) + '</td></tr>';
   }).join('') : '<tr><td colspan="4">' + emptyBox('&#128269;', 'Ziyarət yoxdur', 'Bu dövrdə obyekt ziyarəti qeydə alınmayıb.') + '</td></tr>';
 
-  // Bütün ziyarətlər (xronoloji, ən yenisi öndə) — giriş→çıxış+müddət BİR sütunda,
-  // hər sətirdə hansı sənədlərin (əlaqə/akt/təhvil/şəkil) göndərildiyi tag kimi,
-  // eyni obyektə eyni gündə bir neçə dəfə gedilibsə bunu göstərən bir bayraqla.
-  const vBody = document.getElementById('statsVisitsBody');
-  const dayCount = new Map();
-  (r.visits || []).forEach(v => {
-    const k = v.name + '|' + dayKey(new Date(v.enter));
-    dayCount.set(k, (dayCount.get(k) || 0) + 1);
-  });
-  vBody.innerHTML = (r.visits && r.visits.length) ? r.visits.map(v => {
-    const total = dayCount.get(v.name + '|' + dayKey(new Date(v.enter)));
-    const repeatTag = total > 1
-      ? ' <span class="tag warn" title="Bu obyektə bu gün ' + total + ' dəfə gedilib">' + total + '× bu gün</span>' : '';
-    const actionTags = (v.actions && v.actions.length)
-      ? v.actions.map(a => '<span class="tag ok">' + (STATS_ACTION_LABEL[a] || a) + '</span>').join(' ')
-      : '<span class="tag bad">sənədsiz</span>';
-    // İş növü (Fuad-ın tələbi, 2026-09-10) — köhnə ziyarətlərdə (workType
-    // yoxdursa) HEÇ göstərilmir, "Naməlum" yazıb bütün köhnə sətirləri
-    // doldurmasın.
-    const workTypeTag = v.workType ? ' <span class="tag ' + WORK_TYPE_TONE[v.workType] + '">' + WORK_TYPE_LABEL[v.workType] + '</span>' : '';
-    return '<tr><td>' + dayLabel(v.enter) + '</td>' +
-      '<td class="ell" title="' + esc(v.name) + '">' + esc(v.name) + repeatTag + workTypeTag +
-        '<div style="margin-top:5px;display:flex;gap:5px;flex-wrap:wrap">' + actionTags + '</div></td>' +
-      '<td style="text-align:right">' + hm(v.enter) + ' → ' +
-        (v.exit ? hm(v.exit) + ' <span class="dash">· ' + fmtMin(v.minutes) + '</span>'
-                : '<span class="dash">davam edir</span>') +
-      '</td></tr>';
-  }).join('') : '<tr><td colspan="3">' + emptyBox('&#128269;', 'Ziyarət yoxdur', 'Bu dövrdə obyekt ziyarəti qeydə alınmayıb.') + '</td></tr>';
+  // Günlər — növbə + ziyarətlər bir yerdə, günə görə qruplaşmış
+  document.getElementById('statsVisitsWrap').innerHTML = statsGunler(r);
 }
 
 /* ── Satışlar (yalnız Satış rejimi) ── */
