@@ -4766,11 +4766,36 @@ async function loadStaff(){
     staffAll = Array.isArray(appr) ? appr : [];
     staffInactive = Array.isArray(inact) ? inact : [];
     renderStaff();
+    aclAdlariYukle();          // səlahiyyət nişanları üçün (bir dəfə)
     // Satışlar səhifəsinin "Əməkdaş" filtri bu siyahıdan qurulur — cold-start-da
     // `loadSales()` bundan ƏVVƏL bitə bilər, o zaman filtr boş qalırdı.
     if (page === 'sales') renderSales();
   } catch (e) { toast('İşçilər yüklənmədi: ' + e.message, 'bad'); }
 }
+/* SƏLAHİYYƏT ADLARI — işçi siyahısındakı nişan üçün.
+   Fuad (2026-10-14): "görüm kimə nə vermişəm". Əvvəl yalnız `regional`
+   sabit yazılmışdı; səlahiyyətlər paneldən idarə olunduğu üçün artıq
+   adlar serverdən gəlir, yeni partner əlavə ediləndə burada düzəliş
+   lazım gəlmir.
+   Siyahı gəlməsə nişan sadəcə açarın özünü göstərir — heç nə sınmır. */
+let aclAdlari = null;
+
+async function aclAdlariYukle(){
+  if (aclAdlari) return;
+  aclAdlari = {};                      // təkrar sorğunu dayandır
+  try {
+    const r = await api('/api/v2/admin/access-levels');
+    (r && r.levels || []).forEach(function (x) { aclAdlari[x.key] = x.label || x.key; });
+    renderStaff();                     // adlar gəldi — nişanları təzələ
+  } catch (_) { /* nişan açarla göstəriləcək */ }
+}
+
+/* Uzun etiketdən qısa ad: "Tam — bütün obyektləri görür" → "Tam" */
+function aclQisa(key){
+  const tam = (aclAdlari && aclAdlari[key]) || key;
+  return String(tam).split('—')[0].split(' - ')[0].trim() || key;
+}
+
 let sSortKey = null, sSortAsc = true;
 
 function renderStaff(){
@@ -4892,8 +4917,12 @@ function renderStaff(){
             <span class="bname">${esc(w.name)}</span>
             ${w.staffType === 'sales'
               ? '<span class="tag ok" title="' + (w.odooUserId != null ? 'Odoo ID: ' + esc(String(w.odooUserId)) : 'Odoo ID bağlanmayıb') + '">satış</span>' : ''}
-            ${w.accessLevel === 'regional'
-              ? '<span class="tag" title="Yalnız öz regionunun məlumatını görür">regional</span>' : ''}</div>
+            ${(function(){
+              const k = w.accessLevel || 'full';
+              const ad = aclQisa(k);
+              const uzun = (aclAdlari && aclAdlari[k]) || '';
+              return '<span class="tag" title="Səlahiyyət: ' + esc(uzun || k) + '">' + esc(ad) + '</span>';
+            })()}</div>
         </div></div></td>
       <td style="color:var(--muted)">${esc(w.role||'—')}</td>
       <td class="num idcell">${esc(w.login||'—')}<span>${esc(w.id)}</span></td>
