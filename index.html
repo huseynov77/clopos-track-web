@@ -2025,7 +2025,23 @@ th[data-ovsort]:hover{color:var(--brand)}
           font-variant-numeric:tabular-nums}
 
 /* Gün-gün: həftə sonu solğun, orta xətt */
-.ovbar.we{background:var(--line-2);opacity:.55}
+/* Sütun = günün TAM hündürlüklü sahəsi (hover üçün), bar içindədir */
+.ovcol{flex:1;min-width:3px;height:100%;display:flex;align-items:flex-end;
+       border-radius:4px;transition:background .12s}
+.ovcol:hover{background:color-mix(in srgb,var(--brand) 8%,transparent)}
+.ovbar{width:100%}
+/* Həftə sonu — eyni rəngin açıq tonu (boz DEYİL: boz "məlumat yoxdur" deməkdir) */
+.ovbar.we{background:color-mix(in srgb,var(--brand) 38%,var(--surf-2));opacity:1}
+.ovbar.zero{height:2px;background:var(--line-2);opacity:.9;border-radius:2px}
+.ovlegend{display:flex;gap:16px;margin-top:10px;font-size:11.5px;color:var(--faint)}
+.ovlegend span{display:inline-flex;align-items:center;gap:6px}
+.ovlegend i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.ovlegend .lg-work{background:var(--brand)}
+.ovlegend .lg-we{background:color-mix(in srgb,var(--brand) 38%,var(--surf-2))}
+.ovlegend .lg-zero{background:var(--line-2);height:3px;border-radius:2px}
+.ovgap{display:inline-block;margin-left:4px;width:15px;height:15px;line-height:14px;
+       text-align:center;border-radius:5px;background:var(--warn-soft);color:var(--warn);
+       font-size:11px;font-weight:700;cursor:help;vertical-align:1px}
 /* Orta xətt — MÜTLƏQ `position:absolute` + `bottom:%`.
    `margin-top:-%` İŞLƏMİR: faiz konteynerin ENİNƏ görə hesablanır,
    hündürlüyünə görə yox — xətt ekrandan kənara çıxırdı. */
@@ -2035,6 +2051,9 @@ th[data-ovsort]:hover{color:var(--brand)}
             background:var(--surf);padding:0 4px}
 .ovbars-wrap{position:relative;height:140px}
 .ovbars{height:100%}
+/* Dövr — kartların ÜSTÜNDƏ, qısa və sakit */
+.ovperiod{margin:0 0 12px;font-size:12.5px;color:var(--muted)}
+.ovperiod b{color:var(--text);font-weight:600}
 
 </style>
 </head>
@@ -2613,9 +2632,9 @@ th[data-ovsort]:hover{color:var(--brand)}
           <button type="button" class="btn btn-primary btn-sm" id="statsGo">Göstər</button>
         </div>
         <div id="statsOverview">
+          <div class="ovperiod" id="ovHint"></div>
           <div class="statbar">
             <div class="stats" id="ovCards"></div>
-            <div class="statfoot" id="ovHint"></div>
           </div>
 
           <div class="ovgrid">
@@ -2638,6 +2657,7 @@ th[data-ovsort]:hover{color:var(--brand)}
                 <th data-ovsort="objects" style="text-align:right">Obyekt</th>
                 <th data-ovsort="texniki" style="text-align:right">Texniki iş</th>
                 <th data-ovsort="qurasdirma" style="text-align:right">Quraşdırma</th>
+                <th data-ovsort="distanceKm" style="text-align:right">Məsafə</th>
                 <th data-ovsort="shiftHours" style="text-align:right">Növbə</th>
                 <th data-ovsort="avgStart" style="text-align:right">Orta başlama</th>
                 <th data-ovsort="noDocVisits" style="text-align:right">Sənədsiz</th>
@@ -5896,6 +5916,20 @@ document.getElementById('ovBody').addEventListener('click', (e) => {
 let ovData = null;
 let ovSort = { key: 'visits', asc: false };
 
+/* Məsafə xanası. Əlaqəsiz dövr varsa YANINDA işarə — çünki o müddətdə
+   qət edilən yol heç yerdə yoxdur (telefon göndərməyib) və rəqəm həmişə
+   real məsafədən AZ olur. Fasilə yoxdursa heç bir qeyd göstərilmir:
+   o halda rəqəm etibarlıdır. */
+function ovKm(w){
+  const km = Math.round(w.distanceKm || 0);
+  if (!w.offlineMs) return km + ' km';
+  const saat = Math.floor(w.offlineMs / 3600000);
+  const deq = Math.round((w.offlineMs % 3600000) / 60000);
+  const muddet = (saat ? saat + ' saat ' : '') + (deq ? deq + ' dəq' : '');
+  return km + ' km <span class="ovgap" title="' + muddet.trim() +
+    ' əlaqəsiz — həmin müddətdə qət edilən yol bura daxil deyil">+</span>';
+}
+
 function ovNum(x){ return (x == null || x === 0) ? '<span class="ovzero">0</span>' : String(x); }
 
 /** GÜN-GÜN AKTİVLİK.
@@ -5906,13 +5940,21 @@ function ovDailyChart(daily){
   const max = Math.max(1, ...daily.map(d => d.visits));
   const cem = daily.reduce((a, d) => a + d.visits, 0);
   const orta = cem / daily.length;
+  /* Hər gün TAM HÜNDÜRLÜKDƏ sütuna yerləşdirilir — belə olmasa hover
+     yalnız nazik zolağın üstündə işləyirdi (Fuad: "üstünə vuranda heç nə
+     yoxdu"). Həftə sonu BOZ DEYİL: boz rəng "məlumat yoxdur" kimi oxunurdu,
+     halbuki o günlərdə iş GÖRÜLÜB. İndi eyni rəngin açıq tonu. */
   const bars = daily.map(d => {
     const g = new Date(d.date + 'T00:00:00').getDay();
     const we = (g === 0 || g === 6);
-    const h = d.visits ? Math.max(6, Math.round((d.visits / max) * 100)) : 2;
+    const h = d.visits ? Math.max(6, Math.round((d.visits / max) * 100)) : 0;
     const t = d.date.split('-').reverse().slice(0, 2).join('.');
-    return '<div class="ovbar' + (d.visits ? (we ? ' we' : '') : ' zero') + '" style="height:' + h + '%"' +
-      ' title="' + t + ' · ' + GUN[g] + ' — ' + d.visits + ' ziyarət"></div>';
+    const ipucu = t + ' · ' + GUN[g] + (we ? ' (həftə sonu)' : '') + ' — ' +
+      (d.visits ? d.visits + ' ziyarət' : 'iş olmayıb');
+    return '<div class="ovcol" title="' + ipucu + '">' +
+      (d.visits
+        ? '<div class="ovbar' + (we ? ' we' : '') + '" style="height:' + h + '%"></div>'
+        : '<div class="ovbar zero"></div>') + '</div>';
   }).join('');
   const ilk = daily[0].date.split('-').reverse().slice(0, 2).join('.');
   const sonG = daily[daily.length - 1].date.split('-').reverse().slice(0, 2).join('.');
@@ -5922,7 +5964,11 @@ function ovDailyChart(daily){
       (Math.round(orta * 10) / 10) + '</span></div></div>' +
     '<div class="ovbarx"><span>' + ilk + '</span>' +
       '<span>ən yüksək gün: <b>' + max + '</b></span>' +
-      '<span>' + sonG + '</span></div>';
+      '<span>' + sonG + '</span></div>' +
+    '<div class="ovlegend">' +
+      '<span><i class="lg-work"></i>iş günü</span>' +
+      '<span><i class="lg-we"></i>həftə sonu</span>' +
+      '<span><i class="lg-zero"></i>iş olmayıb</span></div>';
 }
 
 /** İŞ NÖVÜ — tək nisbət zolağı.
@@ -5982,9 +6028,8 @@ function renderOverview(){
       senedsiz ? 'obyektə girib, akt və təhvil göndərməyib' : 'hər ziyarətdə sənəd göndərilib');
 
   document.getElementById('ovHint').innerHTML =
-    'Dövr: <b>' + dayLabel(r.from) + ' – ' + dayLabel(r.to) + '</b>. ' +
-    (r.clamped ? 'Aralıq <b>' + r.maxDays + ' günlə</b> məhdudlaşdırıldı. ' : '') +
-    'Məsafə burada göstərilmir — konkret işçini seçəndə görünür.';
+    '<b>' + dayLabel(r.from) + ' – ' + dayLabel(r.to) + '</b> · ' + gun + ' gün' +
+    (r.clamped ? ' · aralıq ' + r.maxDays + ' günlə məhdudlaşdırıldı' : '');
 
   document.getElementById('ovDaily').innerHTML = ovDailyChart(r.daily);
   document.getElementById('ovDailyHint').textContent = (r.daily || []).length + ' gün';
@@ -6018,11 +6063,12 @@ function ovRenderTable(){
       '<td style="text-align:right">' + ovNum(w.objects) + '</td>' +
       '<td style="text-align:right">' + ovNum(w.texniki) + '</td>' +
       '<td style="text-align:right">' + ovNum(w.qurasdirma) + '</td>' +
+      '<td style="text-align:right">' + ovKm(w) + '</td>' +
       '<td style="text-align:right">' + (w.shiftHours || 0) + ' s</td>' +
       '<td style="text-align:right">' + (w.avgStart || '<span class="dash">—</span>') + '</td>' +
       '<td style="text-align:right">' + (w.noDocVisits
           ? '<span class="tag warn">' + w.noDocVisits + '</span>' : ovNum(0)) + '</td>' +
-    '</tr>').join('') : '<tr><td colspan="8">' + emptyBox('&#128202;', 'Məlumat yoxdur', 'Bu dövrdə hadisə qeydə alınmayıb.') + '</td></tr>';
+    '</tr>').join('') : '<tr><td colspan="9">' + emptyBox('&#128202;', 'Məlumat yoxdur', 'Bu dövrdə hadisə qeydə alınmayıb.') + '</td></tr>';
 
   const t = r.totals || {};
   document.getElementById('ovFoot').innerHTML = list.length ?
@@ -6031,6 +6077,7 @@ function ovRenderTable(){
       '<td style="text-align:right">' + (t.objects || 0) + '</td>' +
       '<td style="text-align:right">' + (t.texniki || 0) + '</td>' +
       '<td style="text-align:right">' + (t.qurasdirma || 0) + '</td>' +
+      '<td style="text-align:right">' + Math.round(t.distanceKm || 0) + ' km</td>' +
       '<td style="text-align:right">' + (t.shiftHours || 0) + ' s</td>' +
       '<td></td>' +
       '<td style="text-align:right">' + (t.noDocVisits || 0) + '</td></tr>' : '';
@@ -6141,13 +6188,25 @@ function renderStats(r){
     card('blue', STATS_IC.door, 'Ziyarət', r.totalVisits || 0,
       (r.distinctObjects || 0) + ' fərqli obyekt' + (wtLine ? ' · ' + esc(wtLine) : '')) +
     card('green', STATS_IC.clock, 'Növbə saatı', (r.shiftHours || 0) + ' saat', (r.shifts ? r.shifts.length : 0) + ' növbə') +
-    card('orange', STATS_IC.route, 'Məsafə', (r.distanceKm || 0) + ' km', (r.gpsPointCount || 0) + ' GPS nöqtəsi') +
+    card('orange', STATS_IC.route, 'Məsafə', (r.distanceKm || 0) + ' km',
+      r.offlineMs
+        ? (() => {
+            const saat = Math.floor(r.offlineMs / 3600000);
+            const deq = Math.round((r.offlineMs % 3600000) / 60000);
+            return (saat ? saat + ' saat ' : '') + (deq ? deq + ' dəq' : '') +
+              ' əlaqəsiz — o yol daxil deyil';
+          })()
+        : 'əlaqə kəsilməyib — rəqəm etibarlıdır') +
     card(flagCount ? 'red' : 'green', STATS_IC.warn, 'Diqqət tələb edən',
       flagCount, flagCount ? 'uzun/bağlanmamış növbə — bax aşağı' : 'növbələr qaydasındadır');
 
+  /* ⚠ Burada əvvəl ümumi «dəqiq deyil» xəbərdarlığı var idi (Fuad:
+     "səbəbi yaz, hansı halda etibarlıdır"). İndi səbəb hesablanır:
+     sıçrayışlar süzülür, əlaqəsiz dövr ölçülür və yalnız O VARSA yazılır. */
+  const jump = r.jumpsFiltered || 0;
   document.getElementById('statsHint').innerHTML =
-    'Məsafə yalnız <b>19 avqust 2026</b>-dan etibarən dəqiqdir (davamlı GPS izləmə o tarixdən işləyir) — ' +
-    'ondan köhnə dövrdə natamam görünə bilər.';
+    'GPS izləmə <b>19 avqust 2026</b>-dan işləyir — ondan köhnə dövrdə məsafə natamam olur.' +
+    (jump ? ' Bu dövrdə <b>' + jump + '</b> qeyri-real sıçrayış süzüldü.' : '');
 
   // Növbələr
   const sBody = document.getElementById('statsShiftsBody');
