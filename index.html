@@ -1979,6 +1979,57 @@ tbody tr:hover .rowacts,tr:focus-within .rowacts{opacity:1}
 th[data-ovsort]{cursor:pointer;user-select:none}
 th[data-ovsort]:hover{color:var(--brand)}
 .ovzero{color:var(--faint)}
+/* Tez seçim düymələri — filtr sətrində, tarix seçimi ilə yanaşı */
+.ovbar-row{flex-wrap:wrap;row-gap:8px}
+.ovchips{display:inline-flex;gap:4px;padding:3px;border-radius:12px;
+         background:var(--surf-2);border:1px solid var(--line)}
+.ovchip{border:0;background:transparent;cursor:pointer;padding:6px 11px;border-radius:9px;
+        font:inherit;font-size:12.5px;color:var(--muted);white-space:nowrap;
+        transition:background .12s,color .12s}
+.ovchip:hover{color:var(--text)}
+.ovchip.on{background:var(--surf);color:var(--text);font-weight:600;
+           box-shadow:0 1px 2px rgba(0,0,0,.06)}
+@media (max-width:760px){.ovchips{width:100%;overflow-x:auto}}
+
+/* Seçilmiş işçi — detal görünüşünün başlığı */
+.ovpicked{display:flex;align-items:center;gap:12px;margin:0 0 14px}
+.ovpicked-name{font-size:17px;font-weight:650;letter-spacing:-.01em;color:var(--text)}
+.ovback{border:1px solid var(--line);background:var(--surf);border-radius:9px;
+        padding:6px 12px 6px 9px;font:inherit;font-size:12.5px;color:var(--muted);
+        cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.ovback::before{content:"";width:6px;height:6px;border-left:1.5px solid currentColor;
+        border-bottom:1.5px solid currentColor;transform:rotate(45deg);margin-left:2px}
+.ovback:hover{color:var(--text);border-color:var(--line-2)}
+
+/* İş növü — tək nisbət zolağı (iki ayrı sütun oxunmurdu) */
+.ovsplit{display:flex;height:34px;border-radius:10px;overflow:hidden;gap:2px;
+         background:var(--surf-2)}
+.ovsplit > span{display:flex;align-items:center;justify-content:center;
+         font-size:12.5px;font-weight:650;color:#fff;min-width:0}
+.ovsplit-lg{display:flex;gap:18px;margin-top:12px;flex-wrap:wrap}
+.ovsplit-lg div{display:flex;align-items:baseline;gap:7px;font-size:12.5px;color:var(--muted)}
+.ovsplit-lg b{font-size:19px;font-weight:650;color:var(--text);letter-spacing:-.02em;
+         font-variant-numeric:tabular-nums}
+.ovsplit-lg i{width:9px;height:9px;border-radius:3px;align-self:center;flex:none}
+
+/* Təkrar obyektlər — sütun yox, sadə siyahı (dəyərlər 2-3 olanda
+   sütunların hamısı eyni uzunluqda çıxır və heç nə demir) */
+.ovrep{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px 18px}
+.ovrep-row{display:flex;align-items:center;gap:10px;padding:8px 2px;
+           border-bottom:1px solid var(--line)}
+.ovrep-row:last-child{border-bottom:0}
+.ovrep-nm{flex:1;min-width:0;font-size:13px;color:var(--text);
+          overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ovrep-ct{font-size:12px;font-weight:650;color:var(--brand);
+          background:var(--brand-soft);border-radius:7px;padding:3px 9px;
+          font-variant-numeric:tabular-nums}
+
+/* Gün-gün: həftə sonu solğun, orta xətt */
+.ovbar.we{background:var(--line-2);opacity:.55}
+.ovavg{position:relative;height:0;border-top:1px dashed var(--line-2)}
+.ovavg span{position:absolute;right:0;top:-16px;font-size:10.5px;color:var(--faint);
+            background:var(--surf);padding:0 4px}
+.ovbars-wrap{position:relative}
 
 </style>
 </head>
@@ -2539,8 +2590,19 @@ th[data-ovsort]:hover{color:var(--brand)}
 
       <!-- STATİSTİKA -->
       <section class="page" id="pg-stats">
-        <div class="bar">
-          <select id="statsWorker" class="sel"><option value="">Hamısı — ümumi hesabat</option></select>
+        <div class="bar ovbar-row">
+          <select id="statsWorker" class="sel"><option value="">Bütün işçilər</option></select>
+          <!-- Tez seçim düymələri. DİQQƏT: `segtab` sinfi İŞLƏNMİR —
+               `#pg-stats .segtab` üçün başqa klik emalçısı var (ziyarət/obyekt
+               tabları), eyni sinfi götürsək o da işə düşərdi. -->
+          <div class="ovchips" id="ovChips">
+            <button type="button" class="ovchip" data-ovr="today">Bu gün</button>
+            <button type="button" class="ovchip" data-ovr="yesterday">Dünən</button>
+            <button type="button" class="ovchip" data-ovr="d7">Son 7 gün</button>
+            <button type="button" class="ovchip on" data-ovr="d30">Son 30 gün</button>
+            <button type="button" class="ovchip" data-ovr="month">Bu ay</button>
+            <button type="button" class="ovchip" data-ovr="prevmonth">Keçən ay</button>
+          </div>
           <input type="date" id="statsFrom" class="sel" title="Başlanğıc">
           <input type="date" id="statsTo" class="sel" title="Son">
           <button type="button" class="btn btn-primary btn-sm" id="statsGo">Göstər</button>
@@ -2581,11 +2643,16 @@ th[data-ovsort]:hover{color:var(--brand)}
           </div>
 
           <div class="panel" style="margin-top:16px">
-            <div class="panel-h"><h3>Ən çox gedilən obyektlər</h3></div>
+            <div class="panel-h"><h3>Təkrar gedilən obyektlər</h3>
+              <span class="phint">Bir obyektə bir neçə dəfə gedilibsə — iş qayıdıb ola bilər</span></div>
             <div class="ovchartbox" id="ovTop"></div>
           </div>
         </div>
-        <div id="statsEmpty" class="empty">İşçi seç və "Göstər"ə bas.</div>
+        <div id="statsPicked" class="ovpicked" style="display:none">
+          <button type="button" class="ovback" id="ovBack">Bütün işçilər</button>
+          <span class="ovpicked-name" id="ovPickedName"></span>
+        </div>
+        <div id="statsEmpty" class="empty" style="display:none"></div>
         <div id="statsResult" style="display:none">
           <div class="statbar">
             <div class="stats" id="statsCards"></div>
@@ -5786,6 +5853,19 @@ document.querySelectorAll('#ovTable th[data-ovsort]').forEach(th => {
     if (ovData) ovRenderTable();
   });
 });
+// Tez seçim düymələri
+document.querySelectorAll('#ovChips .ovchip').forEach(b =>
+  b.addEventListener('click', () => ovRange(b.dataset.ovr)));
+// Detaldan ümumi hesabata qayıdış
+document.getElementById('ovBack').addEventListener('click', () => {
+  document.getElementById('statsWorker').value = '';
+  statsModeApply();
+  loadOverview();
+});
+// Əl ilə tarix dəyişəndə tez seçim işarəsi qalmasın
+['statsFrom', 'statsTo'].forEach(id =>
+  document.getElementById(id).addEventListener('change', () =>
+    document.querySelectorAll('#ovChips .ovchip').forEach(b => b.classList.remove('on'))));
 // Sətrə basanda həmin işçinin detalı
 document.getElementById('ovBody').addEventListener('click', (e) => {
   const tr = e.target.closest('tr[data-ovworker]');
@@ -5803,38 +5883,63 @@ let ovSort = { key: 'visits', asc: false };
 
 function ovNum(x){ return (x == null || x === 0) ? '<span class="ovzero">0</span>' : String(x); }
 
-/** Gün-gün sütun qrafiki. Hər sütun bir gündür; üstünə gələndə tarix+say.
- *  Boş günlər 0 kimi göstərilir ki, fasilələr gizlənməsin. */
+/** GÜN-GÜN AKTİVLİK.
+ *  Həftə sonları solğun, orta xətt üstündə — baxan adam dərhal görür:
+ *  hansı gün çox işlənib, hansı gün boş qalıb, orta nə qədərdir. */
 function ovDailyChart(daily){
-  if (!daily || !daily.length) return '<div class="empty">Məlumat yoxdur</div>';
+  if (!daily || !daily.length) return '<div class="empty">Bu dövrdə hadisə yoxdur</div>';
   const max = Math.max(1, ...daily.map(d => d.visits));
+  const cem = daily.reduce((a, d) => a + d.visits, 0);
+  const orta = cem / daily.length;
   const bars = daily.map(d => {
-    const h = Math.round((d.visits / max) * 100);
+    const g = new Date(d.date + 'T00:00:00').getDay();
+    const we = (g === 0 || g === 6);
+    const h = d.visits ? Math.max(6, Math.round((d.visits / max) * 100)) : 2;
     const t = d.date.split('-').reverse().slice(0, 2).join('.');
-    return '<div class="ovbar' + (d.visits ? '' : ' zero') + '" style="height:' + Math.max(h, d.visits ? 6 : 2) + '%"' +
-      ' title="' + t + ' — ' + d.visits + ' ziyarət"></div>';
+    return '<div class="ovbar' + (d.visits ? (we ? ' we' : '') : ' zero') + '" style="height:' + h + '%"' +
+      ' title="' + t + ' · ' + GUN[g] + ' — ' + d.visits + ' ziyarət"></div>';
   }).join('');
   const ilk = daily[0].date.split('-').reverse().slice(0, 2).join('.');
-  const son = daily[daily.length - 1].date.split('-').reverse().slice(0, 2).join('.');
-  return '<div class="ovbars">' + bars + '</div>' +
-    '<div class="ovbarx"><span>' + ilk + '</span><span>ən çox: ' + max + '</span><span>' + son + '</span></div>';
+  const sonG = daily[daily.length - 1].date.split('-').reverse().slice(0, 2).join('.');
+  const ortaPct = Math.min(96, Math.round((orta / max) * 100));
+  return '<div class="ovbars-wrap"><div class="ovbars">' + bars + '</div>' +
+    '<div class="ovavg" style="margin-top:-' + ortaPct + '%"><span>orta ' +
+      (Math.round(orta * 10) / 10) + '</span></div></div>' +
+    '<div class="ovbarx"><span>' + ilk + '</span>' +
+      '<span>ən yüksək gün: <b>' + max + '</b></span>' +
+      '<span>' + sonG + '</span></div>';
 }
 
-/** Üfüqi sütunlar. Hər sətirdə ad + rəqəm yazılır — yəni məlumat yalnız
- *  rəngdən oxunmur (rəng korluğu üçün vacibdir). */
-function ovHBars(items, renk){
-  if (!items.length || !items.some(i => i.value > 0)) return '<div class="empty">Məlumat yoxdur</div>';
-  const max = Math.max(1, ...items.map(i => i.value));
-  return '<div class="ovhbars">' + items.map(i =>
-    '<div class="ovhbar-row">' +
-      '<div class="ovhbar-lab">' +
-        (i.color ? '<span class="ovhbar-dot" style="background:' + i.color + '"></span>' : '') +
-        '<b title="' + esc(i.label) + '">' + esc(i.label) + '</b></div>' +
-      '<div class="ovhbar-val">' + i.value + (i.suffix || '') + '</div>' +
-      '<div class="ovhbar-track"><div class="ovhbar-fill" style="width:' +
-        Math.max(2, Math.round((i.value / max) * 100)) + '%;background:' +
-        (i.color || renk || 'var(--brand)') + '"></div></div>' +
-    '</div>').join('') + '</div>';
+/** İŞ NÖVÜ — tək nisbət zolağı.
+ *  Əvvəl iki ayrı sütun idi: 54 və 65 demək olar eyni uzunluqda çıxırdı və
+ *  nisbət görünmürdü. İndi bir zolaqda payları, altında rəqəm və faiz. */
+function ovSplit(items){
+  const cem = items.reduce((a, i) => a + i.value, 0);
+  if (!cem) return '<div class="empty">Bu dövrdə obyekt seçilməyib</div>';
+  const zolaq = items.filter(i => i.value > 0).map(i => {
+    const pct = Math.round((i.value / cem) * 100);
+    return '<span style="flex:' + i.value + ';background:' + i.color + '"' +
+      ' title="' + esc(i.label) + ' — ' + i.value + ' (' + pct + '%)">' +
+      (pct >= 12 ? pct + '%' : '') + '</span>';
+  }).join('');
+  const legend = items.map(i =>
+    '<div><i style="background:' + i.color + '"></i><b>' + i.value + '</b>' + esc(i.label) + '</div>').join('');
+  return '<div class="ovsplit">' + zolaq + '</div><div class="ovsplit-lg">' + legend + '</div>';
+}
+
+/** TƏKRAR GEDİLƏN OBYEKTLƏR.
+ *  ⚠ Əvvəl burada sütunlu siyahı var idi — dəyərlər 2-3 olduğu üçün bütün
+ *  sütunlar demək olar eyni uzunluqda çıxırdı və HEÇ NƏ demirdi (Fuad haqlı
+ *  olaraq "zibildir" dedi). Bir dəfə gedilən obyekt məlumat deyil; məlumat
+ *  olan TƏKRARDIR — iş geri qayıdıb ola bilər. Yalnız onlar göstərilir. */
+function ovRepeatList(items){
+  const tekrar = (items || []).filter(o => o.visits > 1);
+  if (!tekrar.length) {
+    return '<div class="empty">Təkrar gedilən obyekt yoxdur — hər obyektə bir dəfə gedilib.</div>';
+  }
+  return '<div class="ovrep">' + tekrar.map(o =>
+    '<div class="ovrep-row"><span class="ovrep-nm" title="' + esc(o.name) + '">' + esc(o.name) + '</span>' +
+    '<span class="ovrep-ct">' + o.visits + ' dəfə</span></div>').join('') + '</div>';
 }
 
 function renderOverview(){
@@ -5850,14 +5955,16 @@ function renderOverview(){
     (note ? '<div class="cnote">' + note + '</div>' : '') + '</div></div></div>';
 
   const senedsiz = t.noDocVisits || 0;
+  const gun = Math.max(1, Math.round((r.to - r.from) / 86400000));
   document.getElementById('ovCards').innerHTML =
-    card('blue', STATS_IC.door, 'Ziyarət', t.visits || 0, (t.objects || 0) + ' fərqli obyekt') +
-    card('green', STATS_IC.clock, 'Növbə saatı', (t.shiftHours || 0) + ' saat',
-      (t.avgVisitMinutes || 0) + ' dəq orta ziyarət') +
-    card('orange', STATS_IC.route, 'Texniki / Quraşdırma',
-      (t.texniki || 0) + ' / ' + (t.qurasdirma || 0), 'iş növü üzrə obyekt sayı') +
+    card('blue', STATS_IC.door, 'Obyektə giriş', t.visits || 0,
+      (t.objects || 0) + ' fərqli obyekt · gündə ~' + (Math.round((t.visits || 0) / gun * 10) / 10)) +
+    card('green', STATS_IC.clock, 'Növbədə keçən vaxt', Math.round(t.shiftHours || 0) + ' saat',
+      'bir ziyarət orta ' + (t.avgVisitMinutes || 0) + ' dəqiqə') +
+    card('orange', STATS_IC.route, 'İş növü', (t.texniki || 0) + ' / ' + (t.qurasdirma || 0),
+      'texniki iş / quraşdırma') +
     card(senedsiz ? 'red' : 'green', STATS_IC.warn, 'Sənədsiz ziyarət', senedsiz,
-      senedsiz ? 'girib-çıxıb, akt/təhvil göndərilməyib' : 'hər ziyarətdə sənəd var');
+      senedsiz ? 'obyektə girib, akt və təhvil göndərməyib' : 'hər ziyarətdə sənəd göndərilib');
 
   document.getElementById('ovHint').innerHTML =
     'Dövr: <b>' + dayLabel(r.from) + ' – ' + dayLabel(r.to) + '</b>. ' +
@@ -5869,13 +5976,12 @@ function renderOverview(){
 
   /* YALNIZ iki kanal (Fuad, 2026-10-14: "yalnız texniki və quraşdırma
      kanalları lazımdır"). Gəncə brendləri və sənəd sayları çıxarıldı. */
-  document.getElementById('ovTypes').innerHTML = ovHBars([
+  document.getElementById('ovTypes').innerHTML = ovSplit([
     { label: 'Texniki iş', value: t.texniki || 0, color: 'var(--wt-texniki)' },
     { label: 'Quraşdırma', value: t.qurasdirma || 0, color: 'var(--wt-qurasdirma)' },
   ]);
 
-  document.getElementById('ovTop').innerHTML = ovHBars(
-    (r.topObjects || []).map(o => ({ label: o.name, value: o.visits })), 'var(--brand)');
+  document.getElementById('ovTop').innerHTML = ovRepeatList(r.topObjects);
 
   ovRenderTable();
 }
@@ -5929,10 +6035,38 @@ async function loadOverview(){
 /* İşçi seçimi: boşdursa ÜMUMİ hesabat, seçilibsə həmin işçinin detalı.
    Detallı görünüş olduğu kimi qalır — yalnız nə vaxt göstərildiyi dəyişir. */
 function statsModeApply(){
-  const seciliIsci = document.getElementById('statsWorker').value;
+  const sel = document.getElementById('statsWorker');
+  const seciliIsci = sel.value;
   document.getElementById('statsOverview').style.display = seciliIsci ? 'none' : '';
   document.getElementById('statsEmpty').style.display = 'none';
-  if (!seciliIsci) document.getElementById('statsResult').style.display = 'none';
+  const bas = document.getElementById('statsPicked');
+  bas.style.display = seciliIsci ? '' : 'none';
+  if (seciliIsci) {
+    const o = sel.options[sel.selectedIndex];
+    document.getElementById('ovPickedName').textContent = o ? o.text : '';
+  } else {
+    document.getElementById('statsResult').style.display = 'none';
+  }
+}
+
+/* Tez seçim düymələri — tarix xanalarını doldurur və yenidən yükləyir.
+   Tarix seçimi YERİNDƏ QALIR: istənilən aralığı əl ilə də yazmaq olar. */
+function ovRange(key){
+  const bu = new Date(); bu.setHours(0, 0, 0, 0);
+  let f = new Date(bu), t = new Date(bu);
+  if (key === 'yesterday') { f.setDate(f.getDate() - 1); t.setDate(t.getDate() - 1); }
+  else if (key === 'd7') f.setDate(f.getDate() - 6);
+  else if (key === 'd30') f.setDate(f.getDate() - 29);
+  else if (key === 'month') f = new Date(bu.getFullYear(), bu.getMonth(), 1);
+  else if (key === 'prevmonth') {
+    f = new Date(bu.getFullYear(), bu.getMonth() - 1, 1);
+    t = new Date(bu.getFullYear(), bu.getMonth(), 0);
+  }
+  document.getElementById('statsFrom').value = dayKey(f);
+  document.getElementById('statsTo').value = dayKey(t);
+  document.querySelectorAll('#ovChips .ovchip').forEach(b =>
+    b.classList.toggle('on', b.dataset.ovr === key));
+  if (document.getElementById('statsWorker').value) loadStats(); else loadOverview();
 }
 
 async function loadStats(){
