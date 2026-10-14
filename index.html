@@ -1951,27 +1951,27 @@ tbody tr:hover .rowacts,tr:focus-within .rowacts{opacity:1}
 }
 .ovgrid{display:grid;grid-template-columns:1.6fr 1fr;gap:16px;margin-bottom:16px}
 @media (max-width:980px){.ovgrid{grid-template-columns:1fr}}
-.chartbox{padding:14px 16px 16px}
+.ovchartbox{padding:14px 16px 16px}
 .phint{margin-left:auto;font-size:11.5px;color:var(--faint)}
 
 /* Gün-gün sütunları — nazik, dibdən 4px yuvarlaq uc, aralarında 2px boşluq */
-.cbars{display:flex;align-items:flex-end;gap:2px;height:140px}
-.cbar{flex:1;min-width:3px;border-radius:4px 4px 0 0;background:var(--brand);
+.ovbars{display:flex;align-items:flex-end;gap:2px;height:140px}
+.ovbar{flex:1;min-width:3px;border-radius:4px 4px 0 0;background:var(--brand);
       opacity:.85;transition:opacity .12s}
-.cbar:hover{opacity:1}
-.cbar.zero{background:var(--line-2);opacity:.5;min-height:2px}
-.cbarx{display:flex;justify-content:space-between;margin-top:6px;
+.ovbar:hover{opacity:1}
+.ovbar.zero{background:var(--line-2);opacity:.5;min-height:2px}
+.ovbarx{display:flex;justify-content:space-between;margin-top:6px;
        font-size:11px;color:var(--chart-ink)}
 
 /* Üfüqi sütunlar — iş növü və top obyektlər */
-.hbars{display:flex;flex-direction:column;gap:10px}
-.hbar-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}
-.hbar-lab{font-size:12.5px;color:var(--text);display:flex;align-items:center;gap:7px;min-width:0}
+.ovhbars{display:flex;flex-direction:column;gap:10px}
+.ovhbar-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}
+.ovhbar-lab{font-size:12.5px;color:var(--text);display:flex;align-items:center;gap:7px;min-width:0}
 .hbar-lab b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.hbar-dot{width:9px;height:9px;border-radius:3px;flex:none}
-.hbar-val{font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
-.hbar-track{grid-column:1/-1;height:10px;border-radius:5px;background:var(--surf-2);overflow:hidden}
-.hbar-fill{height:100%;border-radius:5px}
+.ovhbar-dot{width:9px;height:9px;border-radius:3px;flex:none}
+.ovhbar-val{font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.ovhbar-track{grid-column:1/-1;height:10px;border-radius:5px;background:var(--surf-2);overflow:hidden}
+.ovhbar-fill{height:100%;border-radius:5px}
 
 #ovTable tbody tr{cursor:pointer}
 #ovTable tbody tr:hover{background:var(--surf-2)}
@@ -2554,11 +2554,11 @@ th[data-ovsort]:hover{color:var(--brand)}
           <div class="ovgrid">
             <div class="panel">
               <div class="panel-h"><h3>Gün-gün aktivlik</h3><span class="phint" id="ovDailyHint"></span></div>
-              <div class="chartbox" id="ovDaily"></div>
+              <div class="ovchartbox" id="ovDaily"></div>
             </div>
             <div class="panel">
               <div class="panel-h"><h3>İş növü</h3></div>
-              <div class="chartbox" id="ovTypes"></div>
+              <div class="ovchartbox" id="ovTypes"></div>
             </div>
           </div>
 
@@ -2569,11 +2569,8 @@ th[data-ovsort]:hover{color:var(--brand)}
                 <th data-ovsort="name">İşçi</th>
                 <th data-ovsort="visits" style="text-align:right">Ziyarət</th>
                 <th data-ovsort="objects" style="text-align:right">Obyekt</th>
-                <th data-ovsort="texniki" style="text-align:right">Texniki</th>
+                <th data-ovsort="texniki" style="text-align:right">Texniki iş</th>
                 <th data-ovsort="qurasdirma" style="text-align:right">Quraşdırma</th>
-                <th data-ovsort="gence" style="text-align:right">Gəncə</th>
-                <th data-ovsort="akt" style="text-align:right">Akt</th>
-                <th data-ovsort="tehvil" style="text-align:right">Təhvil</th>
                 <th data-ovsort="shiftHours" style="text-align:right">Növbə</th>
                 <th data-ovsort="avgStart" style="text-align:right">Orta başlama</th>
                 <th data-ovsort="noDocVisits" style="text-align:right">Sənədsiz</th>
@@ -2585,7 +2582,7 @@ th[data-ovsort]:hover{color:var(--brand)}
 
           <div class="panel" style="margin-top:16px">
             <div class="panel-h"><h3>Ən çox gedilən obyektlər</h3></div>
-            <div class="chartbox" id="ovTop"></div>
+            <div class="ovchartbox" id="ovTop"></div>
           </div>
         </div>
         <div id="statsEmpty" class="empty">İşçi seç və "Göstər"ə bas.</div>
@@ -5814,13 +5811,13 @@ function ovDailyChart(daily){
   const bars = daily.map(d => {
     const h = Math.round((d.visits / max) * 100);
     const t = d.date.split('-').reverse().slice(0, 2).join('.');
-    return '<div class="cbar' + (d.visits ? '' : ' zero') + '" style="height:' + Math.max(h, d.visits ? 6 : 2) + '%"' +
+    return '<div class="ovbar' + (d.visits ? '' : ' zero') + '" style="height:' + Math.max(h, d.visits ? 6 : 2) + '%"' +
       ' title="' + t + ' — ' + d.visits + ' ziyarət"></div>';
   }).join('');
   const ilk = daily[0].date.split('-').reverse().slice(0, 2).join('.');
   const son = daily[daily.length - 1].date.split('-').reverse().slice(0, 2).join('.');
-  return '<div class="cbars">' + bars + '</div>' +
-    '<div class="cbarx"><span>' + ilk + '</span><span>ən çox: ' + max + '</span><span>' + son + '</span></div>';
+  return '<div class="ovbars">' + bars + '</div>' +
+    '<div class="ovbarx"><span>' + ilk + '</span><span>ən çox: ' + max + '</span><span>' + son + '</span></div>';
 }
 
 /** Üfüqi sütunlar. Hər sətirdə ad + rəqəm yazılır — yəni məlumat yalnız
@@ -5828,13 +5825,13 @@ function ovDailyChart(daily){
 function ovHBars(items, renk){
   if (!items.length || !items.some(i => i.value > 0)) return '<div class="empty">Məlumat yoxdur</div>';
   const max = Math.max(1, ...items.map(i => i.value));
-  return '<div class="hbars">' + items.map(i =>
-    '<div class="hbar-row">' +
-      '<div class="hbar-lab">' +
-        (i.color ? '<span class="hbar-dot" style="background:' + i.color + '"></span>' : '') +
+  return '<div class="ovhbars">' + items.map(i =>
+    '<div class="ovhbar-row">' +
+      '<div class="ovhbar-lab">' +
+        (i.color ? '<span class="ovhbar-dot" style="background:' + i.color + '"></span>' : '') +
         '<b title="' + esc(i.label) + '">' + esc(i.label) + '</b></div>' +
-      '<div class="hbar-val">' + i.value + (i.suffix || '') + '</div>' +
-      '<div class="hbar-track"><div class="hbar-fill" style="width:' +
+      '<div class="ovhbar-val">' + i.value + (i.suffix || '') + '</div>' +
+      '<div class="ovhbar-track"><div class="ovhbar-fill" style="width:' +
         Math.max(2, Math.round((i.value / max) * 100)) + '%;background:' +
         (i.color || renk || 'var(--brand)') + '"></div></div>' +
     '</div>').join('') + '</div>';
@@ -5857,8 +5854,8 @@ function renderOverview(){
     card('blue', STATS_IC.door, 'Ziyarət', t.visits || 0, (t.objects || 0) + ' fərqli obyekt') +
     card('green', STATS_IC.clock, 'Növbə saatı', (t.shiftHours || 0) + ' saat',
       (t.avgVisitMinutes || 0) + ' dəq orta ziyarət') +
-    card('orange', STATS_IC.route, 'Sənədlər',
-      (t.akt || 0) + ' / ' + (t.tehvil || 0) + ' / ' + (t.sekil || 0), 'akt / təhvil / şəkil') +
+    card('orange', STATS_IC.route, 'Texniki / Quraşdırma',
+      (t.texniki || 0) + ' / ' + (t.qurasdirma || 0), 'iş növü üzrə obyekt sayı') +
     card(senedsiz ? 'red' : 'green', STATS_IC.warn, 'Sənədsiz ziyarət', senedsiz,
       senedsiz ? 'girib-çıxıb, akt/təhvil göndərilməyib' : 'hər ziyarətdə sənəd var');
 
@@ -5870,10 +5867,11 @@ function renderOverview(){
   document.getElementById('ovDaily').innerHTML = ovDailyChart(r.daily);
   document.getElementById('ovDailyHint').textContent = (r.daily || []).length + ' gün';
 
+  /* YALNIZ iki kanal (Fuad, 2026-10-14: "yalnız texniki və quraşdırma
+     kanalları lazımdır"). Gəncə brendləri və sənəd sayları çıxarıldı. */
   document.getElementById('ovTypes').innerHTML = ovHBars([
     { label: 'Texniki iş', value: t.texniki || 0, color: 'var(--wt-texniki)' },
     { label: 'Quraşdırma', value: t.qurasdirma || 0, color: 'var(--wt-qurasdirma)' },
-    { label: 'Gəncə brendləri', value: t.gence || 0, color: 'var(--wt-gence)' },
   ]);
 
   document.getElementById('ovTop').innerHTML = ovHBars(
@@ -5899,14 +5897,11 @@ function ovRenderTable(){
       '<td style="text-align:right">' + ovNum(w.objects) + '</td>' +
       '<td style="text-align:right">' + ovNum(w.texniki) + '</td>' +
       '<td style="text-align:right">' + ovNum(w.qurasdirma) + '</td>' +
-      '<td style="text-align:right">' + ovNum(w.gence) + '</td>' +
-      '<td style="text-align:right">' + ovNum(w.akt) + '</td>' +
-      '<td style="text-align:right">' + ovNum(w.tehvil) + '</td>' +
       '<td style="text-align:right">' + (w.shiftHours || 0) + ' s</td>' +
       '<td style="text-align:right">' + (w.avgStart || '<span class="dash">—</span>') + '</td>' +
       '<td style="text-align:right">' + (w.noDocVisits
           ? '<span class="tag warn">' + w.noDocVisits + '</span>' : ovNum(0)) + '</td>' +
-    '</tr>').join('') : '<tr><td colspan="11">' + emptyBox('&#128202;', 'Məlumat yoxdur', 'Bu dövrdə hadisə qeydə alınmayıb.') + '</td></tr>';
+    '</tr>').join('') : '<tr><td colspan="8">' + emptyBox('&#128202;', 'Məlumat yoxdur', 'Bu dövrdə hadisə qeydə alınmayıb.') + '</td></tr>';
 
   const t = r.totals || {};
   document.getElementById('ovFoot').innerHTML = list.length ?
@@ -5915,9 +5910,6 @@ function ovRenderTable(){
       '<td style="text-align:right">' + (t.objects || 0) + '</td>' +
       '<td style="text-align:right">' + (t.texniki || 0) + '</td>' +
       '<td style="text-align:right">' + (t.qurasdirma || 0) + '</td>' +
-      '<td style="text-align:right">' + (t.gence || 0) + '</td>' +
-      '<td style="text-align:right">' + (t.akt || 0) + '</td>' +
-      '<td style="text-align:right">' + (t.tehvil || 0) + '</td>' +
       '<td style="text-align:right">' + (t.shiftHours || 0) + ' s</td>' +
       '<td></td>' +
       '<td style="text-align:right">' + (t.noDocVisits || 0) + '</td></tr>' : '';
