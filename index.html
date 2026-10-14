@@ -6189,24 +6189,33 @@ function renderStats(r){
       (r.distinctObjects || 0) + ' fərqli obyekt' + (wtLine ? ' · ' + esc(wtLine) : '')) +
     card('green', STATS_IC.clock, 'Növbə saatı', (r.shiftHours || 0) + ' saat', (r.shifts ? r.shifts.length : 0) + ' növbə') +
     card('orange', STATS_IC.route, 'Məsafə', (r.distanceKm || 0) + ' km',
-      r.offlineMs
-        ? (() => {
-            const saat = Math.floor(r.offlineMs / 3600000);
-            const deq = Math.round((r.offlineMs % 3600000) / 60000);
-            return (saat ? saat + ' saat ' : '') + (deq ? deq + ' dəq' : '') +
-              ' əlaqəsiz — o yol daxil deyil';
-          })()
-        : 'əlaqə kəsilməyib — rəqəm etibarlıdır') +
+      (() => {
+        /* Qeydlər KARTIN İÇİNDƏ, qısa. Əvvəl kartların altında uzun bir
+           sətir var idi — oxunmurdu (Fuad, 2026-10-14). */
+        const h = [];
+        if (r.offlineMs) {
+          const sa = Math.floor(r.offlineMs / 3600000);
+          const dq = Math.round((r.offlineMs % 3600000) / 60000);
+          h.push('növbədə ' + (sa ? sa + ' saat ' : '') + (dq ? dq + ' dəq' : '') + ' əlaqəsiz');
+        }
+        if (r.jumpsFiltered) h.push(r.jumpsFiltered + ' sıçrayış süzüldü');
+        return h.length ? h.join(' · ') : 'əlaqə kəsilməyib — rəqəm etibarlıdır';
+      })()) +
     card(flagCount ? 'red' : 'green', STATS_IC.warn, 'Diqqət tələb edən',
       flagCount, flagCount ? 'uzun/bağlanmamış növbə — bax aşağı' : 'növbələr qaydasındadır');
 
-  /* ⚠ Burada əvvəl ümumi «dəqiq deyil» xəbərdarlığı var idi (Fuad:
-     "səbəbi yaz, hansı halda etibarlıdır"). İndi səbəb hesablanır:
-     sıçrayışlar süzülür, əlaqəsiz dövr ölçülür və yalnız O VARSA yazılır. */
-  const jump = r.jumpsFiltered || 0;
-  document.getElementById('statsHint').innerHTML =
-    'GPS izləmə <b>19 avqust 2026</b>-dan işləyir — ondan köhnə dövrdə məsafə natamam olur.' +
-    (jump ? ' Bu dövrdə <b>' + jump + '</b> qeyri-real sıçrayış süzüldü.' : '');
+  /* Bu sətir YALNIZ lazım olanda görünür. Əvvəl həmişə yazılırdı və
+     kartların altında uzun, oxunmayan bir zolaq yaradırdı. */
+  const GPS_BASLANGIC = Date.UTC(2026, 7, 19);
+  const hintEl = document.getElementById('statsHint');
+  if (r.from < GPS_BASLANGIC) {
+    hintEl.style.display = '';
+    hintEl.innerHTML = 'Seçilmiş dövrün bir hissəsi <b>19 avqust 2026</b>-dan əvvəldir — ' +
+      'GPS izləmə o tarixdən işləyir, ondan köhnə günlərdə məsafə natamam olur.';
+  } else {
+    hintEl.style.display = 'none';
+    hintEl.innerHTML = '';
+  }
 
   // Növbələr
   const sBody = document.getElementById('statsShiftsBody');
