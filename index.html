@@ -2054,6 +2054,7 @@ th[data-ovsort]:hover{color:var(--brand)}
 /* Dövr — kartların ÜSTÜNDƏ, qısa və sakit */
 .ovperiod{margin:0 0 12px;font-size:12.5px;color:var(--muted)}
 .ovperiod b{color:var(--text);font-weight:600}
+.ovwarn{color:var(--warn)}
 
 </style>
 </head>
@@ -3266,7 +3267,12 @@ function go(p){
     /* Səhifə BOŞ açılmasın (Fuad, 2026-10-14) — işçi seçilməyibsə
        dərhal ümumi hesabat gəlir. */
     statsModeApply();
-    if (!document.getElementById('statsWorker').value) loadOverview();
+    // Digər səhifələrdəki kimi 60 saniyəlik təzəlik qoruyucusu — tab-lar
+    // arasında gedib-gələndə hər dəfə yeni sorğu getməsin
+    if (!document.getElementById('statsWorker').value && !fresh('statsOverview')) {
+      mark('statsOverview');
+      loadOverview();
+    }
   }
   if (p === 'sales'){ if (!fresh('sales')) { mark('sales'); loadSales(); } else renderSales(); }
   if (p === 'sales-stats'){ if (!fresh('sales')) { mark('sales'); loadSales(); } else renderSalesStats(); }
@@ -6027,9 +6033,13 @@ function renderOverview(){
     card(senedsiz ? 'red' : 'green', STATS_IC.warn, 'Sənədsiz ziyarət', senedsiz,
       senedsiz ? 'obyektə girib, akt və təhvil göndərməyib' : 'hər ziyarətdə sənəd göndərilib');
 
+  const gpsHedd = Date.now() - 30 * 86400000;
   document.getElementById('ovHint').innerHTML =
     '<b>' + dayLabel(r.from) + ' – ' + dayLabel(r.to) + '</b> · ' + gun + ' gün' +
-    (r.clamped ? ' · aralıq ' + r.maxDays + ' günlə məhdudlaşdırıldı' : '');
+    (r.clamped ? ' · aralıq ' + r.maxDays + ' günlə məhdudlaşdırıldı' : '') +
+    (r.from < gpsHedd
+      ? ' · <span class="ovwarn">məsafə natamam — 30 gündən köhnə GPS saxlanılmır</span>'
+      : '');
 
   document.getElementById('ovDaily').innerHTML = ovDailyChart(r.daily);
   document.getElementById('ovDailyHint').textContent = (r.daily || []).length + ' gün';
@@ -6058,7 +6068,8 @@ function ovRenderTable(){
   });
   document.getElementById('ovBody').innerHTML = list.length ? list.map(w =>
     '<tr data-ovworker="' + esc(w.workerId) + '">' +
-      '<td>' + esc(w.name) + '</td>' +
+      '<td>' + esc(w.name) +
+        (w.inactive ? ' <span class="tag">işdən çıxıb</span>' : '') + '</td>' +
       '<td style="text-align:right">' + ovNum(w.visits) + '</td>' +
       '<td style="text-align:right">' + ovNum(w.objects) + '</td>' +
       '<td style="text-align:right">' + ovNum(w.texniki) + '</td>' +
@@ -6204,14 +6215,19 @@ function renderStats(r){
     card(flagCount ? 'red' : 'green', STATS_IC.warn, 'Diqqət tələb edən',
       flagCount, flagCount ? 'uzun/bağlanmamış növbə — bax aşağı' : 'növbələr qaydasındadır');
 
-  /* Bu sətir YALNIZ lazım olanda görünür. Əvvəl həmişə yazılırdı və
-     kartların altında uzun, oxunmayan bir zolaq yaradırdı. */
-  const GPS_BASLANGIC = Date.UTC(2026, 7, 19);
+  /* ⚠ HƏQİQİ HƏDD 30 GÜNDÜR: `gps_points` cədvəli 30 gündən köhnə
+     nöqtələri silir (server tərəfdə avtomatik). Əvvəl burada sabit
+     «19 avqust 2026» tarixi yazılırdı — o, GPS-in işə düşdüyü gün idi,
+     amma indi məhdudiyyət başqadır: «Keçən ay» seçsən məsafə natamam olur.
+     Tarix sabit yazılsa, zaman keçdikcə yanlış olardı. */
   const hintEl = document.getElementById('statsHint');
-  if (r.from < GPS_BASLANGIC) {
+  const gpsHedd = Date.now() - 30 * 86400000;
+  if (r.from < gpsHedd) {
+    const neGun = Math.ceil((gpsHedd - r.from) / 86400000);
     hintEl.style.display = '';
-    hintEl.innerHTML = 'Seçilmiş dövrün bir hissəsi <b>19 avqust 2026</b>-dan əvvəldir — ' +
-      'GPS izləmə o tarixdən işləyir, ondan köhnə günlərdə məsafə natamam olur.';
+    hintEl.innerHTML = 'Seçilmiş dövrün ilk <b>' + neGun + ' günü</b> üçün GPS məlumatı ' +
+      'artıq saxlanılmır (30 gündən köhnə nöqtələr silinir) — <b>məsafə natamamdır</b>. ' +
+      'Ziyarət və növbə rəqəmləri bundan təsirlənmir.';
   } else {
     hintEl.style.display = 'none';
     hintEl.innerHTML = '';
