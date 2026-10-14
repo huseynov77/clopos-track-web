@@ -2026,10 +2026,15 @@ th[data-ovsort]:hover{color:var(--brand)}
 
 /* Gün-gün: həftə sonu solğun, orta xətt */
 .ovbar.we{background:var(--line-2);opacity:.55}
-.ovavg{position:relative;height:0;border-top:1px dashed var(--line-2)}
-.ovavg span{position:absolute;right:0;top:-16px;font-size:10.5px;color:var(--faint);
+/* Orta xətt — MÜTLƏQ `position:absolute` + `bottom:%`.
+   `margin-top:-%` İŞLƏMİR: faiz konteynerin ENİNƏ görə hesablanır,
+   hündürlüyünə görə yox — xətt ekrandan kənara çıxırdı. */
+.ovavg{position:absolute;left:0;right:0;height:0;border-top:1px dashed var(--line-2);
+       pointer-events:none}
+.ovavg span{position:absolute;right:0;top:-15px;font-size:10.5px;color:var(--faint);
             background:var(--surf);padding:0 4px}
-.ovbars-wrap{position:relative}
+.ovbars-wrap{position:relative;height:140px}
+.ovbars{height:100%}
 
 </style>
 </head>
@@ -5870,7 +5875,17 @@ document.getElementById('ovBack').addEventListener('click', () => {
 document.getElementById('ovBody').addEventListener('click', (e) => {
   const tr = e.target.closest('tr[data-ovworker]');
   if (!tr) return;
-  document.getElementById('statsWorker').value = tr.dataset.ovworker;
+  const sel = document.getElementById('statsWorker');
+  const id = tr.dataset.ovworker;
+  /* ⚠ Siyahıda həmin işçi OLMAYA BİLƏR: `statsWorker` yalnız aktiv
+     işçilərlə (`staffAll`) doldurulur və yalnız səhifə açılanda. Hesabat
+     cədvəlində isə işdən çıxmış/sonradan əlavə olunmuş işçi də var.
+     Belə halda `value` təyinatı boşa düşürdü və «Əvvəlcə işçi seç»
+     xəbərdarlığı çıxırdı (Fuad tapdı, 2026-10-14). */
+  if (!Array.prototype.some.call(sel.options, o => o.value === id)) {
+    sel.add(new Option(tr.querySelector('td').textContent.trim(), id));
+  }
+  sel.value = id;
   statsModeApply();
   loadStats();
 });
@@ -5903,7 +5918,7 @@ function ovDailyChart(daily){
   const sonG = daily[daily.length - 1].date.split('-').reverse().slice(0, 2).join('.');
   const ortaPct = Math.min(96, Math.round((orta / max) * 100));
   return '<div class="ovbars-wrap"><div class="ovbars">' + bars + '</div>' +
-    '<div class="ovavg" style="margin-top:-' + ortaPct + '%"><span>orta ' +
+    '<div class="ovavg" style="bottom:' + ortaPct + '%"><span>orta ' +
       (Math.round(orta * 10) / 10) + '</span></div></div>' +
     '<div class="ovbarx"><span>' + ilk + '</span>' +
       '<span>ən yüksək gün: <b>' + max + '</b></span>' +
