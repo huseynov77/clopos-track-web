@@ -7927,9 +7927,10 @@ function renderPlaces(){
               : ''}
           ${badName(b.name) ? `<span class="tag bad" title="Ad şübhəlidir: ${esc(badName(b.name))}">${esc(badName(b.name))}</span>` : ''}
           ${b.cloposAuto ? '<span class="tag ok" title="Bu bağlantını bot avtomatik yazıb (tam uyğunluqda). Səhvdirsə «Adı dəyiş»dən düzəlt.">avto</span>' : ''}
-          ${!(b.visits>0) ? `<span class="tag warn" title="${b.exits
-            ? 'Çıxış qeydi var, giriş qeydi yoxdur — giriş anında GPS hazır olmayıb'
+          ${!(b.visits>0) ? `<span class="tag bad" title="${b.exits
+            ? 'Çıxış qeydi var, GİRİŞ QEYDİ SERVERƏ ÇATMAYIB — işçi obyektə girib, amma o anda əlaqə kəsilib'
             : 'Nə giriş, nə çıxış qeydi var'}">giriş qeydi yoxdur</span>` : ''}
+          ${b.farExits ? `<span class="tag warn" title="İşçi obyektdən uzaqlaşandan sonra «Obyektdən çıx» basıb — ən uzaq ${b.farExitM} metr. Ziyarət girişin yerinə yazılıb, obyekt ikiyə bölünmür.">çıxış ${b.farExitM >= 1000 ? (b.farExitM/1000).toFixed(1) + ' km' : b.farExitM + ' m'} uzaqda</span>` : ''}
         </div></td>
       <td style="font-size:12px" title="${b.sellerId!=null?'Satıcı id: '+esc(String(b.sellerId)):''}">${b.sellerName
         ? esc(b.sellerName)
