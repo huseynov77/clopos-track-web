@@ -914,6 +914,13 @@ tbody tr:hover{background:var(--surf-2)}
   height:calc(100vh - 132px);min-height:460px}
 .maplay > .panel{display:flex;flex-direction:column;min-height:0}
 .maplay > .panel > .panel-h{flex:0 0 auto}
+/* `z-index:0` + `position:relative` = xəritə ÖZ təbəqə konteksti yaradır.
+   Bu olmadan Leaflet-in daxili z-index-ləri (panellər 400, popup 700,
+   düymələr 1000) səhifə ilə YARIŞIRDI və modal pəncərə (`.mod`, z-index 200)
+   xəritənin ALTINDA açılırdı: xəritə kartındakı «Bildiriş» düyməsi basılırdı,
+   pəncərə açılırdı, amma görünmürdü — «işləmir» kimi qəbul olunurdu.
+   Eyni problem satış xəritəsində də var idi (5 noy 2026). */
+#map,#salesMap{position:relative;z-index:0}
 #map{flex:1 1 auto;min-height:0}
 @media(max-width:1180px){.maplay{height:auto}#map{height:56vh;min-height:340px}}
 /* ── Xəritə nişanları: TELEFON İLƏ EYNİ DİL (Fuad, 2026-09-17) ──
