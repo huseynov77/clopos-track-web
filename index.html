@@ -3015,22 +3015,6 @@ th[data-ovsort]:hover{color:var(--brand)}
               <div id="dbInfo"><div class="empty">Yüklənir…</div></div>
             </div>
 
-            <!-- Teams uzvleri — DIAQNOSTIKA (5 noy 2026).
-                 Odoo->Teams postunda mention edilen adamlar kodda SABIT Azure
-                 ID ile yazilib. Teams bizim yazdigimiz ADI saymir, yalniz
-                 ID-ye baxir ve hemin hesabin INDIKI sahibini gosterir.
-                 Bu bolme hansi ID-nin kime aid oldugunu acir. YALNIZ OXUYUR. -->
-            <div class="panel">
-              <div class="panel-h"><h3>Teams bildiriş siyahısı</h3>
-                <div class="right">
-                  <button type="button" class="btn btn-ghost btn-sm" id="tmTest">Test göndər</button>
-                  <button type="button" class="btn btn-ghost btn-sm" id="tmLoad">Yüklə</button>
-                </div></div>
-              <div id="tmList"><div class="empty" style="padding:14px 18px;font-size:12.5px;color:var(--faint)">
-                «Yüklə» — Odoo-dan gələn postda kimin işarələnəcəyini seç.
-                Siyahı Azerbaijan komandasının üzvlərindən qurulur, ID əl ilə yazılmır.
-              </div></div>
-            </div>
 
             <!-- Satış qaydaları (2026-09-15) — kodda SABİT yazılmayan dəyərlər.
                  Rəqəmi dəyişmək üçün mobil build lazım gəlmir, dəyişiklik
@@ -10888,88 +10872,7 @@ document.getElementById('stReload').addEventListener('click', () => loadSettings
    gosterir. «Ali» yazilan yerde «Nahid» cixmasinin sebebi mehz budur ve
    bunu yalniz ID -> ad siyahisi ile sübut etmek olar.
    Endpoint serverde ARTIQ var idi, panelde gostereni yox idi. */
-/* Teams bildiriş siyahısı (5 noy 2026).
-   ƏVVƏL siyahı serverin kodunda SABİT yazılmışdı. Teams bizim yazdığımız
-   ADI saymır — yalnız Azure ID-yə baxıb həmin hesabın İNDİKİ sahibini
-   göstərir. Ona görə kodda «Ali» yazılsa da mesajda başqa ad çıxa bilirdi,
-   dəyişmək üçün isə hər dəfə kod + deploy lazım gəlirdi.
-   İndi: siyahı komandanın üzvlərindən SEÇİLİR, ID əl ilə yazılmır. */
-let tmMembers = [];
-let tmSecili = new Set();
 
-function tmCiz() {
-  const box = document.getElementById('tmList');
-  if (!tmMembers.length) { box.innerHTML = '<div class="empty">Üzv tapılmadı</div>'; return; }
-  const sirala = [...tmMembers].sort((a, b) =>
-    (tmSecili.has(b.id) - tmSecili.has(a.id)) || String(a.name || '').localeCompare(String(b.name || ''), 'az'));
-  box.innerHTML =
-    '<div style="padding:12px 18px 6px;font-size:12.5px;color:var(--muted)">' +
-      'Seçilmiş: <b id="tmCount">' + tmSecili.size + '</b> nəfər</div>' +
-    '<div class="data-table-wrap"><table><thead><tr>' +
-      '<th style="width:38px"></th><th>Ad</th><th>E-poçt</th></tr></thead><tbody>' +
-    sirala.map(m =>
-      '<tr><td><input type="checkbox" data-tm="' + esc(m.id) + '"' +
-        (tmSecili.has(m.id) ? ' checked' : '') + '></td>' +
-      '<td>' + esc(m.name || '') + '</td>' +
-      '<td style="color:var(--faint)">' + esc(m.email || '') + '</td></tr>').join('') +
-    '</tbody></table></div>' +
-    '<div style="padding:12px 18px 16px;display:flex;gap:8px;align-items:center">' +
-      '<button type="button" class="btn btn-primary btn-sm" id="tmSave">Yadda saxla</button>' +
-      '<span class="hitn" id="tmMsg"></span></div>';
-
-  box.querySelectorAll('[data-tm]').forEach(cb => cb.addEventListener('change', () => {
-    if (cb.checked) tmSecili.add(cb.dataset.tm); else tmSecili.delete(cb.dataset.tm);
-    const c = document.getElementById('tmCount');
-    if (c) c.textContent = tmSecili.size;
-  }));
-
-  document.getElementById('tmSave').addEventListener('click', async () => {
-    const msg = document.getElementById('tmMsg');
-    const secilenler = tmMembers.filter(m => tmSecili.has(m.id)).map(m => ({ id: m.id, name: m.name }));
-    /* BOŞ siyahı qəsdən bloklanır: server boş ayarı "köhnə sabit siyahı"
-       kimi oxuyur, yəni heç nə seçməmək gözlənilməz nəticə verərdi. */
-    if (!secilenler.length) { msg.textContent = 'Ən azı bir nəfər seç'; return; }
-    msg.textContent = 'Saxlanılır…';
-    try {
-      await api('/api/v2/admin/settings', {
-        method: 'PUT',
-        body: JSON.stringify({ key: 'TEAMS_MENTION_IDS', value: JSON.stringify(secilenler) }),
-      });
-      msg.textContent = 'Yadda saxlanıldı';
-      toast('Bildiriş siyahısı yeniləndi', 'ok');
-    } catch (e) { msg.textContent = 'Alınmadı: ' + e.message; }
-  });
-}
-
-document.getElementById('tmLoad').addEventListener('click', async () => {
-  const box = document.getElementById('tmList');
-  box.innerHTML = '<div class="empty">Yüklənir…</div>';
-  try {
-    const [uzvler, ayar] = await Promise.all([
-      api('/api/admin/teams-members'),
-      api('/api/v2/admin/settings').catch(() => null),
-    ]);
-    tmMembers = Array.isArray(uzvler) ? uzvler : [];
-    tmSecili = new Set();
-    try {
-      const raw = ayar && ayar.settings && ayar.settings.TEAMS_MENTION_IDS;
-      if (raw) JSON.parse(raw).forEach(x => x && x.id && tmSecili.add(x.id));
-    } catch (_) {}
-    tmCiz();
-  } catch (e) {
-    box.innerHTML = '<div class="empty">Alınmadı: ' + esc(e.message) + '</div>';
-  }
-});
-
-document.getElementById('tmTest').addEventListener('click', async () => {
-  /* Bu, Texniki işlər kanalına ƏSL mesaj göndərir — ona görə təsdiq soruşulur. */
-  if (!confirm('Texniki işlər kanalına test mesajı göndərilsin? Seçilmiş adamlar işarələnəcək, mesajı sonra silmək olar.')) return;
-  try {
-    const r = await api('/api/admin/teams-mention-test', { method: 'POST', body: '{}' });
-    const adlar = (r.users || []).map(u => u.name).join(', ');
-    toast('Göndərildi (' + (r.postedAs || '') + '). Kanalda kimin işarələndiyinə bax. Göndərilən: ' + adlar, 'ok');
-  } catch (e) { toast('Alınmadı: ' + e.message, 'bad'); }
-});
 document.getElementById('setLeadDaysSave').addEventListener('click', async (e) => {
   const btn = e.currentTarget;
   const inp = document.getElementById('setLeadDays');
