@@ -2685,6 +2685,7 @@ th[data-ovsort]:hover{color:var(--brand)}
                 <th data-ovsort="qurasdirma" style="text-align:right">Quraşdırma</th>
                 <th data-ovsort="distanceKm" style="text-align:right">Məsafə</th>
                 <th data-ovsort="shiftHours" style="text-align:right">Növbə</th>
+                <th data-ovsort="breakHours" style="text-align:right" title="Fasilədə keçən vaxt — növbə saatına daxildir, iş saatından çıxılır">Fasilə</th>
                 <th data-ovsort="avgStart" style="text-align:right">Orta başlama</th>
                 <th data-ovsort="noDocVisits" style="text-align:right">Sənədsiz</th>
               </tr></thead>
@@ -3400,6 +3401,8 @@ const EV = {
   object_photo:['Şəkil göndərdi','t-doc'], contact:['Əlaqə yazdı','t-doc'],
   urgent:['Təcili bildiriş','warn'], urgent_ack:['Təcili bildirişi oxudu','warn'],
   sales_lead:['Yeni lead yaratdı','t-obj'],
+  // Fasilə (5 noy 2026) — işçi obyektdə OLMAYANDA verir, səbəbi özü yazır
+  break_start:['Fasilə başladı','t-shift'], break_end:['Fasilə bitdi','t-shift'],
 };
 const evName = t => (EV[t] || [t, ''])[0];
 /* Cədvəldə qısa ad — "Obyekti ləğv etdi" 119px yer tuturdu və nişandan
@@ -3410,6 +3413,7 @@ const EV_SHORT = {
   object_cancel:'Ləğv etdi', object_overtime:'Çox qaldı',
   akt:'Akt', tehvil:'Təhvil', object_photo:'Şəkil', contact:'Əlaqə',
   urgent:'Təcili', urgent_ack:'Təcili oxundu',
+  break_start:'Fasilə', break_end:'Fasilə bitdi',
   sales_lead:'Lead yaratdı',
 };
 const evShort = t => EV_SHORT[t] || evName(t);
@@ -3792,6 +3796,8 @@ async function loadHome(){
             ${p.inObject ? `<span class="chip" title="${esc(p.inObject)}">
               <svg viewBox="0 0 24 24"><path d="M12 21s7-6.4 7-11a7 7 0 1 0-14 0c0 4.6 7 11 7 11z"/><circle cx="12" cy="10" r="2.3"/></svg>
               ${esc(brandLabel(p.inObject))}</span>` : ''}
+            ${p.onBreakSince ? '<span class="tag warn" title="Fasilə ' +
+              ago(p.onBreakSince) + ' əvvəl başlayıb">fasilədə</span>' : ''}
             ${over ? '<span class="tag bad">vaxt aşımı</span>' : ''}</div>
           <div class="pmeta">${p.address ? esc(p.address) : 'ünvan yoxdur'}</div>
         </div>
@@ -4029,6 +4035,9 @@ const wTone = p => (isLiveW(p) ? 'on' : 'off');
 /* Növbə/obyekt vəziyyəti — rənglə deyil, mətnlə */
 function wState(p){
   if (p.inObject) return { k:'brand', t:'obyektdə' };
+  /* Fasilə (5 noy 2026) — işçi obyektdə OLMAYANDA verir, ona görə
+     obyekt vəziyyətindən SONRA yoxlanır. */
+  if (p.onBreakSince) return { k:'warn', t:'fasilədə' };
   if (p.shiftOpen && !isLiveW(p)) return { k:'bad', t:'siqnal yox' };
   if (p.shiftOpen) return { k:'ok', t:'növbədə' };
   return null;
@@ -4135,6 +4144,7 @@ function workerCard(p, tone){
       row('Son siqnal', live ? 'indi' : (p.lastSeen ? ago(p.lastSeen) + ' əvvəl' : 'heç vaxt')) +
       row('Növbə', shift) +
       row('Obyekt', p.inObject ? esc(brandLabel(p.inObject)) + nearBadge(p) : '') +
+      row('Fasilə', p.onBreakSince ? ago(p.onBreakSince) + ' əvvəl başlayıb' : '') +
       row('Sürət', p.speed != null ? Math.round(p.speed) + ' km/saat' : '') +
       row('Versiya', p.appVersion ? esc(p.appVersion) : '') +
       row('Koordinat', p.lat != null
@@ -6082,10 +6092,12 @@ function ovRenderTable(){
       '<td style="text-align:right">' + ovNum(w.qurasdirma) + '</td>' +
       '<td style="text-align:right">' + ovKm(w) + '</td>' +
       '<td style="text-align:right">' + (w.shiftHours || 0) + ' s</td>' +
+      '<td style="text-align:right">' + (w.breakHours
+          ? w.breakHours + ' s' : '<span class="dash">—</span>') + '</td>' +
       '<td style="text-align:right">' + (w.avgStart || '<span class="dash">—</span>') + '</td>' +
       '<td style="text-align:right">' + (w.noDocVisits
           ? '<span class="tag warn">' + w.noDocVisits + '</span>' : ovNum(0)) + '</td>' +
-    '</tr>').join('') : '<tr><td colspan="9">' + emptyBox('&#128202;', 'Məlumat yoxdur', 'Bu dövrdə hadisə qeydə alınmayıb.') + '</td></tr>';
+    '</tr>').join('') : '<tr><td colspan="10">' + emptyBox('&#128202;', 'Məlumat yoxdur', 'Bu dövrdə hadisə qeydə alınmayıb.') + '</td></tr>';
 
   const t = r.totals || {};
   document.getElementById('ovFoot').innerHTML = list.length ?
@@ -6096,6 +6108,7 @@ function ovRenderTable(){
       '<td style="text-align:right">' + (t.qurasdirma || 0) + '</td>' +
       '<td style="text-align:right">' + Math.round(t.distanceKm || 0) + ' km</td>' +
       '<td style="text-align:right">' + (t.shiftHours || 0) + ' s</td>' +
+      '<td style="text-align:right">' + (t.breakHours || 0) + ' s</td>' +
       '<td></td>' +
       '<td style="text-align:right">' + (t.noDocVisits || 0) + '</td></tr>' : '';
 }
@@ -9549,6 +9562,7 @@ const AL_GRP = {
   object_overtime:'attn', shift_overtime:'attn', object_cancel:'attn',
   urgent:'attn', urgent_ack:'attn',
   shift_open:'shift', shift_close:'shift',
+  break_start:'shift', break_end:'shift',
   object_enter:'obj', object_exit:'obj', sales_lead:'obj',
   akt:'doc', tehvil:'doc', object_photo:'doc', contact:'doc',
 };
