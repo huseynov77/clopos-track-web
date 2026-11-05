@@ -3015,6 +3015,20 @@ th[data-ovsort]:hover{color:var(--brand)}
               <div id="dbInfo"><div class="empty">Yüklənir…</div></div>
             </div>
 
+            <!-- Teams uzvleri — DIAQNOSTIKA (5 noy 2026).
+                 Odoo->Teams postunda mention edilen adamlar kodda SABIT Azure
+                 ID ile yazilib. Teams bizim yazdigimiz ADI saymir, yalniz
+                 ID-ye baxir ve hemin hesabin INDIKI sahibini gosterir.
+                 Bu bolme hansi ID-nin kime aid oldugunu acir. YALNIZ OXUYUR. -->
+            <div class="panel">
+              <div class="panel-h"><h3>Teams üzvləri (diaqnostika)</h3>
+                <div class="right"><button type="button" class="btn btn-ghost btn-sm" id="tmLoad">Yüklə</button></div></div>
+              <div id="tmList"><div class="empty" style="padding:14px 18px;font-size:12.5px;color:var(--faint)">
+                «Yüklə» düyməsinə bas — Azerbaijan komandasının üzvləri Azure ID-si ilə görünəcək.
+                Mention üçün işlədilən ID-lər <b>işarələnir</b>.
+              </div></div>
+            </div>
+
             <!-- Satış qaydaları (2026-09-15) — kodda SABİT yazılmayan dəyərlər.
                  Rəqəmi dəyişmək üçün mobil build lazım gəlmir, dəyişiklik
                  dərhal qüvvəyə minir (app hər yükləmədə serverdən oxuyur). -->
@@ -10864,6 +10878,49 @@ async function renderDb(){
     row('Obyekt adı boş', q.no_brand, q.no_brand ? 'var(--warn)' : 'var(--ok)');
 }
 document.getElementById('stReload').addEventListener('click', () => loadSettings());
+
+/* Teams uzvleri — DIAQNOSTIKA (5 noy 2026).
+   Odoo->Teams postunda mention kodda SABIT Azure ID ile gedir. Teams bizim
+   yazdigimiz adi saymir: ID-ye baxir ve hemin hesabin INDIKI sahibini
+   gosterir. «Ali» yazilan yerde «Nahid» cixmasinin sebebi mehz budur ve
+   bunu yalniz ID -> ad siyahisi ile sübut etmek olar.
+   Endpoint serverde ARTIQ var idi, panelde gostereni yox idi. */
+const MENTION_IDS = {
+  '2fb8c335-122b-4f82-8f24-7b880ff72fe0': 'kodda «Ali Mammadli» yazilib',
+  '88928f08-6ee6-4e30-8de8-bea6f38fbb4c': 'kodda «Cavidan Əsədzadə» yazilib',
+};
+document.getElementById('tmLoad').addEventListener('click', async () => {
+  const box = document.getElementById('tmList');
+  box.innerHTML = '<div class="empty">Yüklənir…</div>';
+  try {
+    const list = await api('/api/admin/teams-members');
+    if (!Array.isArray(list) || !list.length) {
+      box.innerHTML = '<div class="empty">Üzv tapılmadı</div>';
+      return;
+    }
+    const tapilan = Object.keys(MENTION_IDS).filter(id => list.some(m => m.id === id));
+    const itmis = Object.keys(MENTION_IDS).filter(id => !list.some(m => m.id === id));
+    let h = '<div style="padding:12px 18px;font-size:12.5px;line-height:1.6">';
+    for (const id of Object.keys(MENTION_IDS)) {
+      const m = list.find(x => x.id === id);
+      h += '<div style="margin-bottom:6px">' +
+        '<span class="tag ' + (m ? 'ok' : 'bad') + '">' + (m ? 'tapıldı' : 'TAPILMADI') + '</span> ' +
+        esc(MENTION_IDS[id]) + ' → <b>' + (m ? esc(m.name) : 'bu komandada belə üzv yoxdur') + '</b>' +
+        '<div style="color:var(--faint);font-family:monospace;font-size:11px">' + esc(id) + '</div></div>';
+    }
+    h += '</div>';
+    h += '<div class="data-table-wrap"><table><thead><tr><th>Ad</th><th>E-poçt</th><th>Azure ID</th></tr></thead><tbody>' +
+      list.map(m => '<tr' + (MENTION_IDS[m.id] ? ' style="background:rgba(245,165,36,.12)"' : '') + '>' +
+        '<td>' + esc(m.name || '') + '</td>' +
+        '<td>' + esc(m.email || '') + '</td>' +
+        '<td style="font-family:monospace;font-size:11px">' + esc(m.id || '') + '</td></tr>').join('') +
+      '</tbody></table></div>';
+    box.innerHTML = h;
+    toast(tapilan.length + ' ID tapıldı, ' + itmis.length + ' tapılmadı', itmis.length ? 'bad' : 'ok');
+  } catch (e) {
+    box.innerHTML = '<div class="empty">Alınmadı: ' + esc(e.message) + '</div>';
+  }
+});
 document.getElementById('setLeadDaysSave').addEventListener('click', async (e) => {
   const btn = e.currentTarget;
   const inp = document.getElementById('setLeadDays');
